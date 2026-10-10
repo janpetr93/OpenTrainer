@@ -29,6 +29,26 @@ export function sessionTitle(
   return kind === 'activity' ? 'Free ride' : 'Workout'
 }
 
+export function formatSessionLoadAdherence(activity: Activity): string | null {
+  const parts: string[] = []
+  const load = activity.sessionLoad
+  if (load?.normalizedPowerWatts != null) {
+    parts.push(`NP ${load.normalizedPowerWatts} W`)
+  }
+  if (load?.intensityFactor != null) {
+    parts.push(`IF ${load.intensityFactor.toFixed(2)}`)
+  }
+  if (load?.trainingStressScore != null) {
+    parts.push(`TSS ${load.trainingStressScore}`)
+  }
+  const adherence = activity.sessionAdherence
+  if (adherence) {
+    parts.push(`done ${Math.round(adherence.completionRatio * 100)}%`)
+    parts.push(`on-target ${Math.round(adherence.targetAdherence * 100)}%`)
+  }
+  return parts.length > 0 ? parts.join(' · ') : null
+}
+
 export function activitySummary(activity: Activity): string {
   const parts = [formatDuration(activity.durationSec)]
   if (activity.averagePowerWatts !== null) {
@@ -37,6 +57,8 @@ export function activitySummary(activity: Activity): string {
   if (activity.maxPowerWatts !== null) {
     parts.push(`max ${activity.maxPowerWatts} W`)
   }
+  const loadLine = formatSessionLoadAdherence(activity)
+  if (loadLine) parts.push(loadLine)
   parts.push(activity.plannedPowerProfile ? 'vs plan' : 'free ride')
   return parts.join(' · ')
 }
@@ -45,11 +67,23 @@ export function activitySecondary(activity: Activity): string {
   return `${formatDateTime(activity.startedAt)} · ${activitySummary(activity)}`
 }
 
+export function scheduledOutcomeLabel(ride: {
+  status?: string | null
+  missed?: boolean
+}): string | null {
+  if (ride.status === 'completed') return 'completed'
+  if (ride.status === 'skipped') return 'skipped'
+  if (ride.missed) return 'missed'
+  return null
+}
+
 export function scheduledSecondary(
   startsAtIso: string,
   durationLabel: string,
+  outcome: string | null = null,
 ): string {
-  return `${formatClockTime(startsAtIso)} · ${durationLabel}`
+  const base = `${formatClockTime(startsAtIso)} · ${durationLabel}`
+  return outcome ? `${base} · ${outcome}` : base
 }
 
 export type SessionChartModel = {

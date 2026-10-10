@@ -6,6 +6,7 @@ import {
   listActivities,
   listScheduledRides,
   listWorkouts,
+  skipScheduledRide,
   type Activity,
   type ScheduledRide,
   type Workout,
@@ -18,6 +19,7 @@ import {
   chartFromActivity,
   chartFromScheduledWorkout,
   scheduledDurationLabel,
+  scheduledOutcomeLabel,
   scheduledSecondary,
   sessionTitle,
 } from './session/sessionModuleHelpers'
@@ -26,6 +28,7 @@ type Props = {
   onStartScheduledWorkout: (
     workoutId: string,
     purpose?: string | null,
+    scheduledRideId?: string | null,
   ) => void
 }
 
@@ -110,6 +113,15 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
   async function onDelete(id: string): Promise<void> {
     try {
       await deleteScheduledRide(id)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function onSkip(id: string): Promise<void> {
+    try {
+      await skipScheduledRide(id)
       await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -204,6 +216,9 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
             {selectedScheduled.map((ride) => {
               const workout = workouts.find((w) => w.id === ride.workoutId)
               const chart = chartFromScheduledWorkout(workout, ftpWatts)
+              const outcome = scheduledOutcomeLabel(ride)
+              const startable =
+                ride.status !== 'completed' && ride.status !== 'skipped'
               return (
                 <SessionModule
                   key={ride.id}
@@ -211,6 +226,7 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
                   secondary={scheduledSecondary(
                     ride.startsAt,
                     scheduledDurationLabel(workout, ftpWatts),
+                    outcome,
                   )}
                   purpose={ride.purpose}
                   chartLabel={`${workoutName(ride.workoutId)} planned Power Profile`}
@@ -218,18 +234,29 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
                   needsFtpToPreview={chart.needsFtpToPreview}
                   actions={
                     <>
-                      <button
-                        type="button"
-                        className="primary"
-                        onClick={() =>
-                          onStartScheduledWorkout(
-                            ride.workoutId,
-                            ride.purpose ?? null,
-                          )
-                        }
-                      >
-                        Start on Ride
-                      </button>
+                      {startable ? (
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={() =>
+                            onStartScheduledWorkout(
+                              ride.workoutId,
+                              ride.purpose ?? null,
+                              ride.id,
+                            )
+                          }
+                        >
+                          Start on Ride
+                        </button>
+                      ) : null}
+                      {startable ? (
+                        <button
+                          type="button"
+                          onClick={() => void onSkip(ride.id)}
+                        >
+                          Skip
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => void onDelete(ride.id)}

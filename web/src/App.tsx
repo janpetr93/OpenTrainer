@@ -73,8 +73,14 @@ function App() {
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [todaysScheduled, setTodaysScheduled] = useState<ScheduledRide[]>([])
   const [selectedWorkoutId, setSelectedWorkoutId] = useState('')
+  const [selectedScheduledRideId, setSelectedScheduledRideId] = useState<
+    string | null
+  >(null)
   const [selectedPurpose, setSelectedPurpose] = useState<string | null>(null)
   const [activePurpose, setActivePurpose] = useState<string | null>(null)
+  const [activeScheduledRideId, setActiveScheduledRideId] = useState<
+    string | null
+  >(null)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [connectAllSummary, setConnectAllSummary] = useState<string | null>(
     null,
@@ -128,6 +134,7 @@ function App() {
         achievedPowerProfile: sampler.getProfile(),
         plannedPowerProfile: workout?.plannedPowerProfile ?? null,
         workoutId: workout?.id ?? null,
+        scheduledRideId: activeScheduledRideId,
         purpose: activePurpose,
       })
       setSaveMessage('Activity saved to Local Store.')
@@ -141,10 +148,18 @@ function App() {
       savingRef.current = false
       setActiveWorkout(null)
       setActivePurpose(null)
+      setActiveScheduledRideId(null)
       startedAtRef.current = null
       refreshRunner()
     }
-  }, [runner, sampler, refreshRunner, activeWorkout, activePurpose])
+  }, [
+    runner,
+    sampler,
+    refreshRunner,
+    activeWorkout,
+    activePurpose,
+    activeScheduledRideId,
+  ])
 
   useEffect(() => connection.subscribe(setSnapshot), [connection])
   useEffect(() => meterConnection.subscribe(setMeter), [meterConnection])
@@ -288,6 +303,7 @@ function App() {
     if (!selectedWorkoutId) {
       setActiveWorkout(null)
       setActivePurpose(null)
+      setActiveScheduledRideId(null)
       runner.startFreeRide(Date.now())
       refreshRunner()
       return
@@ -307,6 +323,7 @@ function App() {
     const resolved = withResolvedPlan(workout, ftpWatts)
     setActiveWorkout(resolved)
     setActivePurpose(selectedPurpose)
+    setActiveScheduledRideId(selectedScheduledRideId)
     try {
       runner.start(resolved, Date.now(), ftpWatts)
     } catch (error) {
@@ -315,6 +332,7 @@ function App() {
       )
       setActiveWorkout(null)
       setActivePurpose(null)
+      setActiveScheduledRideId(null)
       return
     }
     refreshRunner()
@@ -349,16 +367,19 @@ function App() {
   function onSelectWorkout(
     workoutId: string,
     purpose: string | null = null,
+    scheduledRideId: string | null = null,
   ): void {
     setSelectedWorkoutId(workoutId)
     setSelectedPurpose(workoutId ? purpose : null)
+    setSelectedScheduledRideId(workoutId ? scheduledRideId : null)
   }
 
   function onStartScheduledWorkout(
     workoutId: string,
     purpose: string | null = null,
+    scheduledRideId: string | null = null,
   ): void {
-    onSelectWorkout(workoutId, purpose)
+    onSelectWorkout(workoutId, purpose, scheduledRideId)
     setTab('ride')
     setSaveMessage(
       'Workout selected from calendar — connect on Devices, then Start on Ride.',
@@ -494,6 +515,7 @@ function App() {
           workouts={workouts}
           todaysScheduled={todaysScheduled}
           selectedWorkoutId={selectedWorkoutId}
+          selectedScheduledRideId={selectedScheduledRideId}
           runner={runnerSnap}
           plannedProfile={plannedProfile}
           achievedProfile={achievedProfile}

@@ -96,6 +96,9 @@ describe('HTTP API', () => {
         goal: 'Climbing',
         horizon: 'summer',
         note: null,
+        maxHardDaysPerWeek: null,
+        preferredLongRideWeekday: null,
+        constraintsNote: null,
       })
 
       const putFtp = await fetch(`${baseUrl}/api/profile`, {
@@ -211,7 +214,7 @@ describe('HTTP API', () => {
     })
   })
 
-  it('GET /api/mmp is empty until POST /api/mmp/recompute; then stale after new Activity', async () => {
+  it('GET /api/mmp is empty until an Activity is saved; stays fresh after further saves', async () => {
     await store.setFtp(250)
     await withServer(store, async (baseUrl) => {
       const empty = await fetch(`${baseUrl}/api/mmp`)
@@ -234,11 +237,9 @@ describe('HTTP API', () => {
         workoutId: null,
       })
 
-      const recomputed = await fetch(`${baseUrl}/api/mmp/recompute`, {
-        method: 'POST',
-      })
-      expect(recomputed.status).toBe(200)
-      const body = (await recomputed.json()) as {
+      const afterSave = await fetch(`${baseUrl}/api/mmp`)
+      expect(afterSave.status).toBe(200)
+      const body = (await afterSave.json()) as {
         mmp: {
           stale: boolean
           estimatedFtpWatts: number | null
@@ -267,9 +268,9 @@ describe('HTTP API', () => {
         workoutId: null,
       })
 
-      const staleRes = await fetch(`${baseUrl}/api/mmp`)
-      const staleBody = (await staleRes.json()) as { mmp: { stale: boolean } }
-      expect(staleBody.mmp.stale).toBe(true)
+      const freshRes = await fetch(`${baseUrl}/api/mmp`)
+      const freshBody = (await freshRes.json()) as { mmp: { stale: boolean } }
+      expect(freshBody.mmp.stale).toBe(false)
     })
   })
 })

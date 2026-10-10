@@ -133,6 +133,13 @@ function parseSaveActivity(body: unknown): SaveActivityInput {
     throw new Error('workoutId must be a string or null')
   }
   const purpose = parseOptionalPurpose(record.purpose)
+  const scheduledRideId =
+    record.scheduledRideId === undefined || record.scheduledRideId === null
+      ? null
+      : record.scheduledRideId
+  if (scheduledRideId !== null && typeof scheduledRideId !== 'string') {
+    throw new Error('scheduledRideId must be a string or null')
+  }
   const plannedPowerProfile =
     record.plannedPowerProfile === undefined || record.plannedPowerProfile === null
       ? null
@@ -149,6 +156,7 @@ function parseSaveActivity(body: unknown): SaveActivityInput {
     ),
     plannedPowerProfile,
     workoutId,
+    scheduledRideId,
     purpose,
   }
 }
@@ -381,6 +389,39 @@ export function createRequestHandler(
           until: record.until,
         })
         sendJson(res, 200, { deleted })
+        return
+      }
+
+      const skipMatch = url.pathname.match(
+        /^\/api\/scheduled-rides\/([^/]+)\/skip$/,
+      )
+      if (method === 'POST' && skipMatch) {
+        const id = decodeURIComponent(skipMatch[1]!)
+        const body = await readJsonBody(req)
+        const reason =
+          body && typeof body === 'object'
+            ? parseOptionalPurpose((body as Record<string, unknown>).reason)
+            : null
+        const scheduledRide = await store.skipScheduledRide(id, reason)
+        sendJson(res, 200, { scheduledRide })
+        return
+      }
+
+      const rescheduleMatch = url.pathname.match(
+        /^\/api\/scheduled-rides\/([^/]+)\/reschedule$/,
+      )
+      if (method === 'POST' && rescheduleMatch) {
+        const id = decodeURIComponent(rescheduleMatch[1]!)
+        const body = await readJsonBody(req)
+        if (!body || typeof body !== 'object') {
+          throw new Error('JSON body required')
+        }
+        const startsAt = (body as Record<string, unknown>).startsAt
+        if (typeof startsAt !== 'string') {
+          throw new Error('startsAt must be an ISO string')
+        }
+        const scheduledRide = await store.rescheduleScheduledRide(id, startsAt)
+        sendJson(res, 200, { scheduledRide })
         return
       }
 

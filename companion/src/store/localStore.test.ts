@@ -99,12 +99,68 @@ describe('LocalStore', () => {
       purpose: 'Raise lactate threshold',
     })
     expect(withPurpose.purpose).toBe('Raise lactate threshold')
+    expect(withPurpose.status).toBe('planned')
+    expect(typeof withPurpose.missed).toBe('boolean')
 
     const without = await store.createScheduledRide({
       workoutId: workout.id,
       startsAt: '2026-10-13T07:00:00.000Z',
     })
     expect(without.purpose).toBeNull()
+  })
+
+  it('saveActivity with scheduledRideId marks the ride completed', async () => {
+    const workout = await store.createWorkout({
+      name: 'Complete me',
+      steps: sampleSteps,
+    })
+    const ride = await store.createScheduledRide({
+      workoutId: workout.id,
+      startsAt: '2026-10-12T07:00:00.000Z',
+      purpose: 'Test',
+    })
+    const activity = await store.saveActivity({
+      startedAt: '2026-10-12T07:05:00.000Z',
+      durationSec: 60,
+      averagePowerWatts: 200,
+      maxPowerWatts: 200,
+      achievedPowerProfile: Array.from({ length: 60 }, (_, tSec) => ({
+        tSec,
+        watts: 200,
+      })),
+      plannedPowerProfile: null,
+      workoutId: workout.id,
+      scheduledRideId: ride.id,
+      purpose: 'Test',
+    })
+    expect(activity.scheduledRideId).toBe(ride.id)
+    const updated = await store.getScheduledRide(ride.id)
+    expect(updated?.status).toBe('completed')
+    expect(updated?.activityId).toBe(activity.id)
+  })
+
+  it('skipScheduledRide and rescheduleScheduledRide update status', async () => {
+    const workout = await store.createWorkout({
+      name: 'Skip me',
+      steps: sampleSteps,
+    })
+    const ride = await store.createScheduledRide({
+      workoutId: workout.id,
+      startsAt: '2026-10-12T07:00:00.000Z',
+    })
+    const skipped = await store.skipScheduledRide(ride.id, 'Travel day')
+    expect(skipped.status).toBe('skipped')
+    expect(skipped.skipReason).toBe('Travel day')
+    expect(skipped.missed).toBe(false)
+
+    const moved = await store.rescheduleScheduledRide(
+      ride.id,
+      '2099-01-01T08:00:00.000Z',
+    )
+    expect(moved.status).toBe('planned')
+    expect(moved.skipReason).toBeNull()
+    expect(moved.startsAt).toBe('2099-01-01T08:00:00.000Z')
+    expect(moved.missed).toBe(false)
   })
 
   it('saveActivity stores optional Session Purpose', async () => {
@@ -124,6 +180,34 @@ describe('LocalStore', () => {
     expect(activity.purpose).toBe('Improve endurance')
     const listed = await store.listActivities({ pastDays: 30 })
     expect(listed[0]?.purpose).toBe('Improve endurance')
+  })
+
+  it('saveActivity computes Session Load and Adherence when FTP is set', async () => {
+    await store.setFtp(200)
+    const achieved = Array.from({ length: 600 }, (_, tSec) => ({
+      tSec,
+      watts: 200,
+    }))
+    const planned = Array.from({ length: 600 }, (_, tSec) => ({
+      tSec,
+      watts: 200,
+    }))
+    const activity = await store.saveActivity({
+      startedAt: '2026-10-12T07:05:00.000Z',
+      durationSec: 600,
+      averagePowerWatts: 200,
+      maxPowerWatts: 200,
+      achievedPowerProfile: achieved,
+      plannedPowerProfile: planned,
+      workoutId: null,
+      purpose: null,
+    })
+    expect(activity.sessionLoad?.normalizedPowerWatts).toBe(200)
+    expect(activity.sessionLoad?.intensityFactor).toBe(1)
+    expect(activity.sessionAdherence).toEqual({
+      completionRatio: 1,
+      targetAdherence: 1,
+    })
   })
 
   it('clearScheduledRides deletes orphan Workouts with no remaining rides or Activities', async () => {
@@ -212,16 +296,22 @@ describe('LocalStore', () => {
     expect(profile.ftpWatts).toBeNull()
   })
 
-  it('setTrainingIntent persists goal/horizon/note and setFtp keeps it', async () => {
+  it('setTrainingIntent persists goal/horizon/note/constraints and setFtp keeps it', async () => {
     const withIntent = await store.setTrainingIntent({
       goal: 'Raise FTP',
       horizon: 'May gran fondo',
       note: 'Deload through Oct 20',
+      maxHardDaysPerWeek: 2,
+      preferredLongRideWeekday: 6,
+      constraintsNote: 'No early mornings',
     })
     expect(withIntent.intent).toEqual({
       goal: 'Raise FTP',
       horizon: 'May gran fondo',
       note: 'Deload through Oct 20',
+      maxHardDaysPerWeek: 2,
+      preferredLongRideWeekday: 6,
+      constraintsNote: 'No early mornings',
     })
 
     const afterFtp = await store.setFtp(250)
@@ -233,9 +323,8 @@ describe('LocalStore', () => {
     expect(cleared.ftpWatts).toBe(250)
   })
 
-  it('recomputeMmp persists Mean Maximal Power and marks stale after a new Activity', async () => {
+  it('saveActivity auto-recomputes Mean Maximal Power', async () => {
     expect(await store.getMmpCache()).toBeNull()
-    expect(await store.isMmpStale(null)).toBe(true)
 
     const watts = Array.from({ length: 60 }, () => 200)
     await store.saveActivity({
@@ -248,9 +337,9 @@ describe('LocalStore', () => {
       workoutId: null,
     })
 
-    const cache = await store.recomputeMmp()
-    expect(cache.points.find((p) => p.durationSec === 60)?.watts).toBe(200)
-    expect(await store.getMmpCache()).toEqual(cache)
+    const cache = await store.getMmpCache()
+    expect(cache).not.toBeNull()
+    expect(cache!.points.find((p) => p.durationSec === 60)?.watts).toBe(200)
     expect(await store.isMmpStale(cache)).toBe(false)
 
     await store.saveActivity({
@@ -265,6 +354,9 @@ describe('LocalStore', () => {
       plannedPowerProfile: null,
       workoutId: null,
     })
-    expect(await store.isMmpStale(cache)).toBe(true)
+    const after = await store.getMmpCache()
+    expect(after).not.toBeNull()
+    expect(await store.isMmpStale(after)).toBe(false)
+    expect(after!.activityCount).toBe(2)
   })
 })

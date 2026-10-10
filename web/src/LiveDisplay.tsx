@@ -13,6 +13,7 @@ import { SessionModule } from './SessionModule'
 import {
   chartFromScheduledWorkout,
   scheduledDurationLabel,
+  scheduledOutcomeLabel,
   scheduledSecondary,
   sessionTitle,
 } from './session/sessionModuleHelpers'
@@ -29,12 +30,17 @@ type Props = {
   workouts: Workout[]
   todaysScheduled: ScheduledRide[]
   selectedWorkoutId: string
+  selectedScheduledRideId: string | null
   runner: RunnerSnapshot
   plannedProfile: PowerProfilePoint[]
   achievedProfile: PowerProfilePoint[]
   saveMessage: string | null
   ftpWatts: number | null
-  onSelectWorkout: (id: string, purpose?: string | null) => void
+  onSelectWorkout: (
+    id: string,
+    purpose?: string | null,
+    scheduledRideId?: string | null,
+  ) => void
   onOpenDevices: () => void
   onStart: () => void
   onPause: () => void
@@ -80,6 +86,7 @@ export function LiveDisplay({
   workouts,
   todaysScheduled,
   selectedWorkoutId,
+  selectedScheduledRideId,
   runner,
   plannedProfile,
   achievedProfile,
@@ -119,7 +126,10 @@ export function LiveDisplay({
   const workoutName = (id: string) =>
     workouts.find((w) => w.id === id)?.name ?? 'Workout'
   const selectedFromToday = todaysScheduled.some(
-    (ride) => ride.workoutId === selectedWorkoutId,
+    (ride) =>
+      selectedScheduledRideId != null
+        ? ride.id === selectedScheduledRideId
+        : ride.workoutId === selectedWorkoutId,
   )
   const calendarSelection =
     selectedWorkoutId !== '' && !selectedFromToday ? selected : null
@@ -127,15 +137,13 @@ export function LiveDisplay({
     ? chartFromScheduledWorkout(calendarSelection, ftpWatts)
     : null
 
-  function toggleWorkout(
-    workoutId: string,
-    purpose: string | null,
-  ): void {
-    if (selectedWorkoutId === workoutId) {
-      onSelectWorkout('')
+  function toggleRide(ride: ScheduledRide): void {
+    if (ride.status === 'completed' || ride.status === 'skipped') return
+    if (selectedScheduledRideId === ride.id) {
+      onSelectWorkout('', null, null)
       return
     }
-    onSelectWorkout(workoutId, purpose)
+    onSelectWorkout(ride.workoutId, ride.purpose ?? null, ride.id)
   }
 
   const displayCadenceRpm =
@@ -415,7 +423,10 @@ export function LiveDisplay({
           ) : (
             <ul className="entity-list">
               {todaysScheduled.map((ride) => {
-                const isSelected = selectedWorkoutId === ride.workoutId
+                const isSelected = selectedScheduledRideId === ride.id
+                const outcome = scheduledOutcomeLabel(ride)
+                const startable =
+                  ride.status !== 'completed' && ride.status !== 'skipped'
                 const workout = workouts.find((w) => w.id === ride.workoutId)
                 const chart = chartFromScheduledWorkout(workout, ftpWatts)
                 return (
@@ -425,6 +436,7 @@ export function LiveDisplay({
                     secondary={scheduledSecondary(
                       ride.startsAt,
                       scheduledDurationLabel(workout, ftpWatts),
+                      outcome,
                     )}
                     purpose={ride.purpose}
                     chartLabel={`${workoutName(ride.workoutId)} planned Power Profile`}
@@ -434,12 +446,14 @@ export function LiveDisplay({
                       <button
                         type="button"
                         className={isSelected ? 'primary' : undefined}
-                        disabled={selectingLocked}
-                        onClick={() =>
-                          toggleWorkout(ride.workoutId, ride.purpose ?? null)
-                        }
+                        disabled={selectingLocked || !startable}
+                        onClick={() => toggleRide(ride)}
                       >
-                        {isSelected ? 'Selected' : 'Select'}
+                        {!startable
+                          ? outcome ?? 'Done'
+                          : isSelected
+                            ? 'Selected'
+                            : 'Select'}
                       </button>
                     }
                   />
@@ -458,7 +472,7 @@ export function LiveDisplay({
                       type="button"
                       className="primary"
                       disabled={selectingLocked}
-                      onClick={() => onSelectWorkout('')}
+                      onClick={() => onSelectWorkout('', null, null)}
                     >
                       Selected
                     </button>
@@ -472,7 +486,7 @@ export function LiveDisplay({
               type="button"
               className="ride-plan-clear"
               disabled={selectingLocked}
-              onClick={() => onSelectWorkout('')}
+              onClick={() => onSelectWorkout('', null, null)}
             >
               Clear · Free Ride instead
             </button>

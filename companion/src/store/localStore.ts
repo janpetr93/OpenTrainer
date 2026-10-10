@@ -11,6 +11,12 @@ import {
   mmpFingerprint,
 } from '../domain/meanMaximalPower.js'
 import {
+  hydrateScheduledRide,
+  toScheduledRideView,
+} from '../domain/scheduledRideOutcome.js'
+import { computeSessionAdherence } from '../domain/sessionAdherence.js'
+import { computeSessionLoad } from '../domain/sessionLoad.js'
+import {
   STORE_SCHEMA_VERSION,
   type Activity,
   type ActivityStravaUpload,
@@ -21,6 +27,7 @@ import {
   type MmpCache,
   type RiderProfile,
   type ScheduledRide,
+  type ScheduledRideView,
   type StravaLink,
   type TrainingIntent,
   type Workout,
@@ -35,9 +42,17 @@ const MMP_FILE = 'mmp.json'
 
 export type SaveActivityInput = Omit<
   Activity,
-  'schemaVersion' | 'id' | 'createdAt' | 'purpose' | 'stravaUpload'
+  | 'schemaVersion'
+  | 'id'
+  | 'createdAt'
+  | 'purpose'
+  | 'stravaUpload'
+  | 'sessionLoad'
+  | 'sessionAdherence'
+  | 'scheduledRideId'
 > & {
   purpose?: string | null
+  scheduledRideId?: string | null
   stravaUpload?: ActivityStravaUpload | null
 }
 
@@ -46,6 +61,40 @@ export type RiderProfileView = RiderProfile & {
 }
 
 const PURPOSE_MAX_LEN = 500
+
+function parseMaxHardDays(value: unknown): number | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'number' || !Number.isInteger(value)) return null
+  if (value < 0 || value > 7) return null
+  return value
+}
+
+function parseWeekday(value: unknown): number | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'number' || !Number.isInteger(value)) return null
+  if (value < 0 || value > 6) return null
+  return value
+}
+
+function requireMaxHardDays(value: unknown): number | null {
+  if (value === undefined || value === null) return null
+  const parsed = parseMaxHardDays(value)
+  if (parsed === null) {
+    throw new Error('maxHardDaysPerWeek must be an integer 0–7 or null')
+  }
+  return parsed
+}
+
+function requireWeekday(value: unknown): number | null {
+  if (value === undefined || value === null) return null
+  const parsed = parseWeekday(value)
+  if (parsed === null) {
+    throw new Error(
+      'preferredLongRideWeekday must be an integer 0–6 (Sun–Sat) or null',
+    )
+  }
+  return parsed
+}
 
 function normalizePurpose(value: string | null | undefined): string | null {
   if (value === undefined || value === null) return null
@@ -158,7 +207,27 @@ export class LocalStore {
       if (note && note.length > 1000) {
         throw new Error('Training Intent note must be ≤ 1000 characters')
       }
-      nextIntent = { goal, horizon, note }
+      const maxHardDaysPerWeek = requireMaxHardDays(intent.maxHardDaysPerWeek)
+      const preferredLongRideWeekday = requireWeekday(
+        intent.preferredLongRideWeekday,
+      )
+      const constraintsNote =
+        intent.constraintsNote && intent.constraintsNote.trim()
+          ? intent.constraintsNote.trim()
+          : null
+      if (constraintsNote && constraintsNote.length > 1000) {
+        throw new Error(
+          'Training Intent constraintsNote must be ≤ 1000 characters',
+        )
+      }
+      nextIntent = {
+        goal,
+        horizon,
+        note,
+        maxHardDaysPerWeek,
+        preferredLongRideWeekday,
+        constraintsNote,
+      }
     }
     const profile: RiderProfile = {
       schemaVersion: STORE_SCHEMA_VERSION,
@@ -200,6 +269,12 @@ export class LocalStore {
       note:
         typeof obj.note === 'string' && obj.note.trim()
           ? obj.note.trim()
+          : null,
+      maxHardDaysPerWeek: parseMaxHardDays(obj.maxHardDaysPerWeek),
+      preferredLongRideWeekday: parseWeekday(obj.preferredLongRideWeekday),
+      constraintsNote:
+        typeof obj.constraintsNote === 'string' && obj.constraintsNote.trim()
+          ? obj.constraintsNote.trim()
           : null,
     }
   }
@@ -246,6 +321,17 @@ export class LocalStore {
 
   async saveActivity(input: SaveActivityInput): Promise<Activity> {
     const now = new Date().toISOString()
+    const profile = await this.getRiderProfile()
+    const scheduledRideId = input.scheduledRideId ?? null
+    if (scheduledRideId) {
+      const ride = await this.getScheduledRide(scheduledRideId)
+      if (!ride) {
+        throw new Error(`Scheduled Ride not found: ${scheduledRideId}`)
+      }
+      if (ride.status === 'completed') {
+        throw new Error(`Scheduled Ride already completed: ${scheduledRideId}`)
+      }
+    }
     const activity: Activity = {
       schemaVersion: STORE_SCHEMA_VERSION,
       id: randomUUID(),
@@ -256,23 +342,83 @@ export class LocalStore {
       achievedPowerProfile: input.achievedPowerProfile,
       plannedPowerProfile: input.plannedPowerProfile,
       workoutId: input.workoutId,
+      scheduledRideId,
       purpose: normalizePurpose(input.purpose),
+      sessionLoad: computeSessionLoad(
+        input.achievedPowerProfile,
+        profile.ftpWatts,
+      ),
+      sessionAdherence: computeSessionAdherence(
+        input.achievedPowerProfile,
+        input.plannedPowerProfile,
+      ),
       createdAt: now,
       stravaUpload: null,
     }
     await this.writeJson(join(this.activitiesDir, `${activity.id}.json`), activity)
+    if (scheduledRideId) {
+      await this.markScheduledRideCompleted(scheduledRideId, activity.id)
+    }
+    await this.recomputeMmp()
     return activity
   }
 
   async getActivity(id: string): Promise<Activity | null> {
     try {
-      const activity = await this.readJson<Activity>(
+      const raw = await this.readJson<Activity>(
         join(this.activitiesDir, `${id}.json`),
       )
-      return withPurposeField(activity)
+      const profile = await this.getRiderProfile()
+      return this.hydrateActivityMetrics(raw, profile.ftpWatts, true)
     } catch {
       return null
     }
+  }
+
+  /**
+   * Persist Session Load / Adherence for Activities that predate those fields.
+   * Safe to call on companion / MCP startup.
+   */
+  async backfillActivityMetrics(): Promise<number> {
+    const profile = await this.getRiderProfile()
+    const files = await this.listJsonFiles(this.activitiesDir)
+    let updated = 0
+    for (const file of files) {
+      const raw = await this.readJson<Activity>(join(this.activitiesDir, file))
+      if ('sessionLoad' in raw && 'sessionAdherence' in raw) continue
+      await this.hydrateActivityMetrics(raw, profile.ftpWatts, true)
+      updated += 1
+    }
+    return updated
+  }
+
+  private async hydrateActivityMetrics(
+    raw: Activity,
+    ftpWatts: number | null,
+    persist: boolean,
+  ): Promise<Activity> {
+    const base = withPurposeField(raw)
+    if ('sessionLoad' in raw && 'sessionAdherence' in raw) {
+      return {
+        ...base,
+        scheduledRideId: raw.scheduledRideId ?? null,
+        sessionLoad: raw.sessionLoad ?? null,
+        sessionAdherence: raw.sessionAdherence ?? null,
+      }
+    }
+    const next: Activity = {
+      ...base,
+      scheduledRideId: base.scheduledRideId ?? null,
+      sessionLoad: computeSessionLoad(base.achievedPowerProfile, ftpWatts),
+      sessionAdherence: computeSessionAdherence(
+        base.achievedPowerProfile,
+        base.plannedPowerProfile,
+      ),
+    }
+    if (persist) {
+      await this.writeJson(join(this.activitiesDir, `${next.id}.json`), next)
+    }
+    return next
   }
 
   async setActivityStravaUpload(
@@ -359,23 +505,26 @@ export class LocalStore {
   async listActivities(query: ListActivitiesQuery = {}): Promise<Activity[]> {
     const { sinceMs, untilMs } = this.resolveBounds(query)
     const files = await this.listJsonFiles(this.activitiesDir)
+    const profile = await this.getRiderProfile()
     const activities: Activity[] = []
 
     for (const file of files) {
-      const activity = withPurposeField(
-        await this.readJson<Activity>(join(this.activitiesDir, file)),
-      )
-      const started = Date.parse(activity.startedAt)
+      const raw = await this.readJson<Activity>(join(this.activitiesDir, file))
+      const started = Date.parse(raw.startedAt)
       if (Number.isNaN(started)) continue
       if (sinceMs !== null && started < sinceMs) continue
       if (untilMs !== null && started > untilMs) continue
-      activities.push(activity)
+      activities.push(
+        await this.hydrateActivityMetrics(raw, profile.ftpWatts, true),
+      )
     }
 
     return activities.sort((a, b) => b.startedAt.localeCompare(a.startedAt))
   }
 
-  async createScheduledRide(input: CreateScheduledRideInput): Promise<ScheduledRide> {
+  async createScheduledRide(
+    input: CreateScheduledRideInput,
+  ): Promise<ScheduledRideView> {
     if (!input.workoutId?.trim()) {
       throw new Error('workoutId is required')
     }
@@ -394,15 +543,29 @@ export class LocalStore {
       workoutId: input.workoutId,
       startsAt: new Date(startsAtMs).toISOString(),
       purpose: normalizePurpose(input.purpose),
+      status: 'planned',
+      activityId: null,
+      skipReason: null,
       createdAt: now,
     }
     await this.writeJson(join(this.scheduledDir, `${scheduled.id}.json`), scheduled)
-    return scheduled
+    return toScheduledRideView(scheduled)
+  }
+
+  async getScheduledRide(id: string): Promise<ScheduledRide | null> {
+    try {
+      const raw = await this.readJson<ScheduledRide>(
+        join(this.scheduledDir, `${id}.json`),
+      )
+      return hydrateScheduledRide(withPurposeField(raw))
+    } catch {
+      return null
+    }
   }
 
   async listScheduledRides(
     query: ListScheduledRidesQuery = {},
-  ): Promise<ScheduledRide[]> {
+  ): Promise<ScheduledRideView[]> {
     const sinceMs = query.since ? Date.parse(query.since) : null
     const untilMs = query.until ? Date.parse(query.until) : null
     if (sinceMs !== null && Number.isNaN(sinceMs)) {
@@ -413,25 +576,87 @@ export class LocalStore {
     }
 
     const files = await this.listJsonFiles(this.scheduledDir)
-    const rides: ScheduledRide[] = []
+    const rides: ScheduledRideView[] = []
+    const nowMs = Date.now()
     for (const file of files) {
-      const ride = withPurposeField(
-        await this.readJson<ScheduledRide>(join(this.scheduledDir, file)),
+      const ride = hydrateScheduledRide(
+        withPurposeField(
+          await this.readJson<ScheduledRide>(join(this.scheduledDir, file)),
+        ),
       )
       const starts = Date.parse(ride.startsAt)
       if (Number.isNaN(starts)) continue
       if (sinceMs !== null && starts < sinceMs) continue
       if (untilMs !== null && starts > untilMs) continue
-      rides.push(ride)
+      rides.push(toScheduledRideView(ride, nowMs))
     }
     return rides.sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  }
+
+  async markScheduledRideCompleted(
+    id: string,
+    activityId: string,
+  ): Promise<ScheduledRideView> {
+    const ride = await this.getScheduledRide(id)
+    if (!ride) throw new Error(`Scheduled Ride not found: ${id}`)
+    const next: ScheduledRide = {
+      ...ride,
+      status: 'completed',
+      activityId,
+      skipReason: null,
+    }
+    await this.writeJson(join(this.scheduledDir, `${id}.json`), next)
+    return toScheduledRideView(next)
+  }
+
+  async skipScheduledRide(
+    id: string,
+    skipReason?: string | null,
+  ): Promise<ScheduledRideView> {
+    const ride = await this.getScheduledRide(id)
+    if (!ride) throw new Error(`Scheduled Ride not found: ${id}`)
+    if (ride.status === 'completed') {
+      throw new Error(`Cannot skip a completed Scheduled Ride: ${id}`)
+    }
+    const next: ScheduledRide = {
+      ...ride,
+      status: 'skipped',
+      skipReason: normalizePurpose(skipReason),
+      activityId: null,
+    }
+    await this.writeJson(join(this.scheduledDir, `${id}.json`), next)
+    return toScheduledRideView(next)
+  }
+
+  async rescheduleScheduledRide(
+    id: string,
+    startsAt: string,
+  ): Promise<ScheduledRideView> {
+    const ride = await this.getScheduledRide(id)
+    if (!ride) throw new Error(`Scheduled Ride not found: ${id}`)
+    if (ride.status === 'completed') {
+      throw new Error(`Cannot reschedule a completed Scheduled Ride: ${id}`)
+    }
+    const startsAtMs = Date.parse(startsAt)
+    if (Number.isNaN(startsAtMs)) {
+      throw new Error('startsAt must be a valid ISO datetime')
+    }
+    const next: ScheduledRide = {
+      ...ride,
+      startsAt: new Date(startsAtMs).toISOString(),
+      status: 'planned',
+      skipReason: null,
+      activityId: null,
+    }
+    await this.writeJson(join(this.scheduledDir, `${id}.json`), next)
+    return toScheduledRideView(next)
   }
 
   async deleteScheduledRide(id: string): Promise<boolean> {
     const path = join(this.scheduledDir, `${id}.json`)
     let ride: ScheduledRide
     try {
-      ride = await this.readJson<ScheduledRide>(path)
+      ride = hydrateScheduledRide(await this.readJson<ScheduledRide>(path))
     } catch {
       return false
     }

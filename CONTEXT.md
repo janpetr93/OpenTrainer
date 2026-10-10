@@ -111,23 +111,35 @@ How a **Workout** step expresses load: absolute watts, percent of **FTP**, and/o
 _Avoid_: Frozen-only watts (unless the step is absolute-watts-only)
 
 **Scheduled Ride**:
-A **Workout** placed on a calendar date/time for planned training, optionally with a **Session Purpose**.
+A **Workout** placed on a calendar date/time for planned training, optionally with a **Session Purpose**, with status `planned` / `completed` / `skipped` (derived **missed** when still planned and `startsAt` is past).
 _Avoid_: Session, event, booking
+
+**Missed** (Scheduled Ride):
+Derived view when a **Scheduled Ride** is still `planned` and its `startsAt` is in the past — not a stored status and not a fake **Activity**.
+_Avoid_: Skipped (explicit rider/MCP action), deleted
 
 **Session Purpose**:
 Optional short free-text on a **Scheduled Ride** (copied onto the **Activity** when ridden) stating what the session is for — e.g. improve endurance or raise lactate threshold — not the rider-level **Training Intent**.
 _Avoid_: Intent (use **Training Intent** for the profile goal), phase, availability
 
 **Activity**:
-The recorded outcome of an actual ride (timestamped power samples and interval metadata), exportable as an indoor trainer FIT file (TCX only if FIT proves painful); may carry **Session Purpose** copied from the **Scheduled Ride**.
+The recorded outcome of an actual ride (timestamped power samples and interval metadata), exportable as an indoor trainer FIT file (TCX only if FIT proves painful); may carry **Session Purpose** copied from the **Scheduled Ride**, plus **Session Load** and optional **Session Adherence**.
 _Avoid_: Session, workout (a **Workout** is the plan; an **Activity** is what was ridden)
 
 **Power Profile**:
 Watts over elapsed time for a plan or ride — for a **Workout**, the planned step chart; for an **Activity**, achieved power (and planned overlay when a **Workout** was followed). Achieved points may also include optional `hrBpm` / `cadenceRpm` / `meterWatts` when those sensors were fresh; the Ride chart overlays these metrics (watts series share a scale with optional **Power Zone** bands from **FTP**; HR/cadence scale independently).
 _Avoid_: Power curve (use **Mean Maximal Power** for bests), MMP as a synonym for this session chart
 
+**Session Load**:
+Coggan Normalized Power, Intensity Factor, Training Stress Score, and time-in-zone seconds on an **Activity**, computed at save from the achieved **Power Profile** and **FTP** (FTP snapshotted as `ftpWattsAtSave`); null when FTP is unset; NP/IF/TSS null when fewer than 30 samples.
+_Avoid_: CTL/ATL/TSB (deferred), live mid-ride TSS
+
+**Session Adherence**:
+How closely an **Activity** followed its planned **Power Profile**: completion ratio and target-adherence fraction within `|Δ| ≤ max(15% × planned, 20W)`; null for a **Free Ride**.
+_Avoid_: Compliance score (synonym — use this term), TSS
+
 **Mean Maximal Power** (MMP):
-Lifetime best average trainer watts for fixed durations (5s–90min) across all **Activity** achieved **Power Profile**s — cached in the **Local Store**, shown on the Profile tab, recalculated on demand; distinct from a session **Power Profile**.
+Lifetime best average trainer watts for fixed durations (5s–90min) across all **Activity** achieved **Power Profile**s — cached in the **Local Store**, shown on the Profile tab, recomputed automatically when an **Activity** is saved (manual Recompute remains); distinct from a session **Power Profile**.
 _Avoid_: Power Profile, power curve alone (ambiguous), meter-watts bests
 
 **Estimated FTP**:
@@ -138,7 +150,7 @@ _Avoid_: Set FTP, threshold test protocol
 The create/list payload for a **Workout**: name, ordered steps (type, duration, target watts), and its planned **Power Profile**.
 
 **Activity Specs**:
-The summary payload for an **Activity**: start time, duration, average/max power, achieved **Power Profile**, and planned **Power Profile** when the ride followed a **Workout**.
+The summary payload for an **Activity**: start time, duration, average/max power, achieved **Power Profile**, planned **Power Profile** when the ride followed a **Workout**, plus **Session Load** / **Session Adherence** when computed.
 _Avoid_: Invented HR/cadence
 
 **Free Ride**:
@@ -163,7 +175,7 @@ Local Store record of the rider’s **FTP** (and derived **Power Zones**) plus o
 _Avoid_: Account, user settings (cloud)
 
 **Training Intent**:
-Durable brief on the **Rider Profile** for week planning: the rider’s training **goal**, optional free-text **horizon**, and optional free-text **note** (overrides the AI would not infer from history); not a multi-week calendar and not chat memory as source of truth.
+Durable brief on the **Rider Profile** for week planning: the rider’s training **goal**, optional free-text **horizon** / **note**, and optional planning constraints (`maxHardDaysPerWeek`, `preferredLongRideWeekday` 0=Sun–6=Sat, `constraintsNote`); not a multi-week calendar and not chat memory as source of truth.
 _Avoid_: Phase (derived from **Activity** history unless noted), availability (ask in chat), periodization plan, long-term plan (ambiguous), structured targetDate (deferred)
 
 ### External export
@@ -182,7 +194,8 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - The **Device Picker** is how a **Connection** or **Power Meter Connection** begins (separate chooser filters).
 - A successful **Connection** triggers a **Control Probe**; the main **Live Display** still only shows power/connection, not workout controls.
 - A **Scheduled Ride** references exactly one **Workout** and may carry a **Session Purpose**.
-- Riding a **Workout** via a **Scheduled Ride** (Ride panel / Calendar) can produce one **Activity** (purpose copied when present); unstructured riding is a **Free Ride** (no workout-catalog picker on Ride).
+- Riding a **Workout** via a **Scheduled Ride** (Ride panel / Calendar) produces one **Activity** linked by `scheduledRideId` and marks the ride `completed`; unstructured riding is a **Free Ride** (no workout-catalog picker on Ride).
+- A **Scheduled Ride** may be explicitly `skipped` (optional reason) or rescheduled; past `planned` rides appear as **missed** in list/MCP views.
 - A past **Activity** that followed a **Workout** can be placed again via **Schedule again** (new **Scheduled Ride** on a chosen date, purpose copied when present).
 - **Session Purpose** is not **Training Intent**; Intent is durable rider direction, Purpose is per-session coaching rationale.
 - MCP never opens a **Connection** or invents an **Activity**; v2 adds profile + calendar tools for week planning.
@@ -195,6 +208,7 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - **Power Zones** are derived from **FTP** on the **Rider Profile** (Coggan 7-zone defaults).
 - **Mean Maximal Power** is computed from all **Activity** achieved **Power Profile**s (trainer watts), persisted separately from the **Rider Profile**, and marked stale when Activities change until the rider recomputes.
 - **Estimated FTP** uses 20min **MMP** × 0.95 and is compared to set **FTP**; it does not update the **Rider Profile**.
+- **Session Load** and **Session Adherence** are computed when an **Activity** is saved (and backfilled for older Activities when FTP is known); MCP `list_activities` and the Session module UI read them.
 - **Training Intent** is product-owned context for MCP week planning alongside **Rider Profile** and **Activity** history; weekly availability is asked in chat, not stored; training phase is inferred from recent **Activity**s unless **Training Intent** **note** overrides.
 - An **Activity** can be exported as FIT for manual Strava upload and/or uploaded via API when a **Strava Link** exists.
 - The **Local Companion** owns the **Strava Link** (tokens + upload); the browser never holds the Strava client secret.
@@ -258,11 +272,12 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 | **Mean Maximal Power** | `companion/src/domain/meanMaximalPower.ts`; cache `companion/data/mmp.json`; GET/POST `/api/mmp`; MCP `get_mmp`; UI Profile tab |
 | **Estimated FTP** | Derived in MMP enrich (20min × 0.95) vs set FTP on Profile / `get_mmp` |
 | **Schedule again** | `web/src/ScheduleAgain.tsx` via `ActivityActions` |
-| **Scheduled Ride** | `companion/data/scheduled/`; API `/api/scheduled-rides`; today's list in Ride panel (`LiveDisplay`); shared row UI `SessionModule` |
+| **Scheduled Ride** / **missed** | `companion/data/scheduled/`; API `/api/scheduled-rides` (+ `/skip`, `/reschedule`); MCP `skip_scheduled_ride` / `reschedule_scheduled_ride`; today's list in Ride panel (`LiveDisplay`); shared row UI `SessionModule` |
 | **Session Purpose** | `purpose` on **Scheduled Ride** / **Activity**; MCP `create_scheduled_ride`; Calendar + History UI (see `docs/decisions/2026-10-10-session-purpose-on-scheduled-ride.md`) |
 | **Training Calendar** | `web/src/CalendarPanel.tsx` |
 | Session module (Scheduled / Activity rows) | `web/src/SessionModule.tsx` + `web/src/session/sessionModuleHelpers.ts`; planned preview via `web/src/domain/scheduledWorkoutPreview.ts` (Ride, History, Calendar) |
 | **Activity** recording | `web/src/workout/` + `POST /api/activities`; runner on Ride tab |
+| **Session Load** / **Session Adherence** | `companion/src/domain/sessionLoad.ts`, `sessionAdherence.ts`; on **Activity** JSON; Session module via `web/src/session/sessionModuleHelpers.ts` |
 | **Workout** runner | `web/src/workout/workoutRunner.ts` — start/pause/resume/skip/stop + ERG targets |
 | MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`) |
 | **Rider Profile** | `companion/data/profile.json`; GET `/api/profile`; UI Profile tab (read-only); MCP `set_ftp` / `get_rider_profile`; resolve `web/src/domain/resolveTarget.ts` |

@@ -23,7 +23,7 @@ Use the term **Power Profile**: watts over elapsed time.
 ## Alternatives considered
 
 - **Call it “power curve”** — collisions with MMP language in coaching tools.
-- **Include NP/TSS/IF in v1 Activity specs** — deferred; profile + avg/max/duration first.
+- **Include NP/TSS/IF in v1 Activity specs** — deferred at the time; now shipped as **Session Load** — see [session-load-and-adherence](2026-10-10-session-load-and-adherence.md).
 
 ## Consequences
 

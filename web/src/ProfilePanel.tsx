@@ -266,6 +266,36 @@ export function ProfilePanel({ onProfileChange }: Props) {
                 <dd>{profile.intent.note}</dd>
               </>
             )}
+            {profile.intent.maxHardDaysPerWeek != null && (
+              <>
+                <dt>Max hard days / week</dt>
+                <dd>{profile.intent.maxHardDaysPerWeek}</dd>
+              </>
+            )}
+            {profile.intent.preferredLongRideWeekday != null && (
+              <>
+                <dt>Preferred long-ride day</dt>
+                <dd>
+                  {
+                    [
+                      'Sunday',
+                      'Monday',
+                      'Tuesday',
+                      'Wednesday',
+                      'Thursday',
+                      'Friday',
+                      'Saturday',
+                    ][profile.intent.preferredLongRideWeekday]
+                  }
+                </dd>
+              </>
+            )}
+            {profile.intent.constraintsNote && (
+              <>
+                <dt>Constraints</dt>
+                <dd>{profile.intent.constraintsNote}</dd>
+              </>
+            )}
           </dl>
         ) : (
           profile && (

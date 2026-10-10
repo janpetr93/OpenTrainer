@@ -59,7 +59,7 @@ Use `--silent` so npm’s lifecycle banner does not mix into MCP stdio (JSON-RPC
 | **chatgpt.com (browser)** | No (local stdio) | Use ChatGPT desktop instead |
 | **Claude.ai** | No (local stdio) | Use Claude Desktop instead |
 
-Tools: `get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, plus prompt `plan_training_week`.
+Tools: `get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `skip_scheduled_ride`, `reschedule_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, plus prompts `plan_training_week` and `review_training`.
 
 The clone ships two sample workouts (`sample-easy-endurance`, `sample-vo2-intervals`). Set FTP via MCP (`set_ftp`) before %FTP / zone targets resolve; the Profile tab shows the current value read-only.
 

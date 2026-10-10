@@ -16,6 +16,7 @@ const webOrigin = process.env.D100_WEB_ORIGIN ?? 'http://127.0.0.1:5173'
 async function main(): Promise<void> {
   const store = new LocalStore(dataDir)
   await store.ensureReady()
+  await store.backfillActivityMetrics()
 
   const stravaConfig = readStravaConfigFromEnv()
   const handler = createRequestHandler(store, {

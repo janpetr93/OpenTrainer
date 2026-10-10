@@ -24,6 +24,9 @@ export type TrainingIntent = {
   goal: string
   horizon: string | null
   note: string | null
+  maxHardDaysPerWeek?: number | null
+  preferredLongRideWeekday?: number | null
+  constraintsNote?: string | null
 }
 
 export type RiderProfile = {
@@ -59,6 +62,21 @@ export type ActivityStravaUpload = {
   uploadedAt: string
 }
 
+export type TimeInZonesSec = Record<1 | 2 | 3 | 4 | 5 | 6 | 7, number>
+
+export type SessionLoad = {
+  ftpWattsAtSave: number
+  normalizedPowerWatts: number | null
+  intensityFactor: number | null
+  trainingStressScore: number | null
+  timeInZonesSec: TimeInZonesSec
+}
+
+export type SessionAdherence = {
+  completionRatio: number
+  targetAdherence: number
+}
+
 export type Activity = {
   id: string
   startedAt: string
@@ -68,8 +86,11 @@ export type Activity = {
   achievedPowerProfile: PowerProfilePoint[]
   plannedPowerProfile: PowerProfilePoint[] | null
   workoutId: string | null
+  scheduledRideId?: string | null
   /** Session Purpose copied from Scheduled Ride when ridden. */
   purpose?: string | null
+  sessionLoad?: SessionLoad | null
+  sessionAdherence?: SessionAdherence | null
   stravaUpload?: ActivityStravaUpload | null
 }
 
@@ -81,12 +102,19 @@ export type StravaLinkStatus = {
   scope: string | null
 }
 
+export type ScheduledRideStatus = 'planned' | 'completed' | 'skipped'
+
 export type ScheduledRide = {
   id: string
   workoutId: string
   startsAt: string
   /** Session Purpose — what this session is for. */
   purpose?: string | null
+  status?: ScheduledRideStatus
+  activityId?: string | null
+  skipReason?: string | null
+  /** Derived: planned and startsAt in the past. */
+  missed?: boolean
   createdAt: string
 }
 
@@ -183,6 +211,22 @@ export async function deleteScheduledRide(id: string): Promise<void> {
   await parseJson<{ ok: boolean }>(res)
 }
 
+export async function skipScheduledRide(
+  id: string,
+  reason?: string | null,
+): Promise<ScheduledRide> {
+  const res = await fetch(
+    `/api/scheduled-rides/${encodeURIComponent(id)}/skip`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason ?? null }),
+    },
+  )
+  const body = await parseJson<{ scheduledRide: ScheduledRide }>(res)
+  return body.scheduledRide
+}
+
 export type SaveActivityInput = {
   startedAt: string
   durationSec: number
@@ -191,6 +235,7 @@ export type SaveActivityInput = {
   achievedPowerProfile: PowerProfilePoint[]
   plannedPowerProfile: PowerProfilePoint[] | null
   workoutId: string | null
+  scheduledRideId?: string | null
   purpose?: string | null
 }
 

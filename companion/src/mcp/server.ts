@@ -24,10 +24,11 @@ async function main(): Promise<void> {
   const dataDir = resolveDataDir()
   const store = new LocalStore(dataDir)
   await store.ensureReady()
+  await store.backfillActivityMetrics()
 
   const server = new McpServer({
     name: 'open-trainer',
-    version: '0.3.4',
+    version: '0.4.0',
   })
 
   server.registerPrompt(
@@ -46,14 +47,42 @@ async function main(): Promise<void> {
             text: [
               'Plan my next training week using OpenTrainer MCP tools.',
               '1) Call get_rider_profile. If FTP is null, ask me for FTP watts and call set_ftp.',
-              '2) If Training Intent (intent) is null, ask once for goal (optional horizon/note) and call set_training_intent — or continue without Intent if I decline. Never invent a goal.',
-              '3) Optionally call get_mmp for lifetime Mean Maximal Power / Estimated FTP context (read-only cache; may be stale or empty until the rider recomputes in the Profile UI).',
-              '4) Ask what days/time I have available this week (do not assume; availability is not stored).',
-              '5) Call list_activities (pastDays 14) and list_scheduled_rides for the week window. Infer recent training emphasis from Activities (do not invent a stored phase).',
+              '2) If Training Intent (intent) is null, ask once for goal (optional horizon/note and optional constraints: maxHardDaysPerWeek, preferredLongRideWeekday 0=Sun–6=Sat, constraintsNote) and call set_training_intent — or continue without Intent if I decline. Never invent a goal.',
+              '3) Optionally call get_mmp for lifetime Mean Maximal Power / Estimated FTP context (cache refreshes when Activities are saved; empty until first Activity or manual Profile recompute).',
+              '4) Ask what days/time I have available this week (do not assume; availability is not stored). Honor Intent constraints when set (max hard days, preferred long-ride weekday, constraintsNote).',
+              '5) Call list_activities (pastDays 14) and list_scheduled_rides for the week window. Use Session Load / Session Adherence and ride outcomes (missed/skipped/completed) when present. Infer recent training emphasis from Activities (do not invent a stored phase).',
               '6) Call clear_scheduled_rides for that week’s since/until before replacing the plan.',
               '7) create_workout with Target Prescription: prefer percentFtp or zone (1–7 Coggan). Do not leave all targets null; absolute targetWatts only when I ask.',
               '8) create_scheduled_ride for each day (workoutId + startsAt ISO + purpose). Session Purpose is required in week planning: one short sentence on what the session is for (e.g. improve endurance, raise lactate threshold) — not Training Intent.',
-              '9) Summarize the week with dates, workout names, Session Purpose, and resolved intensity (%FTP/zone), tied to Intent + recent emphasis.',
+              '9) Summarize the week with dates, workout names, Session Purpose, and resolved intensity (%FTP/zone), tied to Intent constraints + recent emphasis.',
+            ].join('\n'),
+          },
+        },
+      ],
+    }),
+  )
+
+  server.registerPrompt(
+    'review_training',
+    {
+      title: 'Review recent training',
+      description:
+        'Workflow for reviewing recent rides: profile/MMP, Session Load/Adherence, calendar outcomes → summarize compliance and propose Intent note or next-week adjustments.',
+    },
+    async () => ({
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: [
+              'Review my recent training using OpenTrainer MCP tools. Do not invent Activities.',
+              '1) Call get_rider_profile (FTP, zones, Training Intent).',
+              '2) Call get_mmp for Mean Maximal Power / Estimated FTP vs set FTP.',
+              '3) Call list_activities (pastDays 14). For each ride note Session Purpose, Session Load (NP/IF/TSS, time-in-zone), and Session Adherence when present (completion + on-target %). Flag Free Rides vs planned rides.',
+              '4) Call list_scheduled_rides for the same window (and a few days ahead). Note planned vs completed vs skipped; treat past planned-without-Activity as missed.',
+              '5) Summarize: total TSS (when available), hard/easy balance, adherence trends, missed/skipped sessions, and fitness signal from MMP/Estimated FTP.',
+              '6) Propose concrete next steps: optional set_training_intent note update, and/or what to change when planning the next week. Ask before writing Intent. Do not create Workouts or Scheduled Rides unless I ask.',
             ].join('\n'),
           },
         },
@@ -65,7 +94,7 @@ async function main(): Promise<void> {
     'get_rider_profile',
     {
       description:
-        'Get Rider Profile: FTP (watts), derived Coggan Power Zones (Z1–Z7), and Training Intent (goal/horizon/note or null). Call before prescribing zone/%FTP workouts and when planning a week.',
+        'Get Rider Profile: FTP (watts), derived Coggan Power Zones (Z1–Z7), and Training Intent (goal/horizon/note + optional maxHardDaysPerWeek / preferredLongRideWeekday / constraintsNote, or null). Call before prescribing zone/%FTP workouts and when planning a week.',
       inputSchema: {},
     },
     async () => jsonResult(await store.getRiderProfile()),
@@ -75,7 +104,7 @@ async function main(): Promise<void> {
     'get_mmp',
     {
       description:
-        'Get cached Mean Maximal Power (lifetime best averages for fixed durations), Estimated FTP (20min MMP × 0.95) vs set FTP, and stale flag. Read-only — rider recomputes in the Profile UI. Empty/stale when never computed or Activities changed.',
+        'Get cached Mean Maximal Power (lifetime best averages for fixed durations), Estimated FTP (20min MMP × 0.95) vs set FTP, and stale flag. Cache refreshes automatically when an Activity is saved; Profile UI Recompute remains as a manual override. Empty when never computed.',
       inputSchema: {},
     },
     async () => jsonResult(await loadMmpView(store)),
@@ -97,12 +126,12 @@ async function main(): Promise<void> {
     'set_training_intent',
     {
       description:
-        'Set or clear durable Training Intent on the Rider Profile (goal + optional free-text horizon/note). Use when intent is null during week planning or the rider updates direction. Pass clear:true to remove Intent. Does not store weekly availability or training phase.',
+        'Set or clear durable Training Intent on the Rider Profile (goal + optional horizon/note + optional planning constraints: maxHardDaysPerWeek, preferredLongRideWeekday 0=Sun–6=Sat, constraintsNote). Use when intent is null during week planning or the rider updates direction. Pass clear:true to remove Intent. Does not store weekly availability or training phase.',
       inputSchema: {
         clear: z
           .boolean()
           .optional()
-          .describe('If true, clear Training Intent (ignore goal/horizon/note)'),
+          .describe('If true, clear Training Intent (ignore other fields)'),
         goal: z
           .string()
           .min(1)
@@ -121,9 +150,39 @@ async function main(): Promise<void> {
           .nullable()
           .optional()
           .describe('Optional override note the AI would not infer from history'),
+        maxHardDaysPerWeek: z
+          .number()
+          .int()
+          .min(0)
+          .max(7)
+          .nullable()
+          .optional()
+          .describe('Optional max hard sessions per week'),
+        preferredLongRideWeekday: z
+          .number()
+          .int()
+          .min(0)
+          .max(6)
+          .nullable()
+          .optional()
+          .describe('Optional preferred long-ride weekday (0=Sun … 6=Sat)'),
+        constraintsNote: z
+          .string()
+          .max(1000)
+          .nullable()
+          .optional()
+          .describe('Optional equipment / injury / schedule caveats'),
       },
     },
-    async ({ clear, goal, horizon, note }) => {
+    async ({
+      clear,
+      goal,
+      horizon,
+      note,
+      maxHardDaysPerWeek,
+      preferredLongRideWeekday,
+      constraintsNote,
+    }) => {
       if (clear) {
         return jsonResult(await store.setTrainingIntent(null))
       }
@@ -135,6 +194,9 @@ async function main(): Promise<void> {
           goal,
           horizon: horizon ?? null,
           note: note ?? null,
+          maxHardDaysPerWeek: maxHardDaysPerWeek ?? null,
+          preferredLongRideWeekday: preferredLongRideWeekday ?? null,
+          constraintsNote: constraintsNote ?? null,
         }),
       )
     },
@@ -186,7 +248,7 @@ async function main(): Promise<void> {
     'list_activities',
     {
       description:
-        'List Activity records (completed rides) including specs, Power Profiles, optional Session Purpose, and optional per-sample hrBpm / cadenceRpm / meterWatts when sensors were connected.',
+        'List Activity records (completed rides) including specs, Power Profiles, Session Load (NP/IF/TSS + time-in-zone when FTP known), Session Adherence (completion + target band when a plan was followed), optional Session Purpose, and optional per-sample hrBpm / cadenceRpm / meterWatts when sensors were connected.',
       inputSchema: {
         pastDays: z.number().nonnegative().default(14),
         since: z.string().optional(),
@@ -203,7 +265,7 @@ async function main(): Promise<void> {
     'list_scheduled_rides',
     {
       description:
-        'List Scheduled Rides on the Training Calendar in a time range (includes optional Session Purpose).',
+        'List Scheduled Rides on the Training Calendar in a time range. Includes Session Purpose, status (planned/completed/skipped), activityId when completed, skipReason when skipped, and derived missed (planned + startsAt in the past).',
       inputSchema: {
         since: z.string().optional().describe('ISO lower bound'),
         until: z.string().optional().describe('ISO upper bound'),
@@ -254,6 +316,38 @@ async function main(): Promise<void> {
       if (!ok) throw new Error(`Scheduled Ride not found: ${id}`)
       return jsonResult({ ok: true, id })
     },
+  )
+
+  server.registerTool(
+    'skip_scheduled_ride',
+    {
+      description:
+        'Mark a Scheduled Ride as skipped (not ridden). Optional short reason. Cannot skip a completed ride. Use instead of deleting when the miss should stay visible for review.',
+      inputSchema: {
+        id: z.string().min(1),
+        reason: z
+          .string()
+          .max(500)
+          .optional()
+          .describe('Optional skip reason, e.g. travel / illness'),
+      },
+    },
+    async ({ id, reason }) =>
+      jsonResult(await store.skipScheduledRide(id, reason ?? null)),
+  )
+
+  server.registerTool(
+    'reschedule_scheduled_ride',
+    {
+      description:
+        'Move a Scheduled Ride to a new startsAt (ISO). Clears skipped status back to planned. Cannot reschedule a completed ride.',
+      inputSchema: {
+        id: z.string().min(1),
+        startsAt: z.string().min(1).describe('New ISO datetime'),
+      },
+    },
+    async ({ id, startsAt }) =>
+      jsonResult(await store.rescheduleScheduledRide(id, startsAt)),
   )
 
   server.registerTool(
