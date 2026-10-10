@@ -26,7 +26,7 @@ You do **not** need `./start.sh` or the HTTP companion for MCP. ChatGPT starts i
 | **Name** | `open-trainer` |
 | **Command** | `npm` |
 | **Args** | `run` and `mcp` (two args; or a single `run mcp` string if the UI is one field) |
-| **Working directory (cwd)** | `/ABSOLUTE/PATH/TO/OpenTrainer/companion` |
+| **Working directory (cwd)** | Absolute path to `companion/`, e.g. `/Users/you/Projects/OpenTrainer/companion` (macOS/Linux) or `C:\Users\you\Projects\OpenTrainer\companion` (Windows) |
 
 6. **Save**, then **Restart** when asked (or quit and reopen the app).
 

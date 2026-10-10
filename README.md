@@ -108,7 +108,7 @@ Same stdio model as Cursor / Claude Desktop (not chatgpt.com in the browser).
 
 1. `cd companion && npm install`
 2. Open **ChatGPT desktop** → **Settings** → **MCP servers** → **Add server** → **STDIO**
-3. Name `open-trainer`, command `npm`, args `run` `mcp`, **cwd** = absolute path to `companion/`
+3. Name `open-trainer`, command `npm`, args `run` `mcp`, **cwd** = absolute path to `companion/`, e.g. `/Users/you/Projects/OpenTrainer/companion` (macOS/Linux) or `C:\Users\you\Projects\OpenTrainer\companion` (Windows)
 4. Save and restart the app; check with `/mcp` in a chat
 
 Full walkthrough + week-plan paste: **[docs/mcp-chatgpt-week-planning.md](docs/mcp-chatgpt-week-planning.md)**.
