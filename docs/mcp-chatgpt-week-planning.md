@@ -1,69 +1,60 @@
-# ChatGPT + OpenTrainer MCP (Secure MCP Tunnel)
+# ChatGPT desktop + OpenTrainer MCP
 
-OpenTrainer’s MCP server is **stdio-only** (`npm run mcp`). ChatGPT cannot spawn that process itself. Use [OpenAI Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) so ChatGPT talks to OpenAI’s hosted tunnel endpoint while `tunnel-client` on your machine forwards requests to the local MCP server.
+OpenTrainer’s MCP is a **local stdio** process (`npm run mcp`). Use the **ChatGPT desktop** app (Codex host) — not chatgpt.com in the browser.
 
-For **Cursor** and **Claude Desktop**, prefer local stdio — see the root [README.md](../README.md). This doc is ChatGPT-specific.
+Official overview: [ChatGPT MCP / Codex](https://learn.chatgpt.com/docs/extend/mcp.md).
 
-## Prerequisites
-
-- Node.js + deps installed (`cd companion && npm install`)
-- An OpenAI Platform account with permission to create/use **tunnels**
-- ChatGPT workspace permission to add a **custom MCP server**
-- [tunnel-client](https://github.com/openai/tunnel-client) (download from [Platform tunnel settings](https://platform.openai.com/) or the latest GitHub release)
-
-## 1. Create a tunnel
-
-1. Open Platform **tunnel settings** and create a tunnel.
-2. Note the `tunnel_id` (looks like `tunnel_…`).
-3. Create or copy a **runtime API key** for `tunnel-client`.
-4. Associate the tunnel with the **ChatGPT workspace** you will use (not only a personal Platform org), or it may not appear in ChatGPT.
-
-## 2. Point tunnel-client at OpenTrainer MCP
-
-From a machine that has this repo and can reach outbound `api.openai.com:443`:
+## 1. One-time prep
 
 ```bash
-export CONTROL_PLANE_API_KEY="sk-..."   # tunnel runtime key from Platform
-
-# Replace paths with your clone of OpenTrainer
-tunnel-client init \
-  --sample sample_mcp_stdio_local \
-  --profile open-trainer \
-  --tunnel-id tunnel_YOUR_ID_HERE \
-  --mcp-command "npm run mcp" \
-  --mcp-cwd "/ABSOLUTE/PATH/TO/OpenTrainer/companion"
-
-tunnel-client doctor --profile open-trainer --explain
-tunnel-client run --profile open-trainer
+cd /ABSOLUTE/PATH/TO/OpenTrainer/companion
+npm install
 ```
 
-If your `tunnel-client` build does not support `--mcp-cwd`, use an absolute command instead:
+You do **not** need `./start.sh` or the HTTP companion for MCP. ChatGPT starts its own MCP process. (HTTP is only for the web Workouts tab.)
 
-```bash
-tunnel-client init \
-  --sample sample_mcp_stdio_local \
-  --profile open-trainer \
-  --tunnel-id tunnel_YOUR_ID_HERE \
-  --mcp-command "npx tsx /ABSOLUTE/PATH/TO/OpenTrainer/companion/src/mcp/server.ts"
+## 2. Add the server
+
+1. Open the **ChatGPT desktop** app.
+2. **Settings** → **MCP servers**.
+3. **Add server**.
+4. Choose **STDIO**.
+5. Fill in:
+
+| Field | Value |
+| --- | --- |
+| **Name** | `open-trainer` |
+| **Command** | `npm` |
+| **Args** | `run` and `mcp` (two args; or a single `run mcp` string if the UI is one field) |
+| **Working directory (cwd)** | `/ABSOLUTE/PATH/TO/OpenTrainer/companion` |
+
+6. **Save**, then **Restart** when asked (or quit and reopen the app).
+
+### If it fails
+
+- **cwd must be absolute** (relative `companion` works in Cursor’s project config; ChatGPT desktop usually needs the full path).
+- Ensure `npm` is on the PATH the desktop app sees (`which npm`; use that full path if needed).
+- Alternate that often works better:
+
+  | Field | Value |
+  | --- | --- |
+  | **Command** | `npx` |
+  | **Args** | `tsx`, `src/mcp/server.ts` |
+  | **cwd** | `/ABSOLUTE/PATH/TO/OpenTrainer/companion` |
+
+## 3. Confirm it’s live
+
+In a desktop chat composer:
+
+```text
+/mcp
 ```
 
-Keep `tunnel-client run …` healthy while using ChatGPT. Check the local admin UI (`/ui`) or `doctor` if discovery fails.
+You should see `open-trainer` with the tools listed below.
 
-Exact `init` flags can evolve — when in doubt run `tunnel-client help quickstart` and follow the current Secure MCP Tunnel guide.
+## 4. Week-plan paste (after reconnect)
 
-## 3. Add the MCP server in ChatGPT
-
-1. ChatGPT → **Plugins** (or custom MCP / apps settings) → **Add custom MCP server**.
-2. Connection: **Tunnel**.
-3. Select your tunnel or paste the `tunnel_id`.
-4. Configure auth if prompted (OpenTrainer MCP has **no OAuth** of its own — use “none” / skip if offered).
-5. Accept the risk warning and create.
-
-If the tunnel does not list: workspace association + Tunnels **Use** permission + running `tunnel-client`.
-
-## 4. After reconnect — week-plan paste
-
-If ChatGPT says it can only create workouts (no calendar / no FTP), it is on a **stale MCP session**. Restart the connector / tunnel client so it loads companion MCP `0.3.1+`, then paste:
+If ChatGPT says it can only create workouts (no calendar / no FTP), it is on a **stale MCP session**. Restart the MCP server / app so it loads companion `0.3.1+`, then paste:
 
 ```text
 You have OpenTrainer MCP v2. Do not claim calendar/FTP are unavailable.
@@ -83,8 +74,6 @@ Prefer zone / %FTP over absolute watts. Never invent Activities.
 
 `get_rider_profile`, `set_ftp`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, plus prompt `plan_training_week`.
 
-## Notes
+## chatgpt.com (browser)
 
-- MCP shares the same Local Store as the web UI (`companion/data/`). It does **not** need the HTTP companion or Bluetooth.
-- Sample workouts `sample-easy-endurance` and `sample-vo2-intervals` ship in the repo for demos.
-- Claude.ai (browser) also needs a remote/tunneled MCP — same tunnel idea does not apply there; use **Claude Desktop** with stdio instead.
+Browser ChatGPT does **not** launch local stdio. Friends on desktop should use the steps above. Remote HTTPS MCP or [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) is only needed for the web product — not documented as the primary path here.

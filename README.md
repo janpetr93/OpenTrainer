@@ -1,6 +1,6 @@
 # OpenTrainer
 
-Local indoor cycling app: connect a smart trainer over **Web Bluetooth FTMS** (built around the Van Rysel / Decathlon D100), run power-target workouts, keep an app-local training history, and plan weeks via **MCP** (Cursor, Claude Desktop, or ChatGPT through a Secure MCP Tunnel).
+Local indoor cycling app: connect a smart trainer over **Web Bluetooth FTMS** (built around the Van Rysel / Decathlon D100), run power-target workouts, keep an app-local training history, and plan weeks via **MCP** (Cursor, Claude Desktop, or ChatGPT desktop).
 
 ## Requirements
 
@@ -41,7 +41,8 @@ npm run mcp
 | --- | --- | --- |
 | **Cursor** | Yes | Project or user MCP config (stdio) |
 | **Claude Desktop** | Yes | `claude_desktop_config.json` (stdio) |
-| **ChatGPT** | Via tunnel | [OpenAI Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) — see [docs/mcp-chatgpt-week-planning.md](docs/mcp-chatgpt-week-planning.md) |
+| **ChatGPT desktop** | Yes | Settings → MCP servers → STDIO — see below |
+| **chatgpt.com (browser)** | No (local stdio) | Use ChatGPT desktop instead |
 | **Claude.ai** | No (local stdio) | Use Claude Desktop instead |
 
 Tools: `get_rider_profile`, `set_ftp`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, plus prompt `plan_training_week`.
@@ -101,13 +102,16 @@ Edit the config file:
 
 On Windows, if `npm` is not found, use `npm.cmd` or the full path to Node/`npx`. Quit and relaunch Claude Desktop after editing. Optional: set `"env": { "D100_DATA_DIR": "/path/to/data" }` to point at another store.
 
-### ChatGPT (Secure MCP Tunnel)
+### ChatGPT desktop
 
-ChatGPT cannot launch a local stdio server. Run OpenAI’s `tunnel-client` against `npm run mcp`, then add a custom MCP server with **Connection: Tunnel**.
+Same stdio model as Cursor / Claude Desktop (not chatgpt.com in the browser).
 
-Step-by-step + week-plan paste prompt: **[docs/mcp-chatgpt-week-planning.md](docs/mcp-chatgpt-week-planning.md)**.
+1. `cd companion && npm install`
+2. Open **ChatGPT desktop** → **Settings** → **MCP servers** → **Add server** → **STDIO**
+3. Name `open-trainer`, command `npm`, args `run` `mcp`, **cwd** = absolute path to `companion/`
+4. Save and restart the app; check with `/mcp` in a chat
 
-Official guide: [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels).
+Full walkthrough + week-plan paste: **[docs/mcp-chatgpt-week-planning.md](docs/mcp-chatgpt-week-planning.md)**.
 
 ## Optional: Strava upload
 
