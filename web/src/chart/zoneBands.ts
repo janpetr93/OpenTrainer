@@ -42,9 +42,10 @@ export function wattsToY(
   watts: number,
   axisMaxWatts: number,
   height: number,
-  padY: number,
+  padTop: number,
+  padBottom: number = padTop,
 ): number {
-  const usable = height - padY * 2
+  const usable = height - padTop - padBottom
   const clamped = Math.min(Math.max(watts, 0), axisMaxWatts)
-  return height - padY - (clamped / axisMaxWatts) * usable
+  return height - padBottom - (clamped / axisMaxWatts) * usable
 }

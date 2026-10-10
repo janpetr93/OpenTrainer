@@ -46,10 +46,11 @@ export function SessionModule({
         ) : (
           showChart && (
             <PowerProfileLine
-              className="power-profile-line session-power-chart"
+              className="session-power-chart"
               label={chartLabel}
               height={CHART_HEIGHT}
               series={series}
+              showAxes
             />
           )
         )}
