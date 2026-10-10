@@ -13,6 +13,7 @@ import {
 } from './api'
 import { formatMmpDuration } from './mmp/formatDuration'
 import { MmpChart } from './mmp/MmpChart'
+import { PageHeader } from './PageHeader'
 
 type Props = {
   onProfileChange?: (profile: RiderProfile) => void
@@ -108,13 +109,16 @@ export function ProfilePanel({ onProfileChange }: Props) {
 
   return (
     <div className="profile-panel">
-      <header className="live-header">
-        <h1>Profile</h1>
-        <p className="connection-state">
-          Local Companion:{' '}
-          {healthy === null ? 'checking…' : healthy ? 'online' : 'offline'}
-        </p>
-      </header>
+      <PageHeader
+        title="Profile"
+        status={
+          <p className="connection-state">
+            Local Companion:{' '}
+            {healthy === null ? 'checking…' : healthy ? 'online' : 'offline'}
+          </p>
+        }
+        blurb="FTP, power curve, training intent, and optional Strava link for this Local Store."
+      />
 
       {error && <p className="banner error">{error}</p>}
 

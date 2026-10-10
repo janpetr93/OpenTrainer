@@ -13,14 +13,15 @@ import {
 } from './api'
 import { dayKey, monthCells, monthRangeIso } from './calendar/monthGrid'
 import { ActivityActions } from './ActivityActions'
+import { PageHeader } from './PageHeader'
 import { SessionModule } from './SessionModule'
 import {
-  activitySecondary,
+  activityMeta,
   chartFromActivity,
   chartFromScheduledWorkout,
   scheduledDurationLabel,
+  scheduledMeta,
   scheduledOutcomeLabel,
-  scheduledSecondary,
   sessionTitle,
 } from './session/sessionModuleHelpers'
 
@@ -135,77 +136,85 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
 
   return (
     <div className="calendar-panel">
-      <header className="live-header">
-        <h1>Training Calendar</h1>
-        <p className="connection-state">
-          Local Companion:{' '}
-          {healthy === null ? 'checking…' : healthy ? 'online' : 'offline'}
-        </p>
-        <p className="muted">
-          New rides come from ChatGPT/MCP week planning, or{' '}
-          <strong>Schedule again</strong> on a past Activity below / on History.
-          No workout catalog here.
-        </p>
-      </header>
+      <PageHeader
+        title="Calendar"
+        status={
+          <p className="connection-state">
+            Local Companion:{' '}
+            {healthy === null ? 'checking…' : healthy ? 'online' : 'offline'}
+          </p>
+        }
+        blurb={
+          <>
+            New rides come from ChatGPT/MCP week planning, or{' '}
+            <strong>Schedule again</strong> on a past Activity below / on
+            History. No workout catalog here.
+          </>
+        }
+      />
 
       {error && <p className="banner error">{error}</p>}
 
       <section className="panel-block">
-        <div className="calendar-nav">
-          <button type="button" onClick={() => shiftMonth(-1)}>
-            ←
-          </button>
-          <h2>{monthLabel}</h2>
-          <button type="button" onClick={() => shiftMonth(1)}>
-            →
-          </button>
-        </div>
+        <div className="calendar-month">
+          <div className="calendar-nav">
+            <button type="button" onClick={() => shiftMonth(-1)}>
+              ←
+            </button>
+            <h2>{monthLabel}</h2>
+            <button type="button" onClick={() => shiftMonth(1)}>
+              →
+            </button>
+          </div>
 
-        <div className="calendar-weekdays" aria-hidden="true">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-            <span key={d}>{d}</span>
-          ))}
-        </div>
+          <div className="calendar-weekdays" aria-hidden="true">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+              <span key={d}>{d}</span>
+            ))}
+          </div>
 
-        <div className="calendar-grid">
-          {cells.map((cell, index) => {
-            if (!cell) {
-              return <div key={`pad-${index}`} className="cal-cell empty" />
-            }
-            const key = dayKey(cell)
-            const hasSched = (scheduledByDay.get(key)?.length ?? 0) > 0
-            const hasAct = (activitiesByDay.get(key)?.length ?? 0) > 0
-            const selected = key === selectedKey
-            const today = key === dayKey(new Date())
-            return (
-              <button
-                key={key}
-                type="button"
-                className={[
-                  'cal-cell',
-                  selected ? 'selected' : '',
-                  today ? 'today' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                onClick={() => setSelectedKey(key)}
-              >
-                <span className="cal-daynum">{cell.getDate()}</span>
-                <span className="cal-markers">
-                  {hasSched && <span className="mark sched" title="Scheduled" />}
-                  {hasAct && <span className="mark done" title="Activity" />}
-                </span>
-              </button>
-            )
-          })}
+          <div className="calendar-grid">
+            {cells.map((cell, index) => {
+              if (!cell) {
+                return <div key={`pad-${index}`} className="cal-cell empty" />
+              }
+              const key = dayKey(cell)
+              const hasSched = (scheduledByDay.get(key)?.length ?? 0) > 0
+              const hasAct = (activitiesByDay.get(key)?.length ?? 0) > 0
+              const selected = key === selectedKey
+              const today = key === dayKey(new Date())
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={[
+                    'cal-cell',
+                    selected ? 'selected' : '',
+                    today ? 'today' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => setSelectedKey(key)}
+                >
+                  <span className="cal-daynum">{cell.getDate()}</span>
+                  <span className="cal-markers">
+                    {hasSched && (
+                      <span className="mark sched" title="Scheduled" />
+                    )}
+                    {hasAct && <span className="mark done" title="Activity" />}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          <p className="muted cal-legend">
+            <span className="mark sched" /> Scheduled ·{' '}
+            <span className="mark done" /> Completed Activity
+          </p>
         </div>
-        <p className="muted cal-legend">
-          <span className="mark sched" /> Scheduled ·{' '}
-          <span className="mark done" /> Completed Activity
-        </p>
       </section>
 
-      <section className="panel-block">
+      <section className="panel-block calendar-day-panel">
         <h2>{selectedKey}</h2>
 
         <h3 className="cal-section-title">Scheduled</h3>
@@ -223,7 +232,7 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
                 <SessionModule
                   key={ride.id}
                   title={sessionTitle(workoutName(ride.workoutId), 'scheduled')}
-                  secondary={scheduledSecondary(
+                  meta={scheduledMeta(
                     ride.startsAt,
                     scheduledDurationLabel(workout, ftpWatts),
                     outcome,
@@ -288,7 +297,7 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
                       : null,
                     'activity',
                   )}
-                  secondary={activitySecondary(activity)}
+                  meta={activityMeta(activity)}
                   purpose={activity.purpose}
                   chartLabel={`Activity ${activity.id}`}
                   series={chart.series}

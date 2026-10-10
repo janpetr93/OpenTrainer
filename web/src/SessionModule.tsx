@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
 import { PowerProfileLine, type PowerProfileSeries } from './PowerProfileLine'
+import type { SessionMeta } from './session/sessionModuleHelpers'
 
 type Props = {
   title: string
-  secondary: string
+  meta: SessionMeta
   purpose?: string | null
   actions: ReactNode
   chartLabel: string
@@ -18,7 +19,7 @@ const CHART_HEIGHT = 240
 /** Shared Scheduled Ride / Activity row chrome across Ride, History, Calendar. */
 export function SessionModule({
   title,
-  secondary,
+  meta,
   purpose = null,
   actions,
   chartLabel,
@@ -27,13 +28,36 @@ export function SessionModule({
   showLegend = false,
 }: Props) {
   const showChart = !needsFtpToPreview && series.length > 0
+  const showWhenRow = Boolean(meta.when || meta.kind)
 
   return (
     <li className="session-row">
       <div className="session-row-main">
         <div className="session-row-heading">
-          <strong>{title}</strong>
-          <span className="muted">{secondary}</span>
+          <strong className="session-title">{title}</strong>
+          {showWhenRow ? (
+            <p className="session-meta-when muted">
+              {meta.when ? <span>{meta.when}</span> : null}
+              {meta.when && meta.kind ? (
+                <span className="session-meta-sep" aria-hidden="true">
+                  ·
+                </span>
+              ) : null}
+              {meta.kind ? (
+                <span className="session-meta-kind">{meta.kind}</span>
+              ) : null}
+            </p>
+          ) : null}
+          {meta.metrics.length > 0 ? (
+            <dl className="session-metrics">
+              {meta.metrics.map((metric) => (
+                <div key={metric.label} className="session-metric">
+                  <dt>{metric.label}</dt>
+                  <dd>{metric.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
           {purpose ? <p className="session-purpose">{purpose}</p> : null}
         </div>
         <div className="session-row-actions">{actions}</div>

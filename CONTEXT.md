@@ -275,7 +275,7 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 | **Scheduled Ride** / **missed** | `companion/data/scheduled/`; API `/api/scheduled-rides` (+ `/skip`, `/reschedule`); MCP `skip_scheduled_ride` / `reschedule_scheduled_ride`; today's list in Ride panel (`LiveDisplay`); shared row UI `SessionModule` |
 | **Session Purpose** | `purpose` on **Scheduled Ride** / **Activity**; MCP `create_scheduled_ride`; Calendar + History UI (see `docs/decisions/2026-10-10-session-purpose-on-scheduled-ride.md`) |
 | **Training Calendar** | `web/src/CalendarPanel.tsx` |
-| Session module (Scheduled / Activity rows) | `web/src/SessionModule.tsx` + `web/src/session/sessionModuleHelpers.ts`; planned preview via `web/src/domain/scheduledWorkoutPreview.ts` (Ride, History, Calendar) |
+| Session module (Scheduled / Activity rows) | `web/src/SessionModule.tsx` + `web/src/session/sessionModuleHelpers.ts` (`activityMeta` / `scheduledMeta`); planned preview via `web/src/domain/scheduledWorkoutPreview.ts` (Ride, History, Calendar) |
 | **Activity** recording | `web/src/workout/` + `POST /api/activities`; runner on Ride tab |
 | **Session Load** / **Session Adherence** | `companion/src/domain/sessionLoad.ts`, `sessionAdherence.ts`; on **Activity** JSON; Session module via `web/src/session/sessionModuleHelpers.ts` |
 | **Workout** runner | `web/src/workout/workoutRunner.ts` — start/pause/resume/skip/stop + ERG targets |

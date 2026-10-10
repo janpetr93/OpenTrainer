@@ -14,9 +14,10 @@ import {
   chartFromScheduledWorkout,
   scheduledDurationLabel,
   scheduledOutcomeLabel,
-  scheduledSecondary,
+  scheduledMeta,
   sessionTitle,
 } from './session/sessionModuleHelpers'
+import { PageHeader } from './PageHeader'
 import { SensorStatusStrip } from './SensorStatusStrip'
 import type { RunnerSnapshot } from './workout/workoutRunner'
 
@@ -195,9 +196,9 @@ export function LiveDisplay({
 
   return (
     <div className={`live-display${riding ? ' live-display-riding' : ''}`}>
-      <header className="live-header">
-        <div className="brand-row">
-          <h1>OpenTrainer</h1>
+      <PageHeader
+        title="Ride"
+        status={
           <div className="sensor-status-row">
             <SensorStatusStrip sensors={sensors} ftpWatts={ftpWatts} />
             <button
@@ -208,8 +209,8 @@ export function LiveDisplay({
               Manage on Devices
             </button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       {!snapshot.webBluetoothSupported && (
         <p className="banner warn">
@@ -433,7 +434,7 @@ export function LiveDisplay({
                   <SessionModule
                     key={ride.id}
                     title={sessionTitle(workoutName(ride.workoutId), 'scheduled')}
-                    secondary={scheduledSecondary(
+                    meta={scheduledMeta(
                       ride.startsAt,
                       scheduledDurationLabel(workout, ftpWatts),
                       outcome,
@@ -463,7 +464,12 @@ export function LiveDisplay({
                 <SessionModule
                   key={`cal-${calendarSelection.id}`}
                   title={sessionTitle(calendarSelection.name, 'scheduled')}
-                  secondary={`From Calendar · ${scheduledDurationLabel(calendarSelection, ftpWatts)}`}
+                  meta={scheduledMeta(
+                    null,
+                    scheduledDurationLabel(calendarSelection, ftpWatts),
+                    null,
+                    'From Calendar',
+                  )}
                   chartLabel={`${calendarSelection.name} planned Power Profile`}
                   series={calendarChart.series}
                   needsFtpToPreview={calendarChart.needsFtpToPreview}

@@ -13,6 +13,7 @@ Ride’s pre-ride surface was dominated by four-role connectors (**Known Devices
 
 - Add a top-level **Devices** tab (nav order Ride · Devices · History · Calendar · Profile).
 - **Devices** owns full connectors + collapsed FTMS debug.
+  Layout: Trainer primary + compact Sensors — see [devices trainer primary layout](2026-10-10-devices-trainer-primary-layout.md).
 - **Ride** keeps a thin sensor-status strip and tab-switch links (“Manage on Devices” / “Connect trainer on Devices”); no expandable mid-ride connectors.
 - BLE connection objects stay in `App` so changing tabs does not disconnect.
 

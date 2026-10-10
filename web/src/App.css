@@ -4,15 +4,15 @@
   display: grid;
   justify-items: center;
   align-content: start;
-  gap: 1.5rem;
-  padding: 1.75rem 1.5rem 3.5rem;
+  gap: 1rem;
+  padding: 1.1rem 1.15rem 2.5rem;
 }
 
 /* Near full-bleed layout while a Workout is in progress on the Ride tab. */
 .app-riding {
   --content-width: min(120rem, calc(100vw - 1.25rem));
-  gap: 0.85rem;
-  padding: 0.75rem 0.6rem 1.75rem;
+  gap: 0.65rem;
+  padding: 0.55rem 0.5rem 1.25rem;
 }
 
 .app-riding .live-display {
@@ -24,40 +24,44 @@
 }
 
 .app-riding .tabs {
-  opacity: 0.85;
+  opacity: 0.8;
 }
 
 .tabs {
   display: flex;
-  gap: 0.35rem;
+  gap: 0;
   width: var(--content-width);
-  padding: 0.3rem;
-  border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  padding: 0;
+  border-radius: var(--radius);
+  background: var(--panel);
   border: 1px solid var(--border);
+  border-bottom-width: 1px;
 }
 
 button.tab {
   flex: 1;
   background: transparent;
-  border-color: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: inset 0 -2px 0 transparent;
   font-weight: 600;
-  font-size: 0.92rem;
-  opacity: 0.65;
-  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+  opacity: 0.55;
+  padding: 0.5rem 0.65rem;
 }
 
 button.tab:hover {
-  opacity: 0.9;
+  opacity: 0.85;
   border-color: transparent;
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--border) 80%, var(--accent));
 }
 
 button.tab.active {
   opacity: 1;
   border-color: transparent;
-  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+  box-shadow: inset 0 -2px 0 var(--accent);
+  background: transparent;
   color: var(--text);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .workouts-panel,
@@ -65,33 +69,67 @@ button.tab.active {
 .devices-panel {
   width: var(--content-width);
   display: grid;
-  gap: 1.25rem;
+  gap: 0.85rem;
+}
+
+.workouts-panel {
+  gap: 1.5rem;
+}
+
+.workouts-panel .panel-block {
+  padding: 1.5rem 1.6rem;
+}
+
+.workouts-panel .panel-block > .muted {
+  margin-top: 0.65rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  max-width: 42rem;
+}
+
+.workouts-panel .entity-list {
+  margin-top: 1.5rem;
+  gap: 1.35rem;
+}
+
+.workouts-panel .session-row {
+  gap: 0.9rem;
+  padding: 1.35rem 1.4rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.1rem);
+  background: color-mix(in srgb, var(--panel) 55%, var(--code-bg));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.workouts-panel .session-row:last-child {
+  padding-bottom: 1.35rem;
 }
 
 .panel-block {
-  padding: 1.2rem 1.35rem;
-  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
   background: var(--panel);
   border: 1px solid var(--border);
 }
 
 .panel-block h2 {
-  margin: 0 0 0.35rem;
-  font-size: 0.95rem;
-  letter-spacing: 0.02em;
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: 0;
 }
 
 .muted {
   color: var(--muted);
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .form-row {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 0.5rem;
 }
 
 .zone-list {
@@ -111,8 +149,8 @@ button.tab.active {
   border: 1px solid var(--border);
   background: var(--code-bg);
   color: var(--text);
-  border-radius: 0.5rem;
-  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.65rem;
   font: inherit;
 }
 
@@ -156,14 +194,14 @@ button.tab.active {
 .mmp-table th,
 .mmp-table td {
   text-align: left;
-  padding: 0.35rem 0.5rem 0.35rem 0;
+  padding: 0.28rem 0.45rem 0.28rem 0;
   border-bottom: 1px solid var(--border);
 }
 
 .mmp-table th {
   color: var(--muted);
   font-weight: 500;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
 }
 
 .mmp-estimate {
@@ -218,14 +256,14 @@ button.tab.active {
 }
 
 .workout-live {
-  margin-top: 1.25rem;
+  margin-top: 0.9rem;
   display: grid;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
 .workout-live-title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   text-transform: capitalize;
 }
 
@@ -234,9 +272,10 @@ button.tab.active {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 1.25rem;
+  gap: 1rem;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
 }
 
 .workout-live-targets strong {
@@ -246,19 +285,19 @@ button.tab.active {
 
 .entity-list {
   list-style: none;
-  margin: 1rem 0 0;
+  margin: 0.75rem 0 0;
   padding: 0;
   display: grid;
-  gap: 0.85rem;
+  gap: 0.65rem;
 }
 
 .entity-list li {
   display: grid;
-  gap: 0.15rem;
+  gap: 0.1rem;
 }
 
 .session-row {
-  gap: 0.5rem;
+  gap: 0.55rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border);
 }
@@ -272,12 +311,68 @@ button.tab.active {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: start;
-  gap: 0.75rem;
+  gap: 0.85rem 1rem;
 }
 
 .session-row-heading {
   display: grid;
-  gap: 0.15rem;
+  gap: 0.45rem;
+}
+
+.session-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.session-meta-when {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+}
+
+.session-meta-sep {
+  opacity: 0.55;
+}
+
+.session-meta-kind {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.session-metrics {
+  margin: 0.35rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.4rem;
+}
+
+.session-metric {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 4.25rem;
+}
+
+.session-metric dt {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.session-metric dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  color: var(--text);
 }
 
 .session-row-actions {
@@ -289,7 +384,8 @@ button.tab.active {
 
 .session-row-chart {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
 }
 
 .session-ftp-gate {
@@ -298,8 +394,8 @@ button.tab.active {
 }
 
 button.export-fit {
-  padding: 0.45rem 0.75rem;
-  font-size: 0.85rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
   white-space: nowrap;
 }
 
@@ -326,30 +422,59 @@ button.export-fit {
 .calendar-panel {
   width: var(--content-width);
   display: grid;
-  gap: 1.25rem;
+  gap: 0.85rem;
+}
+
+.calendar-month {
+  width: 100%;
+}
+
+.calendar-day-panel .entity-list {
+  margin-top: 0.65rem;
+  gap: 0.85rem;
+}
+
+.calendar-day-panel .session-row {
+  gap: 0.7rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--panel) 55%, var(--code-bg));
+}
+
+.calendar-day-panel .session-row:last-child {
+  padding-bottom: 1rem;
 }
 
 .calendar-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+  width: 100%;
 }
 
 .calendar-nav h2 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.calendar-nav button {
+  padding: 0.4rem 0.65rem;
+  font-size: 0.85rem;
 }
 
 .calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 0.35rem;
-  margin-bottom: 0.45rem;
+  gap: 0.25rem;
+  margin-bottom: 0.35rem;
+  width: 100%;
   text-align: center;
   font-size: 0.72rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -357,18 +482,21 @@ button.export-fit {
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 0.35rem;
+  gap: 0.25rem;
+  width: 100%;
 }
 
 .cal-cell {
-  aspect-ratio: 1;
+  /* Shorter than square so full-width tiles don't dominate the page. */
+  aspect-ratio: 2.4;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
-  padding: 0.2rem;
-  border-radius: 0.5rem;
+  gap: 0.06rem;
+  padding: 0.1rem;
+  min-height: 0;
+  border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--code-bg);
   color: var(--text);
@@ -395,18 +523,19 @@ button.export-fit {
   font-size: 0.9rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .cal-markers {
   display: flex;
-  gap: 0.2rem;
-  min-height: 0.4rem;
+  gap: 0.15rem;
+  min-height: 0.32rem;
 }
 
 .mark {
   display: inline-block;
-  width: 0.4rem;
-  height: 0.4rem;
+  width: 0.32rem;
+  height: 0.32rem;
   border-radius: 50%;
   vertical-align: middle;
 }
@@ -420,20 +549,20 @@ button.export-fit {
 }
 
 .cal-legend {
-  margin: 0.65rem 0 0;
-  font-size: 0.8rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
 }
 
 .cal-section-title {
-  margin: 1rem 0 0.35rem;
-  font-size: 0.9rem;
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.85rem;
 }
 
 .session-purpose {
-  margin: 0.25rem 0 0;
-  font-size: 0.9rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.95rem;
   color: var(--text);
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .power-profile-line {
@@ -442,7 +571,7 @@ button.export-fit {
   height: 4rem;
   color: var(--accent);
   background: color-mix(in srgb, var(--code-bg) 70%, var(--bg));
-  border-radius: 0.5rem;
+  border-radius: var(--radius);
 }
 
 /* Must follow .power-profile-line — same specificity, later rule wins. */
@@ -588,27 +717,22 @@ button.export-fit {
 
 .ride-power-chart {
   height: clamp(18rem, 48vh, 30rem);
-  border-radius: 0.65rem;
+  border-radius: var(--radius);
 }
 
 
 .live-display-riding .power-panel {
-  padding: 1.1rem 1.15rem 1.5rem;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--accent) 6%, var(--panel)) 0%,
-      var(--panel) 40%
-    );
+  padding: 0.85rem 1rem 1.15rem;
+  background: var(--panel);
 }
 
 .live-display-riding .power-value {
-  font-size: clamp(3.25rem, 12vw, 5.5rem);
+  font-size: clamp(3.5rem, 13vw, 6rem);
 }
 
 .live-metrics-row {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.55rem;
   justify-items: center;
 }
 
@@ -685,37 +809,67 @@ button.export-fit {
 .live-display {
   width: var(--content-width);
   display: grid;
-  gap: 1.25rem;
-}
-
-.live-display-riding {
   gap: 0.85rem;
 }
 
+.live-display-riding {
+  gap: 0.65rem;
+}
+
+.page-header,
+.live-header {
+  width: 100%;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.live-display > .page-header {
+  width: 100%;
+}
+
+.page-header h1,
 .live-header h1 {
   margin: 0;
-  font-size: clamp(1.35rem, 3.5vw, 1.75rem);
+  font-size: clamp(1.35rem, 3vw, 1.6rem);
   font-weight: 700;
   letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.page-header-status {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.page-header-status .connection-state {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.page-header-blurb {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  max-width: 42rem;
 }
 
 .brand-row {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.45rem;
 }
 
 .sensor-status-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem 1rem;
+  gap: 0.45rem 0.85rem;
 }
 
 .sensor-status-strip {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem 1rem;
+  gap: 0.45rem 0.85rem;
 }
 
 button.linkish {
@@ -726,7 +880,7 @@ button.linkish {
   margin: 0;
   color: var(--accent);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
@@ -743,43 +897,41 @@ button.linkish:hover {
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.25rem 0.65rem;
 }
 
 .sensor-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.28rem 0.55rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--code-bg);
-  font-size: 0.75rem;
+  gap: 0.28rem;
+  padding: 0.1rem 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   color: var(--muted);
 }
 
 .sensor-pill-dot {
-  width: 0.45rem;
-  height: 0.45rem;
+  width: 0.35rem;
+  height: 0.35rem;
   border-radius: 50%;
   background: var(--muted);
 }
 
 .sensor-pill[data-state='connected'] {
   color: var(--text);
-  border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
 }
 
 .sensor-pill[data-state='connected'] .sensor-pill-dot {
   background: var(--ok);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ok) 25%, transparent);
+  box-shadow: none;
 }
 
 .sensor-pill[data-state='disconnected-with-reconnect'] {
   color: var(--warn-text);
-  border-color: color-mix(in srgb, var(--warn) 40%, var(--border));
 }
 
 .sensor-pill[data-state='disconnected-with-reconnect'] .sensor-pill-dot {
@@ -794,12 +946,13 @@ button.linkish:hover {
   text-transform: lowercase;
   font-family: var(--font-mono);
   font-weight: 500;
-  opacity: 0.85;
+  font-size: 0.7rem;
+  opacity: 0.8;
 }
 
 .sensor-ftp {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -820,9 +973,9 @@ button.linkish:hover {
 
 .banner {
   margin: 0;
-  padding: 0.75rem 1rem;
-  border-radius: 0.55rem;
-  font-size: 0.92rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
 }
 
 .banner.warn {
@@ -837,8 +990,8 @@ button.linkish:hover {
 
 .power-panel {
   text-align: center;
-  padding: 2rem 1.35rem;
-  border-radius: 0.85rem;
+  padding: 1.5rem 1rem 1.65rem;
+  border-radius: var(--radius);
   background: var(--panel);
   border: 1px solid var(--border);
 }
@@ -846,19 +999,20 @@ button.linkish:hover {
 .power-hint {
   margin: 0;
   color: var(--muted);
-  font-size: 0.85rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
 }
 
 .power-value {
-  margin: 0.35rem 0 0;
+  margin: 0.2rem 0 0;
   font-family: var(--font-mono);
-  font-size: clamp(3.5rem, 16vw, 5.75rem);
+  font-size: clamp(3.75rem, 17vw, 6.25rem);
   font-weight: 700;
-  line-height: 1;
+  line-height: 0.95;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.045em;
   color: var(--metric);
 }
 
@@ -876,9 +1030,9 @@ button.linkish:hover {
 }
 
 .power-alignment {
-  margin: 1.25rem auto 0;
+  margin: 0.9rem auto 0;
   max-width: 22rem;
-  padding-top: 1rem;
+  padding-top: 0.75rem;
   border-top: 1px solid var(--border);
 }
 
@@ -887,17 +1041,18 @@ button.linkish:hover {
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 0.85rem;
+  gap: 0.7rem;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
 .alignment-label {
   color: var(--muted);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: 0;
   font-family: var(--font-sans);
+  font-weight: 600;
 }
 
 .alignment-watts {
@@ -929,13 +1084,13 @@ button.linkish:hover {
 }
 
 .secondary-metrics {
-  margin: 0.85rem 0 0;
+  margin: 0.65rem 0 0;
   display: flex;
   justify-content: center;
-  gap: 1.35rem;
+  gap: 1.1rem;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -946,7 +1101,7 @@ button.linkish:hover {
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 0.5rem;
   justify-content: center;
 }
 
@@ -955,31 +1110,71 @@ button.linkish:hover {
 }
 
 .ride-controls button {
-  min-width: 7.5rem;
+  min-width: 7rem;
 }
 
 .ride-plan .ride-start {
   justify-content: flex-start;
-  margin-top: 0.85rem;
+  margin-top: 0.65rem;
 }
 
 .ride-start button.primary {
-  min-width: 12rem;
-  padding: 0.85rem 1.5rem;
-  font-size: 1.05rem;
+  min-width: 11rem;
+  padding: 0.65rem 1.2rem;
+  font-size: 0.95rem;
 }
 
 .ride-start-hint {
-  margin: 0.5rem 0 0;
-  font-size: 0.85rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+}
+
+.connectors-toolbar {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 40rem) {
+  .connectors-toolbar {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .connectors-bulk {
+    margin-top: 0;
+    justify-content: flex-end;
+  }
+}
+
+.connectors-toolbar h2 {
+  margin: 0;
 }
 
 .connectors {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  margin-top: 1rem;
+  margin-top: 0.85rem;
   width: 100%;
+}
+
+.connectors-sensors {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--code-bg);
+  overflow: hidden;
+}
+
+.connectors-sensors-title {
+  margin: 0;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
 }
 
 .devices-panel .panel-block .debug-panel {
@@ -997,15 +1192,47 @@ button.linkish:hover {
 }
 
 .connector-role {
-  padding: 0.85rem 1rem;
+  padding: 0.65rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 0.65rem;
+  border-radius: var(--radius);
   background: var(--code-bg);
+}
+
+.connector-role-primary {
+  padding: 0.85rem 1rem;
+  background: var(--panel);
+}
+
+.connector-role-compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+
+.connector-role-compact:last-child {
+  border-bottom: none;
+}
+
+.connector-role-main h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.connector-role-main .connection-state {
+  margin: 0.1rem 0 0;
+  font-size: 0.75rem;
 }
 
 .connector-role-header h3 {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 650;
 }
 
@@ -1014,25 +1241,43 @@ button.linkish:hover {
   font-size: 0.85rem;
 }
 
+.connector-role-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.connector-role-primary .connector-role-actions {
+  justify-content: flex-start;
+  margin-top: 0.65rem;
+}
+
 .known-devices {
   list-style: none;
-  margin: 0.65rem 0 0;
+  margin: 0.55rem 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
 .known-devices-empty {
-  margin: 0.65rem 0 0;
-  font-size: 0.85rem;
+  margin: 0.55rem 0 0;
+  font-size: 0.8rem;
+}
+
+.known-devices-popover {
+  margin: 0.35rem 0 0;
+  min-width: 10rem;
 }
 
 button.known-device {
   width: 100%;
   text-align: left;
   font-weight: 500;
-  padding: 0.55rem 0.75rem;
+  padding: 0.45rem 0.65rem;
 }
 
 button.known-device:disabled {
@@ -1041,18 +1286,25 @@ button.known-device:disabled {
 }
 
 .find-new {
-  flex: 1 1 auto;
-  min-width: 8rem;
+  position: relative;
+  flex: 0 0 auto;
 }
 
 .find-new summary {
   cursor: pointer;
   list-style: none;
   border: 1px solid var(--border);
-  border-radius: 0.55rem;
-  padding: 0.7rem 1.2rem;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.85rem;
   font-weight: 600;
+  font-size: 0.9rem;
   background: var(--panel);
+}
+
+.find-new-compact summary {
+  padding: 0.4rem 0.65rem;
+  font-size: 0.8rem;
+  background: transparent;
 }
 
 .find-new summary::-webkit-details-marker {
@@ -1062,8 +1314,21 @@ button.known-device:disabled {
 .find-new-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.find-new-compact[open] .find-new-actions,
+.find-new-compact[open] .known-devices-popover {
+  position: absolute;
+  right: 0;
+  z-index: 2;
+  margin-top: 0.3rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 35%, transparent);
 }
 
 button {
@@ -1071,10 +1336,11 @@ button {
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
-  border-radius: 0.55rem;
-  padding: 0.65rem 1.1rem;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.85rem;
   font: inherit;
   font-weight: 600;
+  font-size: 0.9rem;
   cursor: pointer;
   transition:
     border-color 120ms ease,
@@ -1084,6 +1350,11 @@ button {
 
 button:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 button:disabled {
@@ -1114,9 +1385,9 @@ button.danger:hover {
 
 .debug-panel {
   border: 1px solid var(--border);
-  border-radius: 0.65rem;
+  border-radius: var(--radius);
   background: var(--panel);
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 0.85rem;
 }
 
 .debug-panel summary {
@@ -1147,7 +1418,7 @@ button.danger:hover {
   overflow: auto;
   background: var(--code-bg);
   color: var(--text);
-  padding: 0.75rem;
-  border-radius: 0.5rem;
+  padding: 0.6rem;
+  border-radius: var(--radius);
   font-family: var(--font-mono);
 }

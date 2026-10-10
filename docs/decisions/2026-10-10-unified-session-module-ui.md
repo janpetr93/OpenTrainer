@@ -13,7 +13,8 @@ status: active
 
 Use a shared `SessionModule` on Ride, History, and Calendar:
 
-- Same chrome: title | actions, purpose, taller Power Profile chart
+- Same chrome: title | actions, structured meta (when / kind / metrics), purpose, taller Power Profile chart
+  — metric layout detail in [session module structured metrics](2026-10-10-session-module-structured-metrics.md)
 - **Title:** Workout name when known; else `Free ride` (Activities) / `Workout` (orphaned scheduled)
 - **Scheduled (not ridden):** planned **Power Profile** only (current FTP rebuild + FTP gate from `buildScheduledWorkoutPreview`)
 - **Activity (ridden):** achieved **Power Profile**, plus planned overlay and Plan / Achieved legend when a plan exists

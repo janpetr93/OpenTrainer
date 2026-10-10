@@ -7,9 +7,10 @@ import {
   type Workout,
 } from './api'
 import { ActivityActions } from './ActivityActions'
+import { PageHeader } from './PageHeader'
 import { SessionModule } from './SessionModule'
 import {
-  activitySecondary,
+  activityMeta,
   chartFromActivity,
   sessionTitle,
 } from './session/sessionModuleHelpers'
@@ -49,13 +50,16 @@ export function WorkoutsPanel() {
 
   return (
     <div className="workouts-panel">
-      <header className="live-header">
-        <h1>History</h1>
-        <p className="connection-state">
-          Local Companion:{' '}
-          {healthy === null ? 'checking…' : healthy ? 'online' : 'offline'}
-        </p>
-      </header>
+      <PageHeader
+        title="History"
+        status={
+          <p className="connection-state">
+            Local Companion:{' '}
+            {healthy === null ? 'checking…' : healthy ? 'online' : 'offline'}
+          </p>
+        }
+        blurb="Past rides from the Local Store. Plan next week via ChatGPT/MCP, or Schedule again on a ride that followed a Workout."
+      />
 
       {error && <p className="banner error">{error}</p>}
 
@@ -68,10 +72,6 @@ export function WorkoutsPanel() {
             Refresh
           </button>
         </div>
-        <p className="muted">
-          Past rides from the Local Store. Plan next week via ChatGPT/MCP, or
-          Schedule again on a ride that followed a Workout.
-        </p>
         {activities.length === 0 ? (
           <p className="muted">
             Empty until you finish a ride on the Ride tab. MCP{' '}
@@ -88,7 +88,7 @@ export function WorkoutsPanel() {
                     workoutName(activity.workoutId),
                     'activity',
                   )}
-                  secondary={activitySecondary(activity)}
+                  meta={activityMeta(activity)}
                   purpose={activity.purpose}
                   chartLabel={`Activity ${activity.id}`}
                   series={chart.series}

@@ -6,6 +6,7 @@ import {
   ConnectorRole,
   type ConnectorRoleHandlers,
 } from './ConnectorRole'
+import { PageHeader } from './PageHeader'
 
 type Props = {
   snapshot: TrainerSnapshot
@@ -58,17 +59,20 @@ export function DevicesPanel({
 
   return (
     <div className="devices-panel">
-      <header className="live-header">
-        <h1>Devices</h1>
-        <p className="connection-state">
-          Bluetooth:{' '}
-          {!snapshot.webBluetoothSupported
-            ? 'unavailable'
-            : linkedCount === 0
-              ? 'ready'
-              : `${linkedCount} linked`}
-        </p>
-      </header>
+      <PageHeader
+        title="Devices"
+        status={
+          <p className="connection-state">
+            Bluetooth:{' '}
+            {!snapshot.webBluetoothSupported
+              ? 'unavailable'
+              : linkedCount === 0
+                ? 'ready'
+                : `${linkedCount} linked`}
+          </p>
+        }
+        blurb="Known devices are ones Chrome already permitted for this app. After the first link, trainers often stop advertising — use Connect (not Find new) to reconnect."
+      />
 
       {!snapshot.webBluetoothSupported && (
         <p className="banner warn">
@@ -85,23 +89,20 @@ export function DevicesPanel({
       {cadence.lastError && <p className="banner error">{cadence.lastError}</p>}
 
       <section className="panel-block" aria-label="Connectors">
-        <h2>Connectors</h2>
-        <p className="muted">
-          Known devices are ones Chrome already permitted for this app. After
-          the first link, trainers often stop advertising — use Connect (not
-          Find new) to reconnect.
-        </p>
-        <div className="form-row connectors-bulk">
-          <button
-            type="button"
-            className="primary"
-            onClick={onConnectAllKnown}
-          >
-            Connect all known
-          </button>
-          <button type="button" onClick={onDisconnectAll}>
-            Disconnect all
-          </button>
+        <div className="connectors-toolbar">
+          <h2>Connectors</h2>
+          <div className="form-row connectors-bulk">
+            <button
+              type="button"
+              className="primary"
+              onClick={onConnectAllKnown}
+            >
+              Connect all known
+            </button>
+            <button type="button" onClick={onDisconnectAll}>
+              Disconnect all
+            </button>
+          </div>
         </div>
         {connectAllSummary && (
           <p className="banner warn">{connectAllSummary}</p>
@@ -109,6 +110,7 @@ export function DevicesPanel({
         <div className="connectors">
           <ConnectorRole
             title="Trainer"
+            variant="primary"
             connectionState={snapshot.connectionState}
             deviceName={snapshot.deviceName}
             knownDevices={snapshot.knownDevices}
@@ -116,33 +118,39 @@ export function DevicesPanel({
             canReconnect={canReconnectSensor(snapshot)}
             handlers={trainer}
           />
-          <ConnectorRole
-            title="Power meter"
-            connectionState={meter.connectionState}
-            deviceName={meter.deviceName}
-            knownDevices={meter.knownDevices}
-            connected={meterConnected}
-            canReconnect={canReconnectSensor(meter)}
-            handlers={powerMeter}
-          />
-          <ConnectorRole
-            title="Heart rate"
-            connectionState={heartRate.connectionState}
-            deviceName={heartRate.deviceName}
-            knownDevices={heartRate.knownDevices}
-            connected={hrConnected}
-            canReconnect={canReconnectSensor(heartRate)}
-            handlers={heartRateLink}
-          />
-          <ConnectorRole
-            title="Cadence"
-            connectionState={cadence.connectionState}
-            deviceName={cadence.deviceName}
-            knownDevices={cadence.knownDevices}
-            connected={cadenceConnected}
-            canReconnect={canReconnectSensor(cadence)}
-            handlers={cadenceLink}
-          />
+          <div className="connectors-sensors" aria-label="Sensors">
+            <h3 className="connectors-sensors-title">Sensors</h3>
+            <ConnectorRole
+              title="Power meter"
+              variant="compact"
+              connectionState={meter.connectionState}
+              deviceName={meter.deviceName}
+              knownDevices={meter.knownDevices}
+              connected={meterConnected}
+              canReconnect={canReconnectSensor(meter)}
+              handlers={powerMeter}
+            />
+            <ConnectorRole
+              title="Heart rate"
+              variant="compact"
+              connectionState={heartRate.connectionState}
+              deviceName={heartRate.deviceName}
+              knownDevices={heartRate.knownDevices}
+              connected={hrConnected}
+              canReconnect={canReconnectSensor(heartRate)}
+              handlers={heartRateLink}
+            />
+            <ConnectorRole
+              title="Cadence"
+              variant="compact"
+              connectionState={cadence.connectionState}
+              deviceName={cadence.deviceName}
+              knownDevices={cadence.knownDevices}
+              connected={cadenceConnected}
+              canReconnect={canReconnectSensor(cadence)}
+              handlers={cadenceLink}
+            />
+          </div>
         </div>
       </section>
 
