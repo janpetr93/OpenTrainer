@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "open-trainer": {
+      "command": "npm",
+      "args": ["run", "--silent", "mcp", "--prefix", "companion"]
+    }
+  }
+}

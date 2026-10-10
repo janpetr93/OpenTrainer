@@ -1,6 +1,6 @@
 # ChatGPT desktop + OpenTrainer MCP
 
-OpenTrainer’s MCP is a **local stdio** process (`npm run mcp`). Use the **ChatGPT desktop** app (Codex host) — not chatgpt.com in the browser.
+OpenTrainer’s MCP is a **local stdio** process (`npm run --silent mcp`). Use the **ChatGPT desktop** app (Codex host) — not chatgpt.com in the browser.
 
 Official overview: [ChatGPT MCP / Codex](https://learn.chatgpt.com/docs/extend/mcp.md).
 
@@ -25,7 +25,7 @@ You do **not** need `./start.sh` or the HTTP companion for MCP. ChatGPT starts i
 | --- | --- |
 | **Name** | `open-trainer` |
 | **Command** | `npm` |
-| **Args** | `run` and `mcp` (two args; or a single `run mcp` string if the UI is one field) |
+| **Args** | `run`, `--silent`, and `mcp` (three args; or a single `run --silent mcp` string if the UI is one field). `--silent` keeps npm’s banner off MCP stdout. |
 | **Working directory (cwd)** | Absolute path to `companion/`, e.g. `/Users/you/Projects/OpenTrainer/companion` (macOS/Linux) or `C:\Users\you\Projects\OpenTrainer\companion` (Windows) |
 
 6. **Save**, then **Restart** when asked (or quit and reopen the app).

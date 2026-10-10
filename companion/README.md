@@ -45,8 +45,11 @@ OAuth callback URL used by the companion: `http://127.0.0.1:8787/api/strava/call
 ## MCP
 
 ```bash
-npm run mcp
+npm install
+npm run --silent mcp
 ```
+
+Use `--silent` so npm’s lifecycle banner does not mix into MCP stdio. `tsx` is a dev dependency — install before connecting a client.
 
 Server name: `open-trainer`. Tools (v2 week planning):
 
@@ -57,23 +60,23 @@ Server name: `open-trainer`. Tools (v2 week planning):
 - `clear_scheduled_rides` — wipe a date range before writing a new week
 - Prompt: `plan_training_week` — suggested tool order
 
-Root [README.md](../README.md) covers **Cursor**, **Claude Desktop**, and **ChatGPT** (Secure MCP Tunnel). Week-plan paste: [docs/mcp-chatgpt-week-planning.md](../docs/mcp-chatgpt-week-planning.md).
+Committed project configs: [`.mcp.json`](../.mcp.json) (Claude Code), [`.cursor/mcp.json`](../.cursor/mcp.json) (Cursor). Root [README.md](../README.md) covers those clients plus **Claude Desktop** and **ChatGPT**. Week-plan paste: [docs/mcp-chatgpt-week-planning.md](../docs/mcp-chatgpt-week-planning.md). Agent cheat sheet: [AGENTS.md](../AGENTS.md).
 
-### Cursor / Claude Desktop example
+### Claude Desktop / absolute-path example
 
 ```json
 {
   "mcpServers": {
     "open-trainer": {
-      "command": "npx",
-      "args": ["tsx", "/ABSOLUTE/PATH/TO/OpenTrainer/companion/src/mcp/server.ts"],
+      "command": "npm",
+      "args": ["run", "--silent", "mcp"],
       "cwd": "/ABSOLUTE/PATH/TO/OpenTrainer/companion"
     }
   }
 }
 ```
 
-Or after install: `"command": "npm"`, `"args": ["run", "mcp"]`, with `cwd` set to `companion/`.
+Alternate: `"command": "npx"`, `"args": ["tsx", "src/mcp/server.ts"]`, same `cwd` (no npm banner).
 
 ## Test
 

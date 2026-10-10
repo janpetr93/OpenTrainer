@@ -1,6 +1,8 @@
 .DS_Store
 *.log
-.cursor/
+.cursor/*
+!.cursor/mcp.json
+
 .docs/
 node_modules/
 companion/.env

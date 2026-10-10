@@ -7,7 +7,7 @@
     "dev": "./start.sh",
     "dev:web": "npm run dev --prefix web",
     "dev:companion": "npm run dev --prefix companion",
-    "mcp": "npm run mcp --prefix companion",
+    "mcp": "npm run --silent mcp --prefix companion",
     "test": "npm test --prefix web && npm test --prefix companion",
     "test:web": "npm test --prefix web",
     "test:companion": "npm test --prefix companion"

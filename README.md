@@ -44,12 +44,16 @@ Or run separately: `npm run dev:companion` and `npm run dev:web`.
 MCP talks to the same JSON **Local Store** as the UI. It does **not** need the HTTP companion or Bluetooth.
 
 ```bash
-npm run mcp
+npm install --prefix companion
+npm run --silent mcp
 ```
+
+Use `--silent` so npm’s lifecycle banner does not mix into MCP stdio (JSON-RPC only). Install `companion/` deps first (`tsx` is a dev dependency); otherwise the client often shows no tools with little explanation. Tools load at **session start** — restart the client session after adding or changing MCP config.
 
 | Client | Works with this repo? | How |
 | --- | --- | --- |
-| **Cursor** | Yes | Project or user MCP config (stdio) |
+| **Cursor** | Yes | Committed [`.cursor/mcp.json`](.cursor/mcp.json) (stdio) |
+| **Claude Code** | Yes | Committed [`.mcp.json`](.mcp.json) (stdio) |
 | **Claude Desktop** | Yes | `claude_desktop_config.json` (stdio) |
 | **ChatGPT desktop** | Yes | Settings → MCP servers → STDIO — see below |
 | **chatgpt.com (browser)** | No (local stdio) | Use ChatGPT desktop instead |
@@ -61,21 +65,9 @@ The clone ships two sample workouts (`sample-easy-endurance`, `sample-vo2-interv
 
 ### Cursor
 
-Project config (if you keep `.cursor/mcp.json`):
+Enable / trust the project MCP from [`.cursor/mcp.json`](.cursor/mcp.json), then confirm tools appear. After upgrading companion MCP tools or changing config, restart the MCP server / session so the client is not stale.
 
-```json
-{
-  "mcpServers": {
-    "open-trainer": {
-      "command": "npm",
-      "args": ["run", "mcp"],
-      "cwd": "companion"
-    }
-  }
-}
-```
-
-Or absolute paths in Cursor MCP settings:
+Optional absolute-path fallback in Cursor MCP settings:
 
 ```json
 {
@@ -89,7 +81,16 @@ Or absolute paths in Cursor MCP settings:
 }
 ```
 
-Enable / trust project MCP, then confirm tools appear. After upgrading companion MCP tools, restart the MCP server so the client is not stale.
+### Claude Code
+
+Open the repo so Claude Code can offer the server from [`.mcp.json`](.mcp.json), or add it manually:
+
+```bash
+npm install --prefix companion
+claude mcp add open-trainer -- npm run --silent mcp --prefix "$PWD/companion"
+```
+
+Start a new session so the tools load.
 
 ### Claude Desktop
 
@@ -103,7 +104,7 @@ Edit the config file:
   "mcpServers": {
     "open-trainer": {
       "command": "npm",
-      "args": ["run", "mcp"],
+      "args": ["run", "--silent", "mcp"],
       "cwd": "/ABSOLUTE/PATH/TO/OpenTrainer/companion"
     }
   }
@@ -118,7 +119,7 @@ Same stdio model as Cursor / Claude Desktop (not chatgpt.com in the browser).
 
 1. `cd companion && npm install`
 2. Open **ChatGPT desktop** → **Settings** → **MCP servers** → **Add server** → **STDIO**
-3. Name `open-trainer`, command `npm`, args `run` `mcp`, **cwd** = absolute path to `companion/`, e.g. `/Users/you/Projects/OpenTrainer/companion` (macOS/Linux) or `C:\Users\you\Projects\OpenTrainer\companion` (Windows)
+3. Name `open-trainer`, command `npm`, args `run` `--silent` `mcp`, **cwd** = absolute path to `companion/`, e.g. `/Users/you/Projects/OpenTrainer/companion` (macOS/Linux) or `C:\Users\you\Projects\OpenTrainer\companion` (Windows)
 4. Save and restart the app; check with `/mcp` in a chat
 
 Full walkthrough + week-plan paste: **[docs/mcp-chatgpt-week-planning.md](docs/mcp-chatgpt-week-planning.md)**.
@@ -142,6 +143,7 @@ Manual FIT export works without Strava.
 ## Docs
 
 - [`CONTEXT.md`](CONTEXT.md) — domain language
+- [`AGENTS.md`](AGENTS.md) — run / MCP notes for AI agents
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — PRs and review
 - [`SECURITY.md`](SECURITY.md) — vulnerability reporting
 - [`docs/adr/`](docs/adr/) — architecture decisions
