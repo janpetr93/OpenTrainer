@@ -1,8 +1,10 @@
 import {
+  listWorkouts,
   uploadActivityToStrava as postUpload,
   type Activity,
 } from '../api'
-import { activityFitFilename, encodeActivityFit } from './encodeActivityFit'
+import { encodeActivityFit } from './encodeActivityFit'
+import { stravaActivityName } from './stravaActivityName'
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = ''
@@ -18,10 +20,11 @@ export async function uploadActivityFitToStrava(
   options: { force?: boolean } = {},
 ): Promise<Activity> {
   const bytes = encodeActivityFit(activity)
+  const workouts = await listWorkouts()
   const result = await postUpload({
     activityId: activity.id,
     fitBase64: bytesToBase64(bytes),
-    name: activityFitFilename(activity).replace(/\.fit$/i, ''),
+    name: stravaActivityName(activity, workouts),
     force: options.force,
   })
   return result.activity
