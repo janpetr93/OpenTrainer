@@ -66,8 +66,8 @@ Week-plan workflow:
 4. list_activities (pastDays 14) + list_scheduled_rides for next week — infer recent emphasis from Activities
 5. clear_scheduled_rides for that week’s since/until if replacing the plan
 6. create_workout with percentFtp or zone on every working step (not null targets)
-7. create_scheduled_ride for each day (workoutId + startsAt ISO)
-8. Summarize dates, names, and %FTP/zone tied to Intent + recent emphasis
+7. create_scheduled_ride for each day (workoutId + startsAt ISO + purpose — Session Purpose: what the session is for, e.g. improve endurance)
+8. Summarize dates, names, Session Purpose, and %FTP/zone tied to Intent + recent emphasis
 
 Prefer zone / %FTP over absolute watts. Never invent Activities.
 ```

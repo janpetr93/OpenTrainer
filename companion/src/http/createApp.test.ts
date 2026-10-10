@@ -134,12 +134,14 @@ describe('HTTP API', () => {
           ],
           plannedPowerProfile: null,
           workoutId: null,
+          purpose: 'Improve endurance',
         }),
       })
       expect(res.status).toBe(201)
       const body = (await res.json()) as {
         activity: {
           id: string
+          purpose: string | null
           achievedPowerProfile: Array<{
             tSec: number
             watts: number
@@ -149,6 +151,7 @@ describe('HTTP API', () => {
         }
       }
       expect(body.activity.id).toBeTruthy()
+      expect(body.activity.purpose).toBe('Improve endurance')
       expect(body.activity.achievedPowerProfile[0]).toMatchObject({
         tSec: 0,
         watts: 140,
@@ -160,6 +163,38 @@ describe('HTTP API', () => {
         watts: 160,
         hrBpm: 155,
       })
+    })
+  })
+
+  it('POST /api/scheduled-rides accepts Session Purpose', async () => {
+    const workout = await store.createWorkout({
+      name: 'Threshold',
+      steps: [
+        {
+          type: 'steady',
+          durationSec: 600,
+          targetWatts: 220,
+          percentFtp: null,
+          zone: null,
+        },
+      ],
+    })
+    await withServer(store, async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/api/scheduled-rides`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workoutId: workout.id,
+          startsAt: '2026-10-12T07:00:00.000Z',
+          purpose: 'Raise lactate threshold',
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as {
+        scheduledRide: { purpose: string | null; workoutId: string }
+      }
+      expect(body.scheduledRide.workoutId).toBe(workout.id)
+      expect(body.scheduledRide.purpose).toBe('Raise lactate threshold')
     })
   })
 

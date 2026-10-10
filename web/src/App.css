@@ -20,7 +20,7 @@
 }
 
 .app-riding .ride-power-chart {
-  height: clamp(16rem, 44vh, 30rem);
+  height: clamp(22rem, 56vh, 40rem);
 }
 
 .app-riding .tabs {
@@ -138,21 +138,6 @@ button.tab.active {
   width: 100%;
 }
 
-.ride-plan .cal-item.ride-plan-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-}
-
-.ride-plan .ride-plan-row > div:first-child {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: baseline;
-}
-
 .ride-plan-clear {
   margin-top: 0.75rem;
 }
@@ -206,31 +191,48 @@ button.tab.active {
   gap: 0.15rem;
 }
 
-.workout-row {
-  gap: 0.45rem;
+.session-row {
+  gap: 0.5rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border);
 }
 
-.workout-row:last-child {
+.session-row:last-child {
   border-bottom: none;
   padding-bottom: 0;
 }
 
-.workout-row-meta {
+.session-row-main {
   display: grid;
-  gap: 0.15rem;
-}
-
-.activity-row-meta {
   grid-template-columns: 1fr auto;
   align-items: start;
   gap: 0.75rem;
 }
 
-.activity-row-meta > div {
+.session-row-heading {
   display: grid;
   gap: 0.15rem;
+}
+
+.session-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.session-row-chart {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.session-ftp-gate {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.session-power-chart {
+  height: 8rem;
 }
 
 button.export-fit {
@@ -365,15 +367,11 @@ button.export-fit {
   font-size: 0.9rem;
 }
 
-.cal-item {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.cal-item-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.session-purpose {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.35;
 }
 
 .power-profile-line {
@@ -419,6 +417,11 @@ button.export-fit {
   pointer-events: none;
 }
 
+.power-profile-line .profile-series {
+  /* preserveAspectRatio=none stretches X/Y differently; keep stroke even. */
+  vector-effect: non-scaling-stroke;
+}
+
 .power-profile-line .profile-series-planned {
   stroke: color-mix(in srgb, var(--muted) 55%, var(--accent));
   opacity: 0.8;
@@ -443,6 +446,7 @@ button.export-fit {
 .power-profile-line .profile-cursor {
   stroke: var(--warn);
   opacity: 0.85;
+  vector-effect: non-scaling-stroke;
 }
 
 .ride-chart {
@@ -455,9 +459,10 @@ button.export-fit {
 }
 
 .ride-power-chart {
-  height: clamp(14rem, 38vh, 22rem);
+  height: clamp(18rem, 48vh, 30rem);
   border-radius: 0.65rem;
 }
+
 
 .live-display-riding .power-panel {
   padding: 1.1rem 1.15rem 1.5rem;
@@ -486,6 +491,10 @@ button.export-fit {
   justify-content: center;
   gap: 0.85rem 1.15rem;
   font-size: 0.8rem;
+}
+
+.entity-list .chart-legend {
+  justify-content: flex-start;
 }
 
 .legend-planned::before,

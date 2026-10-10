@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  clearScheduledRides,
   companionHealthy,
   deleteScheduledRide,
+  getRiderProfile,
   listActivities,
   listScheduledRides,
   listWorkouts,
@@ -12,10 +12,21 @@ import {
 } from './api'
 import { dayKey, monthCells, monthRangeIso } from './calendar/monthGrid'
 import { ActivityActions } from './ActivityActions'
-import { PowerProfileLine } from './PowerProfileLine'
+import { SessionModule } from './SessionModule'
+import {
+  activitySecondary,
+  chartFromActivity,
+  chartFromScheduledWorkout,
+  scheduledDurationLabel,
+  scheduledSecondary,
+  sessionTitle,
+} from './session/sessionModuleHelpers'
 
 type Props = {
-  onStartScheduledWorkout: (workoutId: string) => void
+  onStartScheduledWorkout: (
+    workoutId: string,
+    purpose?: string | null,
+  ) => void
 }
 
 export function CalendarPanel({ onStartScheduledWorkout }: Props) {
@@ -26,6 +37,7 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [scheduled, setScheduled] = useState<ScheduledRide[]>([])
   const [activities, setActivities] = useState<Activity[]>([])
+  const [ftpWatts, setFtpWatts] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [healthy, setHealthy] = useState<boolean | null>(null)
 
@@ -48,14 +60,16 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
     }
     setError(null)
     const range = monthRangeIso(year, monthIndex)
-    const [w, s, a] = await Promise.all([
+    const [w, s, a, profile] = await Promise.all([
       listWorkouts(),
       listScheduledRides(range),
       listActivities(range),
+      getRiderProfile(),
     ])
     setWorkouts(w)
     setScheduled(s)
     setActivities(a)
+    setFtpWatts(profile.ftpWatts)
   }, [year, monthIndex])
 
   useEffect(() => {
@@ -107,24 +121,6 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
     year: 'numeric',
   })
 
-  async function onClearMonth(): Promise<void> {
-    if (
-      !window.confirm(
-        `Delete all Scheduled Rides in ${monthLabel}? Activities are kept.`,
-      )
-    ) {
-      return
-    }
-    try {
-      const range = monthRangeIso(year, monthIndex)
-      await clearScheduledRides(range)
-      setError(null)
-      await refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    }
-  }
-
   return (
     <div className="calendar-panel">
       <header className="live-header">
@@ -132,6 +128,11 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
         <p className="connection-state">
           Local Companion:{' '}
           {healthy === null ? 'checking…' : healthy ? 'online' : 'offline'}
+        </p>
+        <p className="muted">
+          New rides come from ChatGPT/MCP week planning, or{' '}
+          <strong>Schedule again</strong> on a past Activity below / on History.
+          No workout catalog here.
         </p>
       </header>
 
@@ -193,29 +194,6 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
       </section>
 
       <section className="panel-block">
-        <h2>Week plan</h2>
-        <p className="muted">
-          New rides come from ChatGPT/MCP week planning, or{' '}
-          <strong>Schedule again</strong> on a past Activity below / on History.
-          No workout catalog here.
-        </p>
-        <div className="form-row">
-          <button
-            type="button"
-            disabled={healthy === false || scheduled.length === 0}
-            onClick={() => void onClearMonth()}
-          >
-            Clear month schedule
-          </button>
-        </div>
-        <p className="muted">
-          Clear removes Scheduled Rides in this month (MCP{' '}
-          <code>clear_scheduled_rides</code>). Orphan Workouts with no Activities
-          are dropped. Activities stay.
-        </p>
-      </section>
-
-      <section className="panel-block">
         <h2>{selectedKey}</h2>
 
         <h3 className="cal-section-title">Scheduled</h3>
@@ -223,31 +201,46 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
           <p className="muted">Nothing scheduled.</p>
         ) : (
           <ul className="entity-list">
-            {selectedScheduled.map((ride) => (
-              <li key={ride.id} className="cal-item">
-                <div>
-                  <strong>{workoutName(ride.workoutId)}</strong>
-                  <span className="muted">
-                    {new Date(ride.startsAt).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-                <div className="cal-item-actions">
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => onStartScheduledWorkout(ride.workoutId)}
-                  >
-                    Start on Ride
-                  </button>
-                  <button type="button" onClick={() => void onDelete(ride.id)}>
-                    Remove
-                  </button>
-                </div>
-              </li>
-            ))}
+            {selectedScheduled.map((ride) => {
+              const workout = workouts.find((w) => w.id === ride.workoutId)
+              const chart = chartFromScheduledWorkout(workout, ftpWatts)
+              return (
+                <SessionModule
+                  key={ride.id}
+                  title={sessionTitle(workoutName(ride.workoutId), 'scheduled')}
+                  secondary={scheduledSecondary(
+                    ride.startsAt,
+                    scheduledDurationLabel(workout, ftpWatts),
+                  )}
+                  purpose={ride.purpose}
+                  chartLabel={`${workoutName(ride.workoutId)} planned Power Profile`}
+                  series={chart.series}
+                  needsFtpToPreview={chart.needsFtpToPreview}
+                  actions={
+                    <>
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() =>
+                          onStartScheduledWorkout(
+                            ride.workoutId,
+                            ride.purpose ?? null,
+                          )
+                        }
+                      >
+                        Start on Ride
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void onDelete(ride.id)}
+                      >
+                        Remove
+                      </button>
+                    </>
+                  }
+                />
+              )
+            })}
           </ul>
         )}
 
@@ -256,57 +249,37 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
           <p className="muted">No completed rides this day.</p>
         ) : (
           <ul className="entity-list">
-            {selectedActivities.map((activity) => (
-              <li key={activity.id} className="workout-row">
-                <div className="workout-row-meta activity-row-meta">
-                  <div>
-                    <strong>
-                      {new Date(activity.startedAt).toLocaleTimeString()}
-                    </strong>
-                    <span className="muted">
-                      {Math.round(activity.durationSec / 60)} min
-                      {activity.averagePowerWatts !== null
-                        ? ` · avg ${activity.averagePowerWatts} W`
-                        : ''}
-                    </span>
-                  </div>
-                  <ActivityActions
-                    activity={activity}
-                    onScheduled={() => void refresh()}
-                    onActivityUpdate={(updated) => {
-                      setActivities((prev) =>
-                        prev.map((a) => (a.id === updated.id ? updated : a)),
-                      )
-                    }}
-                  />
-                </div>
-                {(activity.achievedPowerProfile.length >= 2 ||
-                  (activity.plannedPowerProfile?.length ?? 0) >= 2) && (
-                  <PowerProfileLine
-                    label={`Activity ${activity.id}`}
-                    series={[
-                      ...(activity.plannedPowerProfile &&
-                      activity.plannedPowerProfile.length >= 2
-                        ? [
-                            {
-                              points: activity.plannedPowerProfile,
-                              tone: 'planned' as const,
-                            },
-                          ]
-                        : []),
-                      ...(activity.achievedPowerProfile.length >= 2
-                        ? [
-                            {
-                              points: activity.achievedPowerProfile,
-                              tone: 'achieved' as const,
-                            },
-                          ]
-                        : []),
-                    ]}
-                  />
-                )}
-              </li>
-            ))}
+            {selectedActivities.map((activity) => {
+              const chart = chartFromActivity(activity)
+              return (
+                <SessionModule
+                  key={activity.id}
+                  title={sessionTitle(
+                    activity.workoutId
+                      ? (workouts.find((w) => w.id === activity.workoutId)
+                          ?.name ?? null)
+                      : null,
+                    'activity',
+                  )}
+                  secondary={activitySecondary(activity)}
+                  purpose={activity.purpose}
+                  chartLabel={`Activity ${activity.id}`}
+                  series={chart.series}
+                  showLegend={chart.showLegend}
+                  actions={
+                    <ActivityActions
+                      activity={activity}
+                      onScheduled={() => void refresh()}
+                      onActivityUpdate={(updated) => {
+                        setActivities((prev) =>
+                          prev.map((a) => (a.id === updated.id ? updated : a)),
+                        )
+                      }}
+                    />
+                  }
+                />
+              )
+            })}
           </ul>
         )}
       </section>

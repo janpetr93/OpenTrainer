@@ -131,6 +131,7 @@ function parseSaveActivity(body: unknown): SaveActivityInput {
   if (workoutId !== null && typeof workoutId !== 'string') {
     throw new Error('workoutId must be a string or null')
   }
+  const purpose = parseOptionalPurpose(record.purpose)
   const plannedPowerProfile =
     record.plannedPowerProfile === undefined || record.plannedPowerProfile === null
       ? null
@@ -147,6 +148,7 @@ function parseSaveActivity(body: unknown): SaveActivityInput {
     ),
     plannedPowerProfile,
     workoutId,
+    purpose,
   }
 }
 
@@ -392,6 +394,14 @@ export function createRequestHandler(
   }
 }
 
+function parseOptionalPurpose(value: unknown): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') {
+    throw new Error('purpose must be a string or null')
+  }
+  return value
+}
+
 function parseCreateScheduledRide(body: unknown): CreateScheduledRideInput {
   if (!body || typeof body !== 'object') {
     throw new Error('JSON body required')
@@ -403,5 +413,9 @@ function parseCreateScheduledRide(body: unknown): CreateScheduledRideInput {
   if (typeof record.startsAt !== 'string') {
     throw new Error('startsAt must be an ISO string')
   }
-  return { workoutId: record.workoutId, startsAt: record.startsAt }
+  return {
+    workoutId: record.workoutId,
+    startsAt: record.startsAt,
+    purpose: parseOptionalPurpose(record.purpose),
+  }
 }

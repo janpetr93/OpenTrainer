@@ -26,7 +26,7 @@ async function main(): Promise<void> {
 
   const server = new McpServer({
     name: 'open-trainer',
-    version: '0.3.2',
+    version: '0.3.3',
   })
 
   server.registerPrompt(
@@ -50,8 +50,8 @@ async function main(): Promise<void> {
               '4) Call list_activities (pastDays 14) and list_scheduled_rides for the week window. Infer recent training emphasis from Activities (do not invent a stored phase).',
               '5) Call clear_scheduled_rides for that week’s since/until before replacing the plan.',
               '6) create_workout with Target Prescription: prefer percentFtp or zone (1–7 Coggan). Do not leave all targets null; absolute targetWatts only when I ask.',
-              '7) create_scheduled_ride for each day (workoutId + startsAt ISO).',
-              '8) Summarize the week with dates, workout names, and resolved intensity (%FTP/zone), tied to Intent + recent emphasis.',
+              '7) create_scheduled_ride for each day (workoutId + startsAt ISO + purpose). Session Purpose is required in week planning: one short sentence on what the session is for (e.g. improve endurance, raise lactate threshold) — not Training Intent.',
+              '8) Summarize the week with dates, workout names, Session Purpose, and resolved intensity (%FTP/zone), tied to Intent + recent emphasis.',
             ].join('\n'),
           },
         },
@@ -174,7 +174,7 @@ async function main(): Promise<void> {
     'list_activities',
     {
       description:
-        'List Activity records (completed rides) including specs, Power Profiles, and optional per-sample hrBpm / cadenceRpm / meterWatts when sensors were connected.',
+        'List Activity records (completed rides) including specs, Power Profiles, optional Session Purpose, and optional per-sample hrBpm / cadenceRpm / meterWatts when sensors were connected.',
       inputSchema: {
         pastDays: z.number().nonnegative().default(14),
         since: z.string().optional(),
@@ -190,7 +190,8 @@ async function main(): Promise<void> {
   server.registerTool(
     'list_scheduled_rides',
     {
-      description: 'List Scheduled Rides on the Training Calendar in a time range.',
+      description:
+        'List Scheduled Rides on the Training Calendar in a time range (includes optional Session Purpose).',
       inputSchema: {
         since: z.string().optional().describe('ISO lower bound'),
         until: z.string().optional().describe('ISO upper bound'),
@@ -206,14 +207,28 @@ async function main(): Promise<void> {
     'create_scheduled_ride',
     {
       description:
-        'Place an existing Workout on the Training Calendar at startsAt (ISO datetime). Required to finish a week plan after create_workout.',
+        'Place an existing Workout on the Training Calendar at startsAt (ISO datetime). Include Session Purpose (purpose): short coaching rationale for what this session is for. Required to finish a week plan after create_workout.',
       inputSchema: {
         workoutId: z.string().min(1),
         startsAt: z.string().min(1).describe('ISO datetime'),
+        purpose: z
+          .string()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe(
+            'Session Purpose — what this ride is for (e.g. improve endurance). Not Training Intent.',
+          ),
       },
     },
-    async ({ workoutId, startsAt }) =>
-      jsonResult(await store.createScheduledRide({ workoutId, startsAt })),
+    async ({ workoutId, startsAt, purpose }) =>
+      jsonResult(
+        await store.createScheduledRide({
+          workoutId,
+          startsAt,
+          purpose: purpose ?? null,
+        }),
+      ),
   )
 
   server.registerTool(

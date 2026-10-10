@@ -26,10 +26,34 @@ const STEP_TYPES: WorkoutStepType[] = ['warmup', 'steady', 'recovery', 'cooldown
 const PROFILE_FILE = 'profile.json'
 const STRAVA_LINK_FILE = 'strava-link.json'
 
-export type SaveActivityInput = Omit<Activity, 'schemaVersion' | 'id' | 'createdAt'>
+export type SaveActivityInput = Omit<
+  Activity,
+  'schemaVersion' | 'id' | 'createdAt' | 'purpose' | 'stravaUpload'
+> & {
+  purpose?: string | null
+  stravaUpload?: ActivityStravaUpload | null
+}
 
 export type RiderProfileView = RiderProfile & {
   zones: ReturnType<typeof zonesFromFtp> | null
+}
+
+const PURPOSE_MAX_LEN = 500
+
+function normalizePurpose(value: string | null | undefined): string | null {
+  if (value === undefined || value === null) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (trimmed.length > PURPOSE_MAX_LEN) {
+    throw new Error(`purpose must be at most ${PURPOSE_MAX_LEN} characters`)
+  }
+  return trimmed
+}
+
+function withPurposeField<T extends { purpose?: string | null }>(
+  record: T,
+): T & { purpose: string | null } {
+  return { ...record, purpose: normalizePurpose(record.purpose) }
 }
 
 function normalizeStep(raw: WorkoutStep): WorkoutStep {
@@ -223,6 +247,7 @@ export class LocalStore {
       achievedPowerProfile: input.achievedPowerProfile,
       plannedPowerProfile: input.plannedPowerProfile,
       workoutId: input.workoutId,
+      purpose: normalizePurpose(input.purpose),
       createdAt: now,
       stravaUpload: null,
     }
@@ -232,7 +257,10 @@ export class LocalStore {
 
   async getActivity(id: string): Promise<Activity | null> {
     try {
-      return await this.readJson<Activity>(join(this.activitiesDir, `${id}.json`))
+      const activity = await this.readJson<Activity>(
+        join(this.activitiesDir, `${id}.json`),
+      )
+      return withPurposeField(activity)
     } catch {
       return null
     }
@@ -278,7 +306,9 @@ export class LocalStore {
     const activities: Activity[] = []
 
     for (const file of files) {
-      const activity = await this.readJson<Activity>(join(this.activitiesDir, file))
+      const activity = withPurposeField(
+        await this.readJson<Activity>(join(this.activitiesDir, file)),
+      )
       const started = Date.parse(activity.startedAt)
       if (Number.isNaN(started)) continue
       if (sinceMs !== null && started < sinceMs) continue
@@ -307,6 +337,7 @@ export class LocalStore {
       id: randomUUID(),
       workoutId: input.workoutId,
       startsAt: new Date(startsAtMs).toISOString(),
+      purpose: normalizePurpose(input.purpose),
       createdAt: now,
     }
     await this.writeJson(join(this.scheduledDir, `${scheduled.id}.json`), scheduled)
@@ -328,7 +359,9 @@ export class LocalStore {
     const files = await this.listJsonFiles(this.scheduledDir)
     const rides: ScheduledRide[] = []
     for (const file of files) {
-      const ride = await this.readJson<ScheduledRide>(join(this.scheduledDir, file))
+      const ride = withPurposeField(
+        await this.readJson<ScheduledRide>(join(this.scheduledDir, file)),
+      )
       const starts = Date.parse(ride.startsAt)
       if (Number.isNaN(starts)) continue
       if (sinceMs !== null && starts < sinceMs) continue

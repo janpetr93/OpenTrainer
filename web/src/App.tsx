@@ -73,6 +73,8 @@ function App() {
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [todaysScheduled, setTodaysScheduled] = useState<ScheduledRide[]>([])
   const [selectedWorkoutId, setSelectedWorkoutId] = useState('')
+  const [selectedPurpose, setSelectedPurpose] = useState<string | null>(null)
+  const [activePurpose, setActivePurpose] = useState<string | null>(null)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [connectAllSummary, setConnectAllSummary] = useState<string | null>(
     null,
@@ -126,6 +128,7 @@ function App() {
         achievedPowerProfile: sampler.getProfile(),
         plannedPowerProfile: workout?.plannedPowerProfile ?? null,
         workoutId: workout?.id ?? null,
+        purpose: activePurpose,
       })
       setSaveMessage('Activity saved to Local Store.')
     } catch (error) {
@@ -137,10 +140,11 @@ function App() {
     } finally {
       savingRef.current = false
       setActiveWorkout(null)
+      setActivePurpose(null)
       startedAtRef.current = null
       refreshRunner()
     }
-  }, [runner, sampler, refreshRunner, activeWorkout])
+  }, [runner, sampler, refreshRunner, activeWorkout, activePurpose])
 
   useEffect(() => connection.subscribe(setSnapshot), [connection])
   useEffect(() => meterConnection.subscribe(setMeter), [meterConnection])
@@ -201,9 +205,12 @@ function App() {
     void listWorkouts()
       .then((list) => {
         setWorkouts(list)
-        setSelectedWorkoutId((current) =>
-          current && list.some((w) => w.id === current) ? current : '',
-        )
+        setSelectedWorkoutId((current) => {
+          const next =
+            current && list.some((w) => w.id === current) ? current : ''
+          if (!next) setSelectedPurpose(null)
+          return next
+        })
       })
       .catch(() => {
         /* companion may be down */
@@ -280,6 +287,7 @@ function App() {
 
     if (!selectedWorkoutId) {
       setActiveWorkout(null)
+      setActivePurpose(null)
       runner.startFreeRide(Date.now())
       refreshRunner()
       return
@@ -298,6 +306,7 @@ function App() {
     }
     const resolved = withResolvedPlan(workout, ftpWatts)
     setActiveWorkout(resolved)
+    setActivePurpose(selectedPurpose)
     try {
       runner.start(resolved, Date.now(), ftpWatts)
     } catch (error) {
@@ -305,6 +314,7 @@ function App() {
         error instanceof Error ? error.message : 'Could not start Workout',
       )
       setActiveWorkout(null)
+      setActivePurpose(null)
       return
     }
     refreshRunner()
@@ -336,8 +346,19 @@ function App() {
     void finishAndSave()
   }
 
-  function onStartScheduledWorkout(workoutId: string): void {
+  function onSelectWorkout(
+    workoutId: string,
+    purpose: string | null = null,
+  ): void {
     setSelectedWorkoutId(workoutId)
+    setSelectedPurpose(workoutId ? purpose : null)
+  }
+
+  function onStartScheduledWorkout(
+    workoutId: string,
+    purpose: string | null = null,
+  ): void {
+    onSelectWorkout(workoutId, purpose)
     setTab('ride')
     setSaveMessage(
       'Workout selected from calendar — connect on Devices, then Start on Ride.',
@@ -478,7 +499,7 @@ function App() {
           achievedProfile={achievedProfile}
           saveMessage={saveMessage}
           ftpWatts={ftpWatts}
-          onSelectWorkout={setSelectedWorkoutId}
+          onSelectWorkout={onSelectWorkout}
           onOpenDevices={() => setTab('devices')}
           onStart={onStart}
           onPause={onPause}

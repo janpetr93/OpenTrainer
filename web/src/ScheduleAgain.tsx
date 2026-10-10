@@ -34,6 +34,7 @@ export function ScheduleAgain({ activity, onScheduled }: Props) {
       await createScheduledRide({
         workoutId: activity.workoutId,
         startsAt: new Date(at).toISOString(),
+        purpose: activity.purpose ?? null,
       })
       setMessage('Scheduled.')
       setOpen(false)

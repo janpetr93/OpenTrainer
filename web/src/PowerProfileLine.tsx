@@ -162,6 +162,7 @@ export function PowerProfileLine({
             strokeWidth={strokeWidth(s.tone)}
             strokeLinejoin="round"
             strokeLinecap="round"
+            vectorEffect="nonScalingStroke"
             points={toPoints(s.points, maxT, maxV, width, height)}
           />
         )
@@ -174,6 +175,7 @@ export function PowerProfileLine({
           y1={PAD_Y}
           y2={height - PAD_Y}
           strokeWidth="1.5"
+          vectorEffect="nonScalingStroke"
         />
       )}
     </svg>

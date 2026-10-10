@@ -111,11 +111,15 @@ How a **Workout** step expresses load: absolute watts, percent of **FTP**, and/o
 _Avoid_: Frozen-only watts (unless the step is absolute-watts-only)
 
 **Scheduled Ride**:
-A **Workout** placed on a calendar date/time for planned training.
+A **Workout** placed on a calendar date/time for planned training, optionally with a **Session Purpose**.
 _Avoid_: Session, event, booking
 
+**Session Purpose**:
+Optional short free-text on a **Scheduled Ride** (copied onto the **Activity** when ridden) stating what the session is for — e.g. improve endurance or raise lactate threshold — not the rider-level **Training Intent**.
+_Avoid_: Intent (use **Training Intent** for the profile goal), phase, availability
+
 **Activity**:
-The recorded outcome of an actual ride (timestamped power samples and interval metadata), exportable as an indoor trainer FIT file (TCX only if FIT proves painful).
+The recorded outcome of an actual ride (timestamped power samples and interval metadata), exportable as an indoor trainer FIT file (TCX only if FIT proves painful); may carry **Session Purpose** copied from the **Scheduled Ride**.
 _Avoid_: Session, workout (a **Workout** is the plan; an **Activity** is what was ridden)
 
 **Power Profile**:
@@ -169,11 +173,13 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - **Power Alignment** is live-only comparison; it does not rewrite trainer watts.
 - The **Device Picker** is how a **Connection** or **Power Meter Connection** begins (separate chooser filters).
 - A successful **Connection** triggers a **Control Probe**; the main **Live Display** still only shows power/connection, not workout controls.
-- A **Scheduled Ride** references exactly one **Workout**.
-- Riding a **Workout** via a **Scheduled Ride** (Ride panel / Calendar) can produce one **Activity**; unstructured riding is a **Free Ride** (no workout-catalog picker on Ride).
-- A past **Activity** that followed a **Workout** can be placed again via **Schedule again** (new **Scheduled Ride** on a chosen date).
+- A **Scheduled Ride** references exactly one **Workout** and may carry a **Session Purpose**.
+- Riding a **Workout** via a **Scheduled Ride** (Ride panel / Calendar) can produce one **Activity** (purpose copied when present); unstructured riding is a **Free Ride** (no workout-catalog picker on Ride).
+- A past **Activity** that followed a **Workout** can be placed again via **Schedule again** (new **Scheduled Ride** on a chosen date, purpose copied when present).
+- **Session Purpose** is not **Training Intent**; Intent is durable rider direction, Purpose is per-session coaching rationale.
 - MCP never opens a **Connection** or invents an **Activity**; v2 adds profile + calendar tools for week planning.
 - A **Workout** always has a planned **Power Profile** (resolved from **Target Prescription** + current **FTP** when charted/ridden).
+- A **Scheduled Ride** on the **Training Calendar** day detail and Ride panel shows that **Workout**’s duration and planned **Power Profile** (current **FTP**; `%FTP`/zone plans need FTP set to preview).
 - A **Free Ride** is an **Activity** with no planned **Power Profile**.
 - The **Training Calendar** shows **Scheduled Ride**s (future) and **Activity**s (past).
 - The **Local Companion** owns the **Local Store**; the browser UI and MCP both read through it; **FTP** / **Training Intent** writes are MCP-only (UI remains read-only for those fields).
@@ -212,6 +218,9 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 >
 > **Dev:** "Should the long-term plan live only in ChatGPT history?"
 > **Rider:** "No — keep a thin **Training Intent** in the **Local Store**. Infer recent phase from **Activity**s; ask availability in chat when planning the week."
+>
+> **Dev:** "When MCP schedules Tuesday’s ride, where does ‘raise lactate threshold’ go?"
+> **Rider:** "That’s **Session Purpose** on the **Scheduled Ride** — not **Training Intent**. Copy it onto the **Activity** when I finish."
 
 ## Code map
 
@@ -234,8 +243,10 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 | **History** (tab) | `web/src/WorkoutsPanel.tsx` — **Activity** history + Schedule again |
 | **Profile** (tab) | `web/src/ProfilePanel.tsx` — read-only **Rider Profile** (FTP / zones / Intent) + **Strava Link** |
 | **Schedule again** | `web/src/ScheduleAgain.tsx` via `ActivityActions` |
-| **Scheduled Ride** | `companion/data/scheduled/`; API `/api/scheduled-rides`; today's list in Ride panel (`LiveDisplay`) |
+| **Scheduled Ride** | `companion/data/scheduled/`; API `/api/scheduled-rides`; today's list in Ride panel (`LiveDisplay`); shared row UI `SessionModule` |
+| **Session Purpose** | `purpose` on **Scheduled Ride** / **Activity**; MCP `create_scheduled_ride`; Calendar + History UI (see `docs/decisions/2026-10-10-session-purpose-on-scheduled-ride.md`) |
 | **Training Calendar** | `web/src/CalendarPanel.tsx` |
+| Session module (Scheduled / Activity rows) | `web/src/SessionModule.tsx` + `web/src/session/sessionModuleHelpers.ts`; planned preview via `web/src/domain/scheduledWorkoutPreview.ts` (Ride, History, Calendar) |
 | **Activity** recording | `web/src/workout/` + `POST /api/activities`; runner on Ride tab |
 | **Workout** runner | `web/src/workout/workoutRunner.ts` — start/pause/resume/skip/stop + ERG targets |
 | MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`) |
@@ -246,6 +257,7 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 
 ## Flagged ambiguities
 
+- "intent" on a planned ride — resolved as **Session Purpose** (`purpose`); **Training Intent** stays on the **Rider Profile**.
 - "Session" — resolved: do not use; say **Workout**, **Scheduled Ride**, or **Activity**.
 - "Power curve" — resolved as **Power Profile** (not mean-maximal).
 - **Free Ride** — resolved: allowed; planned **Power Profile** omitted.
@@ -264,3 +276,5 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - **Heart Rate Monitor** / **Cadence Sensor** — resolved: live connectors + optional fields on achieved **Power Profile** (see `docs/decisions/2026-10-09-hrm-and-cadence-connectors.md`).
 - Friendlier connectors — resolved: in-page **Known Devices**, explicit **Connect All Known** / **Disconnect All**, collapsed **Find New Device** (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`).
 - **Devices** tab — resolved: top-level tab owns full connectors + FTMS debug; Ride keeps sensor-status strip + tab-switch link only; nav order Ride · Devices · History · Calendar · Profile.
+- **Scheduled Ride** plan preview — resolved: duration + planned **Power Profile** on Calendar day detail and Ride (rebuild with current FTP; FTP gate for `%FTP`/zones; no zone bands) — see `docs/decisions/2026-10-10-scheduled-ride-plan-preview.md`.
+- Session module UI — resolved: one row chrome for **Scheduled Ride** and **Activity** on Ride / History / Calendar; Activity adds achieved vs planned — see `docs/decisions/2026-10-10-unified-session-module-ui.md`.

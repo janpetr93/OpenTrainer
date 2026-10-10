@@ -68,6 +68,8 @@ export type Activity = {
   achievedPowerProfile: PowerProfilePoint[]
   plannedPowerProfile: PowerProfilePoint[] | null
   workoutId: string | null
+  /** Session Purpose copied from Scheduled Ride when ridden. */
+  purpose?: string | null
   stravaUpload?: ActivityStravaUpload | null
 }
 
@@ -83,6 +85,8 @@ export type ScheduledRide = {
   id: string
   workoutId: string
   startsAt: string
+  /** Session Purpose — what this session is for. */
+  purpose?: string | null
   createdAt: string
 }
 
@@ -161,6 +165,7 @@ export async function listScheduledRides(options: {
 export async function createScheduledRide(input: {
   workoutId: string
   startsAt: string
+  purpose?: string | null
 }): Promise<ScheduledRide> {
   const res = await fetch('/api/scheduled-rides', {
     method: 'POST',
@@ -186,6 +191,7 @@ export type SaveActivityInput = {
   achievedPowerProfile: PowerProfilePoint[]
   plannedPowerProfile: PowerProfilePoint[] | null
   workoutId: string | null
+  purpose?: string | null
 }
 
 export async function saveActivity(input: SaveActivityInput): Promise<Activity> {

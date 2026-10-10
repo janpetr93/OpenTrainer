@@ -88,6 +88,44 @@ describe('LocalStore', () => {
     },
   ]
 
+  it('createScheduledRide stores optional Session Purpose', async () => {
+    const workout = await store.createWorkout({
+      name: 'Threshold builder',
+      steps: sampleSteps,
+    })
+    const withPurpose = await store.createScheduledRide({
+      workoutId: workout.id,
+      startsAt: '2026-10-12T07:00:00.000Z',
+      purpose: 'Raise lactate threshold',
+    })
+    expect(withPurpose.purpose).toBe('Raise lactate threshold')
+
+    const without = await store.createScheduledRide({
+      workoutId: workout.id,
+      startsAt: '2026-10-13T07:00:00.000Z',
+    })
+    expect(without.purpose).toBeNull()
+  })
+
+  it('saveActivity stores optional Session Purpose', async () => {
+    const activity = await store.saveActivity({
+      startedAt: '2026-10-12T07:05:00.000Z',
+      durationSec: 600,
+      averagePowerWatts: 200,
+      maxPowerWatts: 220,
+      achievedPowerProfile: [
+        { tSec: 0, watts: 180 },
+        { tSec: 600, watts: 200 },
+      ],
+      plannedPowerProfile: null,
+      workoutId: null,
+      purpose: 'Improve endurance',
+    })
+    expect(activity.purpose).toBe('Improve endurance')
+    const listed = await store.listActivities({ pastDays: 30 })
+    expect(listed[0]?.purpose).toBe('Improve endurance')
+  })
+
   it('clearScheduledRides deletes orphan Workouts with no remaining rides or Activities', async () => {
     const workout = await store.createWorkout({
       name: 'Week plan intervals',

@@ -9,6 +9,13 @@ import { buildRideChartSeries } from './chart/metricSeries'
 import type { TrainerSnapshot } from './ftms'
 import type { HeartRateSnapshot } from './hrm'
 import { PowerProfileLine } from './PowerProfileLine'
+import { SessionModule } from './SessionModule'
+import {
+  chartFromScheduledWorkout,
+  scheduledDurationLabel,
+  scheduledSecondary,
+  sessionTitle,
+} from './session/sessionModuleHelpers'
 import { SensorStatusStrip } from './SensorStatusStrip'
 import type { RunnerSnapshot } from './workout/workoutRunner'
 
@@ -27,7 +34,7 @@ type Props = {
   achievedProfile: PowerProfilePoint[]
   saveMessage: string | null
   ftpWatts: number | null
-  onSelectWorkout: (id: string) => void
+  onSelectWorkout: (id: string, purpose?: string | null) => void
   onOpenDevices: () => void
   onStart: () => void
   onPause: () => void
@@ -116,9 +123,19 @@ export function LiveDisplay({
   )
   const calendarSelection =
     selectedWorkoutId !== '' && !selectedFromToday ? selected : null
+  const calendarChart = calendarSelection
+    ? chartFromScheduledWorkout(calendarSelection, ftpWatts)
+    : null
 
-  function toggleWorkout(workoutId: string): void {
-    onSelectWorkout(selectedWorkoutId === workoutId ? '' : workoutId)
+  function toggleWorkout(
+    workoutId: string,
+    purpose: string | null,
+  ): void {
+    if (selectedWorkoutId === workoutId) {
+      onSelectWorkout('')
+      return
+    }
+    onSelectWorkout(workoutId, purpose)
   }
 
   const displayCadenceRpm =
@@ -207,7 +224,7 @@ export function LiveDisplay({
             <PowerProfileLine
               className="power-profile-line ride-power-chart"
               label="Live metrics versus time with power zones"
-              height={260}
+              height={360}
               width={960}
               ftpWatts={ftpWatts}
               maxTSec={
@@ -399,37 +416,44 @@ export function LiveDisplay({
             <ul className="entity-list">
               {todaysScheduled.map((ride) => {
                 const isSelected = selectedWorkoutId === ride.workoutId
+                const workout = workouts.find((w) => w.id === ride.workoutId)
+                const chart = chartFromScheduledWorkout(workout, ftpWatts)
                 return (
-                  <li key={ride.id} className="cal-item ride-plan-row">
-                    <div>
-                      <strong>{workoutName(ride.workoutId)}</strong>
-                      <span className="muted">
-                        {new Date(ride.startsAt).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-                    <div className="cal-item-actions">
+                  <SessionModule
+                    key={ride.id}
+                    title={sessionTitle(workoutName(ride.workoutId), 'scheduled')}
+                    secondary={scheduledSecondary(
+                      ride.startsAt,
+                      scheduledDurationLabel(workout, ftpWatts),
+                    )}
+                    purpose={ride.purpose}
+                    chartLabel={`${workoutName(ride.workoutId)} planned Power Profile`}
+                    series={chart.series}
+                    needsFtpToPreview={chart.needsFtpToPreview}
+                    actions={
                       <button
                         type="button"
                         className={isSelected ? 'primary' : undefined}
                         disabled={selectingLocked}
-                        onClick={() => toggleWorkout(ride.workoutId)}
+                        onClick={() =>
+                          toggleWorkout(ride.workoutId, ride.purpose ?? null)
+                        }
                       >
                         {isSelected ? 'Selected' : 'Select'}
                       </button>
-                    </div>
-                  </li>
+                    }
+                  />
                 )
               })}
-              {calendarSelection && (
-                <li className="cal-item ride-plan-row">
-                  <div>
-                    <strong>{calendarSelection.name}</strong>
-                    <span className="muted">From Calendar</span>
-                  </div>
-                  <div className="cal-item-actions">
+              {calendarSelection && calendarChart && (
+                <SessionModule
+                  key={`cal-${calendarSelection.id}`}
+                  title={sessionTitle(calendarSelection.name, 'scheduled')}
+                  secondary={`From Calendar · ${scheduledDurationLabel(calendarSelection, ftpWatts)}`}
+                  chartLabel={`${calendarSelection.name} planned Power Profile`}
+                  series={calendarChart.series}
+                  needsFtpToPreview={calendarChart.needsFtpToPreview}
+                  actions={
                     <button
                       type="button"
                       className="primary"
@@ -438,8 +462,8 @@ export function LiveDisplay({
                     >
                       Selected
                     </button>
-                  </div>
-                </li>
+                  }
+                />
               )}
             </ul>
           )}

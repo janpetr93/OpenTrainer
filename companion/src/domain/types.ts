@@ -62,6 +62,8 @@ export type Activity = {
   /** Present when the ride followed a Workout; null for Free Ride. */
   plannedPowerProfile: PowerProfilePoint[] | null
   workoutId: string | null
+  /** Session Purpose copied from the Scheduled Ride when ridden; null if none. */
+  purpose: string | null
   createdAt: string
   /** Set after a successful Strava API upload (optional). */
   stravaUpload?: ActivityStravaUpload | null
@@ -91,12 +93,15 @@ export type ScheduledRide = {
   id: string
   workoutId: string
   startsAt: string
+  /** Session Purpose — what this session is for (coaching rationale). */
+  purpose: string | null
   createdAt: string
 }
 
 export type CreateScheduledRideInput = {
   workoutId: string
   startsAt: string
+  purpose?: string | null
 }
 
 export type ListScheduledRidesQuery = {
