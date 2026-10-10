@@ -142,6 +142,8 @@ Manual FIT export works without Strava.
 ## Docs
 
 - [`CONTEXT.md`](CONTEXT.md) — domain language
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — PRs and review
+- [`SECURITY.md`](SECURITY.md) — vulnerability reporting
 - [`docs/adr/`](docs/adr/) — architecture decisions
 - [`docs/decisions/`](docs/decisions/) — session decisions
 - [`docs/mcp-chatgpt-week-planning.md`](docs/mcp-chatgpt-week-planning.md) — ChatGPT + tunnel
