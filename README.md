@@ -1,6 +1,13 @@
 # OpenTrainer
 
-Local indoor cycling app: connect a smart trainer over **Web Bluetooth FTMS** (built around the Van Rysel / Decathlon D100), run power-target workouts, keep an app-local training history, and plan weeks via **MCP** (Cursor, Claude Desktop, or ChatGPT desktop).
+Local indoor cycling app with an **MCP** bridge so your AI of choice can plan and review real training — not just chat about it.
+
+## Why this exists
+
+1. **Free and open source** — MIT-licensed. Fork it, tweak workouts, change the UI, keep your data on your laptop. No subscription for the planner/runner itself.
+2. **MCP is the main point** — ChatGPT, Claude, or Cursor decides the *structure* of your week and the *structure* of each session (hard/easy days, %FTP / zones, intervals). The MCP connector **materializes** that into real **Workouts** and a **Training Calendar** you can ride. Later, the same tools can **read your Activities** so the AI can adjust the next plan from what you actually did.
+
+The web app still does the usual trainer job: Web Bluetooth FTMS (built around the Van Rysel / Decathlon D100), live metrics, ERG workouts, local history. MCP is what turns “plan my week” into files on disk and rides on the calendar.
 
 ## Requirements
 
