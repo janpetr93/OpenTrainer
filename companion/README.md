@@ -17,8 +17,7 @@ Listens on `http://127.0.0.1:8787`. Data dir: `companion/data/` (override with `
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/health` | Liveness |
-| GET | `/api/profile` | **Rider Profile** + Coggan zones |
-| PUT | `/api/profile` | Set FTP `{ ftpWatts }` |
+| GET | `/api/profile` | **Rider Profile** + Coggan zones (read-only; set FTP/Intent via MCP) |
 | GET | `/api/workouts` | List **Workout**s |
 | POST | `/api/workouts` | Create **Workout** |
 | GET | `/api/activities?pastDays=14` | List **Activity**s |
@@ -51,7 +50,7 @@ npm run mcp
 
 Server name: `open-trainer`. Tools (v2 week planning):
 
-- `get_rider_profile` / `set_ftp` — **FTP** + derived Coggan **Power Zones**
+- `get_rider_profile` / `set_ftp` / `set_training_intent` — **FTP**, Coggan **Power Zones**, **Training Intent**
 - `list_workouts` / `create_workout` — templates; steps use watts and/or `%FTP` / zone
 - `list_activities` — past rides + **Power Profile**s
 - `list_scheduled_rides` / `create_scheduled_ride` / `delete_scheduled_ride` — **Training Calendar**

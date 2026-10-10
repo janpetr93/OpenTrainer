@@ -55,9 +55,9 @@ npm run mcp
 | **chatgpt.com (browser)** | No (local stdio) | Use ChatGPT desktop instead |
 | **Claude.ai** | No (local stdio) | Use Claude Desktop instead |
 
-Tools: `get_rider_profile`, `set_ftp`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, plus prompt `plan_training_week`.
+Tools: `get_rider_profile`, `set_ftp`, `set_training_intent`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, plus prompt `plan_training_week`.
 
-The clone ships two sample workouts (`sample-easy-endurance`, `sample-vo2-intervals`). Set FTP in the Profile tab (or via `set_ftp`) before %FTP / zone targets resolve.
+The clone ships two sample workouts (`sample-easy-endurance`, `sample-vo2-intervals`). Set FTP via MCP (`set_ftp`) before %FTP / zone targets resolve; the Profile tab shows the current value read-only.
 
 ### Cursor
 

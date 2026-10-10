@@ -235,7 +235,7 @@ export function LiveDisplay({
             </p>
             {showChart && (ftpWatts === null || ftpWatts <= 0) && (
               <p className="alignment-hint muted">
-                Set FTP on the Profile tab to show Power Zone bands.
+                Set FTP via MCP (set_ftp) to show Power Zone bands.
               </p>
             )}
           </div>
@@ -455,7 +455,7 @@ export function LiveDisplay({
           )}
           {needsFtp && (ftpWatts === null || ftpWatts <= 0) && (
             <p className="banner warn">
-              This Workout uses %FTP or zones — set FTP on the Profile tab
+              This Workout uses %FTP or zones — set FTP via MCP (set_ftp)
               first.
             </p>
           )}

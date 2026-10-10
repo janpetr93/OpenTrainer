@@ -22,5 +22,5 @@ Promote **Rider Profile** + **Strava Link** to a top-level **Profile** tab (same
 ## Consequences
 
 - Nav: Ride · History · Calendar · Profile.
-- Copy that pointed at History for FTP now points at Profile.
+- Copy that pointed at History for FTP now points at Profile (later: FTP/Intent edits moved to MCP — see [mcp-writes-rider-profile](2026-10-10-mcp-writes-rider-profile.md)).
 - `initialAppTab` (`web/src/appTab.ts`) selects Profile when `strava` is in the query string.

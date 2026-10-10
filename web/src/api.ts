@@ -20,9 +20,16 @@ export type RiderProfileZone = {
   targetWatts: number
 }
 
+export type TrainingIntent = {
+  goal: string
+  horizon: string | null
+  note: string | null
+}
+
 export type RiderProfile = {
   schemaVersion: number
   ftpWatts: number | null
+  intent: TrainingIntent | null
   updatedAt: string
   zones: RiderProfileZone[] | null
 }
@@ -202,16 +209,6 @@ export async function companionHealthy(): Promise<boolean> {
 
 export async function getRiderProfile(): Promise<RiderProfile> {
   const res = await fetch('/api/profile')
-  const body = await parseJson<{ profile: RiderProfile }>(res)
-  return body.profile
-}
-
-export async function setFtp(ftpWatts: number): Promise<RiderProfile> {
-  const res = await fetch('/api/profile', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ftpWatts }),
-  })
   const body = await parseJson<{ profile: RiderProfile }>(res)
   return body.profile
 }

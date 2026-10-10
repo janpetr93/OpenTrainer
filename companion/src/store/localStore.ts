@@ -16,6 +16,7 @@ import {
   type RiderProfile,
   type ScheduledRide,
   type StravaLink,
+  type TrainingIntent,
   type Workout,
   type WorkoutStep,
   type WorkoutStepType,
@@ -63,16 +64,18 @@ export class LocalStore {
   }
 
   async getRiderProfile(): Promise<RiderProfileView> {
-    let profile: RiderProfile
+    let raw: Partial<RiderProfile> & { ftpWatts?: number | null }
     try {
-      profile = await this.readJson<RiderProfile>(this.profilePath)
+      raw = await this.readJson<Partial<RiderProfile>>(this.profilePath)
     } catch {
-      profile = {
+      raw = {
         schemaVersion: STORE_SCHEMA_VERSION,
         ftpWatts: null,
+        intent: null,
         updatedAt: new Date(0).toISOString(),
       }
     }
+    const profile = this.normalizeRiderProfile(raw)
     return {
       ...profile,
       zones:
@@ -86,13 +89,86 @@ export class LocalStore {
     if (!Number.isFinite(ftpWatts) || ftpWatts <= 0 || ftpWatts > 2000) {
       throw new Error('ftpWatts must be a positive number (≤ 2000)')
     }
+    const current = await this.getRiderProfile()
     const profile: RiderProfile = {
       schemaVersion: STORE_SCHEMA_VERSION,
       ftpWatts: Math.round(ftpWatts),
+      intent: current.intent,
       updatedAt: new Date().toISOString(),
     }
     await this.writeJson(this.profilePath, profile)
     return this.getRiderProfile()
+  }
+
+  async setTrainingIntent(
+    intent: TrainingIntent | null,
+  ): Promise<RiderProfileView> {
+    const current = await this.getRiderProfile()
+    let nextIntent: TrainingIntent | null = null
+    if (intent !== null) {
+      const goal = intent.goal.trim()
+      if (!goal) {
+        throw new Error('Training Intent goal must be a non-empty string')
+      }
+      if (goal.length > 500) {
+        throw new Error('Training Intent goal must be ≤ 500 characters')
+      }
+      const horizon =
+        intent.horizon && intent.horizon.trim()
+          ? intent.horizon.trim()
+          : null
+      const note =
+        intent.note && intent.note.trim() ? intent.note.trim() : null
+      if (horizon && horizon.length > 200) {
+        throw new Error('Training Intent horizon must be ≤ 200 characters')
+      }
+      if (note && note.length > 1000) {
+        throw new Error('Training Intent note must be ≤ 1000 characters')
+      }
+      nextIntent = { goal, horizon, note }
+    }
+    const profile: RiderProfile = {
+      schemaVersion: STORE_SCHEMA_VERSION,
+      ftpWatts: current.ftpWatts,
+      intent: nextIntent,
+      updatedAt: new Date().toISOString(),
+    }
+    await this.writeJson(this.profilePath, profile)
+    return this.getRiderProfile()
+  }
+
+  private normalizeRiderProfile(raw: Partial<RiderProfile>): RiderProfile {
+    return {
+      schemaVersion: STORE_SCHEMA_VERSION,
+      ftpWatts:
+        typeof raw.ftpWatts === 'number' && Number.isFinite(raw.ftpWatts)
+          ? raw.ftpWatts
+          : null,
+      intent: this.normalizeIntent(raw.intent),
+      updatedAt:
+        typeof raw.updatedAt === 'string' && raw.updatedAt.length > 0
+          ? raw.updatedAt
+          : new Date(0).toISOString(),
+    }
+  }
+
+  private normalizeIntent(raw: unknown): TrainingIntent | null {
+    if (raw == null || typeof raw !== 'object') return null
+    const obj = raw as Record<string, unknown>
+    if (typeof obj.goal !== 'string') return null
+    const goal = obj.goal.trim()
+    if (!goal) return null
+    return {
+      goal,
+      horizon:
+        typeof obj.horizon === 'string' && obj.horizon.trim()
+          ? obj.horizon.trim()
+          : null,
+      note:
+        typeof obj.note === 'string' && obj.note.trim()
+          ? obj.note.trim()
+          : null,
+    }
   }
 
   async createWorkout(input: CreateWorkoutInput): Promise<Workout> {

@@ -291,7 +291,9 @@ function App() {
       return
     }
     if (workoutNeedsFtp(workout.steps) && (ftpWatts === null || ftpWatts <= 0)) {
-      setSaveMessage('Set FTP on the Profile tab before starting this Workout.')
+      setSaveMessage(
+        'Set FTP via MCP (set_ftp) before starting this Workout.',
+      )
       return
     }
     const resolved = withResolvedPlan(workout, ftpWatts)

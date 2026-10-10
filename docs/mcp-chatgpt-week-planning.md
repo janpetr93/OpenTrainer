@@ -61,18 +61,20 @@ You have OpenTrainer MCP v2. Do not claim calendar/FTP are unavailable.
 
 Week-plan workflow:
 1. get_rider_profile — if FTP is null, ask me and set_ftp
-2. list_activities (pastDays 14) + list_scheduled_rides for next week
-3. clear_scheduled_rides for that week’s since/until if replacing the plan
-4. create_workout with percentFtp or zone on every working step (not null targets)
-5. create_scheduled_ride for each day (workoutId + startsAt ISO)
-6. Summarize dates, names, and %FTP/zone
+2. If Training Intent is null, ask once for goal (optional horizon/note) and set_training_intent — or continue without if I decline; never invent a goal
+3. Ask what days I have available this week (not stored)
+4. list_activities (pastDays 14) + list_scheduled_rides for next week — infer recent emphasis from Activities
+5. clear_scheduled_rides for that week’s since/until if replacing the plan
+6. create_workout with percentFtp or zone on every working step (not null targets)
+7. create_scheduled_ride for each day (workoutId + startsAt ISO)
+8. Summarize dates, names, and %FTP/zone tied to Intent + recent emphasis
 
 Prefer zone / %FTP over absolute watts. Never invent Activities.
 ```
 
 ## Tools it should see
 
-`get_rider_profile`, `set_ftp`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, plus prompt `plan_training_week`.
+`get_rider_profile`, `set_ftp`, `set_training_intent`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, plus prompt `plan_training_week`.
 
 ## chatgpt.com (browser)
 

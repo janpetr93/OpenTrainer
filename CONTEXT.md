@@ -147,8 +147,12 @@ Seven Coggan training zones (Z1–Z7) computed from **FTP** as percent-of-FTP ba
 _Avoid_: Custom zones (deferred), heart-rate zones
 
 **Rider Profile**:
-Local Store record of the rider’s **FTP** (and derived **Power Zones**); readable/updatable via UI and MCP.
+Local Store record of the rider’s **FTP** (and derived **Power Zones**) plus optional **Training Intent**; UI reads it; MCP is the write path for FTP/Intent.
 _Avoid_: Account, user settings (cloud)
+
+**Training Intent**:
+Durable brief on the **Rider Profile** for week planning: the rider’s training **goal**, optional free-text **horizon**, and optional free-text **note** (overrides the AI would not infer from history); not a multi-week calendar and not chat memory as source of truth.
+_Avoid_: Phase (derived from **Activity** history unless noted), availability (ask in chat), periodization plan, long-term plan (ambiguous), structured targetDate (deferred)
 
 ### External export
 
@@ -172,9 +176,10 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - A **Workout** always has a planned **Power Profile** (resolved from **Target Prescription** + current **FTP** when charted/ridden).
 - A **Free Ride** is an **Activity** with no planned **Power Profile**.
 - The **Training Calendar** shows **Scheduled Ride**s (future) and **Activity**s (past).
-- The **Local Companion** owns the **Local Store**; the browser UI and MCP both read/write through it.
+- The **Local Companion** owns the **Local Store**; the browser UI and MCP both read through it; **FTP** / **Training Intent** writes are MCP-only (UI remains read-only for those fields).
 - **Connection** / Web Bluetooth stay in the browser, not in the **Local Companion**.
 - **Power Zones** are derived from **FTP** on the **Rider Profile** (Coggan 7-zone defaults).
+- **Training Intent** is product-owned context for MCP week planning alongside **Rider Profile** and **Activity** history; weekly availability is asked in chat, not stored; training phase is inferred from recent **Activity**s unless **Training Intent** **note** overrides.
 - An **Activity** can be exported as FIT for manual Strava upload and/or uploaded via API when a **Strava Link** exists.
 - The **Local Companion** owns the **Strava Link** (tokens + upload); the browser never holds the Strava client secret.
 - MCP does not create or use a **Strava Link** (UI + companion HTTP only).
@@ -204,6 +209,9 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 >
 > **Dev:** "Is connecting Strava the same as a **Connection**?"
 > **Rider:** "No — **Connection** is Bluetooth to the **Trainer**. **Strava Link** is OAuth so I can one-click upload an **Activity**."
+>
+> **Dev:** "Should the long-term plan live only in ChatGPT history?"
+> **Rider:** "No — keep a thin **Training Intent** in the **Local Store**. Infer recent phase from **Activity**s; ask availability in chat when planning the week."
 
 ## Code map
 
@@ -224,14 +232,15 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 | **Workout** | `companion/src/store/localStore.ts`; started via **Scheduled Ride** / Schedule again (not a UI catalog) |
 | **Devices** (tab) | `web/src/DevicesPanel.tsx` — connectors, **Known Devices**, **Connect All Known** / **Disconnect All**, FTMS debug; nav `APP_TAB_ORDER` in `web/src/appTab.ts` |
 | **History** (tab) | `web/src/WorkoutsPanel.tsx` — **Activity** history + Schedule again |
-| **Profile** (tab) | `web/src/ProfilePanel.tsx` — **Rider Profile** (FTP / zones) + **Strava Link** |
+| **Profile** (tab) | `web/src/ProfilePanel.tsx` — read-only **Rider Profile** (FTP / zones / Intent) + **Strava Link** |
 | **Schedule again** | `web/src/ScheduleAgain.tsx` via `ActivityActions` |
 | **Scheduled Ride** | `companion/data/scheduled/`; API `/api/scheduled-rides`; today's list in Ride panel (`LiveDisplay`) |
 | **Training Calendar** | `web/src/CalendarPanel.tsx` |
 | **Activity** recording | `web/src/workout/` + `POST /api/activities`; runner on Ride tab |
 | **Workout** runner | `web/src/workout/workoutRunner.ts` — start/pause/resume/skip/stop + ERG targets |
-| MCP | `companion/src/mcp/server.ts` — v2 week-planning (`get_rider_profile`, `set_ftp`, workouts, calendar, `clear_scheduled_rides`) |
-| **Rider Profile** | `companion/data/profile.json`; UI Profile tab `web/src/ProfilePanel.tsx`; resolve `web/src/domain/resolveTarget.ts` |
+| MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`) |
+| **Rider Profile** | `companion/data/profile.json`; GET `/api/profile`; UI Profile tab (read-only); MCP `set_ftp` / `get_rider_profile`; resolve `web/src/domain/resolveTarget.ts` |
+| **Training Intent** | On **Rider Profile** / `profile.json`; UI Profile tab (read-only); MCP `set_training_intent` (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`, `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`) |
 | **Target Prescription** | Workout steps: watts / `%FTP` / zone; resolve at run via current FTP |
 | **Local Companion** / **Local Store** | `companion/` + `companion/data/` — [ADR 0001](docs/adr/0001-local-companion-json-store.md) |
 
@@ -248,6 +257,8 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - **FTP** / **Power Zones** — resolved: FTP-only input; Coggan Z1–Z7 derived (no custom % yet).
 - **Target Prescription** resolve timing — resolved: keep prescription; resolve watts at run/display from current FTP.
 - MCP v2 week-planning tools — resolved (see `docs/decisions/2026-10-09-mcp-v2-week-planning.md`).
+- Long-term plan / **Training Intent** — resolved: Local Store goal + optional horizon/note; not chat-only; no stored phase or availability (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`).
+- **Rider Profile** writes — resolved: MCP-only for FTP/Intent; Profile tab read-only; no HTTP PUTs (see `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`).
 - Strava — resolved: keep manual FIT; add optional **Strava Link** + one-click upload (see `docs/decisions/2026-10-09-strava-link-and-upload.md`).
 - **Power Meter** — resolved: Assioma Uno via CPS; comparison-only / live **Power Alignment**; trainer stays primary (see `docs/decisions/2026-10-09-power-meter-comparison-only.md`).
 - **Heart Rate Monitor** / **Cadence Sensor** — resolved: live connectors + optional fields on achieved **Power Profile** (see `docs/decisions/2026-10-09-hrm-and-cadence-connectors.md`).

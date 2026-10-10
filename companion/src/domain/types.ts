@@ -104,8 +104,17 @@ export type ListScheduledRidesQuery = {
   until?: string
 }
 
+/** Durable week-planning brief on the Rider Profile. */
+export type TrainingIntent = {
+  goal: string
+  horizon: string | null
+  note: string | null
+}
+
 export type RiderProfile = {
   schemaVersion: typeof STORE_SCHEMA_VERSION
   ftpWatts: number | null
+  /** Null when the rider has not set a Training Intent. */
+  intent: TrainingIntent | null
   updatedAt: string
 }

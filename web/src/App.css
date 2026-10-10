@@ -116,6 +116,24 @@ button.tab.active {
   font: inherit;
 }
 
+.intent-readonly {
+  margin: 0.75rem 0 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.85rem;
+  font-size: 0.95rem;
+}
+
+.intent-readonly dt {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.intent-readonly dd {
+  margin: 0;
+}
+
 .ride-plan {
   width: 100%;
 }

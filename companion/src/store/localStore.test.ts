@@ -167,4 +167,31 @@ describe('LocalStore', () => {
     expect(await store.deleteScheduledRide(first.id)).toBe(true)
     expect(await store.getWorkout(workout.id)).not.toBeNull()
   })
+
+  it('getRiderProfile returns null Training Intent when unset', async () => {
+    const profile = await store.getRiderProfile()
+    expect(profile.intent).toBeNull()
+    expect(profile.ftpWatts).toBeNull()
+  })
+
+  it('setTrainingIntent persists goal/horizon/note and setFtp keeps it', async () => {
+    const withIntent = await store.setTrainingIntent({
+      goal: 'Raise FTP',
+      horizon: 'May gran fondo',
+      note: 'Deload through Oct 20',
+    })
+    expect(withIntent.intent).toEqual({
+      goal: 'Raise FTP',
+      horizon: 'May gran fondo',
+      note: 'Deload through Oct 20',
+    })
+
+    const afterFtp = await store.setFtp(250)
+    expect(afterFtp.ftpWatts).toBe(250)
+    expect(afterFtp.intent).toEqual(withIntent.intent)
+
+    const cleared = await store.setTrainingIntent(null)
+    expect(cleared.intent).toBeNull()
+    expect(cleared.ftpWatts).toBe(250)
+  })
 })

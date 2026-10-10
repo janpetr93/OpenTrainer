@@ -26,7 +26,7 @@ async function main(): Promise<void> {
 
   const server = new McpServer({
     name: 'open-trainer',
-    version: '0.3.1',
+    version: '0.3.2',
   })
 
   server.registerPrompt(
@@ -45,11 +45,13 @@ async function main(): Promise<void> {
             text: [
               'Plan my next training week using OpenTrainer MCP tools.',
               '1) Call get_rider_profile. If FTP is null, ask me for FTP watts and call set_ftp.',
-              '2) Call list_activities (pastDays 14) and list_scheduled_rides for the week window.',
-              '3) Call clear_scheduled_rides for that week’s since/until before replacing the plan.',
-              '4) create_workout with Target Prescription: prefer percentFtp or zone (1–7 Coggan). Do not leave all targets null; absolute targetWatts only when I ask.',
-              '5) create_scheduled_ride for each day (workoutId + startsAt ISO).',
-              '6) Summarize the week with dates, workout names, and resolved intensity (%FTP/zone).',
+              '2) If Training Intent (intent) is null, ask once for goal (optional horizon/note) and call set_training_intent — or continue without Intent if I decline. Never invent a goal.',
+              '3) Ask what days/time I have available this week (do not assume; availability is not stored).',
+              '4) Call list_activities (pastDays 14) and list_scheduled_rides for the week window. Infer recent training emphasis from Activities (do not invent a stored phase).',
+              '5) Call clear_scheduled_rides for that week’s since/until before replacing the plan.',
+              '6) create_workout with Target Prescription: prefer percentFtp or zone (1–7 Coggan). Do not leave all targets null; absolute targetWatts only when I ask.',
+              '7) create_scheduled_ride for each day (workoutId + startsAt ISO).',
+              '8) Summarize the week with dates, workout names, and resolved intensity (%FTP/zone), tied to Intent + recent emphasis.',
             ].join('\n'),
           },
         },
@@ -61,7 +63,7 @@ async function main(): Promise<void> {
     'get_rider_profile',
     {
       description:
-        'Get Rider Profile: FTP (watts) and derived Coggan Power Zones (Z1–Z7). Call this before prescribing zone/%FTP workouts.',
+        'Get Rider Profile: FTP (watts), derived Coggan Power Zones (Z1–Z7), and Training Intent (goal/horizon/note or null). Call before prescribing zone/%FTP workouts and when planning a week.',
       inputSchema: {},
     },
     async () => jsonResult(await store.getRiderProfile()),
@@ -77,6 +79,53 @@ async function main(): Promise<void> {
       },
     },
     async ({ ftpWatts }) => jsonResult(await store.setFtp(ftpWatts)),
+  )
+
+  server.registerTool(
+    'set_training_intent',
+    {
+      description:
+        'Set or clear durable Training Intent on the Rider Profile (goal + optional free-text horizon/note). Use when intent is null during week planning or the rider updates direction. Pass clear:true to remove Intent. Does not store weekly availability or training phase.',
+      inputSchema: {
+        clear: z
+          .boolean()
+          .optional()
+          .describe('If true, clear Training Intent (ignore goal/horizon/note)'),
+        goal: z
+          .string()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe('Training goal, e.g. raise FTP / climbing'),
+        horizon: z
+          .string()
+          .max(200)
+          .nullable()
+          .optional()
+          .describe('Optional free-text horizon, e.g. May gran fondo'),
+        note: z
+          .string()
+          .max(1000)
+          .nullable()
+          .optional()
+          .describe('Optional override note the AI would not infer from history'),
+      },
+    },
+    async ({ clear, goal, horizon, note }) => {
+      if (clear) {
+        return jsonResult(await store.setTrainingIntent(null))
+      }
+      if (!goal || !goal.trim()) {
+        throw new Error('goal is required unless clear is true')
+      }
+      return jsonResult(
+        await store.setTrainingIntent({
+          goal,
+          horizon: horizon ?? null,
+          note: note ?? null,
+        }),
+      )
+    },
   )
 
   server.registerTool(

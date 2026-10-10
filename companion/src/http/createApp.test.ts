@@ -75,6 +75,49 @@ describe('HTTP API', () => {
     })
   })
 
+  it('GET /api/profile returns Rider Profile; PUT profile routes are not exposed', async () => {
+    await store.setFtp(240)
+    await store.setTrainingIntent({
+      goal: 'Climbing',
+      horizon: 'summer',
+      note: null,
+    })
+    await withServer(store, async (baseUrl) => {
+      const getRes = await fetch(`${baseUrl}/api/profile`)
+      expect(getRes.status).toBe(200)
+      const getBody = (await getRes.json()) as {
+        profile: {
+          ftpWatts: number | null
+          intent: { goal: string; horizon: string | null; note: string | null } | null
+        }
+      }
+      expect(getBody.profile.ftpWatts).toBe(240)
+      expect(getBody.profile.intent).toEqual({
+        goal: 'Climbing',
+        horizon: 'summer',
+        note: null,
+      })
+
+      const putFtp = await fetch(`${baseUrl}/api/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ftpWatts: 250 }),
+      })
+      expect(putFtp.status).toBe(404)
+
+      const putIntent = await fetch(`${baseUrl}/api/profile/intent`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intent: null }),
+      })
+      expect(putIntent.status).toBe(404)
+
+      const after = await store.getRiderProfile()
+      expect(after.ftpWatts).toBe(240)
+      expect(after.intent?.goal).toBe('Climbing')
+    })
+  })
+
   it('POST /api/activities saves an Activity', async () => {
     await withServer(store, async (baseUrl) => {
       const res = await fetch(`${baseUrl}/api/activities`, {

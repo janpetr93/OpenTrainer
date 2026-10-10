@@ -301,19 +301,6 @@ export function createRequestHandler(
         return
       }
 
-      if (method === 'PUT' && url.pathname === '/api/profile') {
-        const body = await readJsonBody(req)
-        if (!body || typeof body !== 'object') {
-          throw new Error('JSON body required')
-        }
-        const ftpWatts = (body as Record<string, unknown>).ftpWatts
-        if (typeof ftpWatts !== 'number') {
-          throw new Error('ftpWatts must be a number')
-        }
-        sendJson(res, 200, { profile: await store.setFtp(ftpWatts) })
-        return
-      }
-
       if (method === 'GET' && url.pathname === '/api/workouts') {
         sendJson(res, 200, { workouts: await store.listWorkouts() })
         return

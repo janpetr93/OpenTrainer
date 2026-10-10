@@ -183,7 +183,7 @@ export class WorkoutRunner {
       throw new Error('Workout has no steps')
     }
     if (workoutNeedsFtp(workout.steps) && (ftpWatts === null || ftpWatts <= 0)) {
-      throw new Error('Set FTP in Rider Profile before starting this Workout')
+      throw new Error('Set FTP via MCP (set_ftp) before starting this Workout')
     }
     // Fail fast if any step cannot resolve.
     for (const step of workout.steps) {

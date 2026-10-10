@@ -5,7 +5,6 @@ import {
   disconnectStrava,
   getRiderProfile,
   getStravaStatus,
-  setFtp,
   type RiderProfile,
   type StravaLinkStatus,
 } from './api'
@@ -33,17 +32,24 @@ function clearStravaQuery(): void {
   window.history.replaceState({}, '', url.pathname + url.search + url.hash)
 }
 
-/** Profile tab — Rider Profile (FTP / zones) + Strava Link. */
+/** Profile tab — read-only Rider Profile (FTP / zones / Training Intent) + Strava Link. */
 export function ProfilePanel({ onProfileChange }: Props) {
   const [healthy, setHealthy] = useState<boolean | null>(null)
   const [profile, setProfile] = useState<RiderProfile | null>(null)
   const [strava, setStrava] = useState<StravaLinkStatus | null>(null)
-  const [ftpInput, setFtpInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [stravaMessage, setStravaMessage] = useState<string | null>(() =>
     readStravaQueryMessage(),
   )
   const [busy, setBusy] = useState(false)
+
+  const applyProfile = useCallback(
+    (next: RiderProfile) => {
+      setProfile(next)
+      onProfileChange?.(next)
+    },
+    [onProfileChange],
+  )
 
   const refresh = useCallback(async () => {
     const ok = await companionHealthy()
@@ -57,36 +63,14 @@ export function ProfilePanel({ onProfileChange }: Props) {
       getRiderProfile(),
       getStravaStatus(),
     ])
-    setProfile(next)
+    applyProfile(next)
     setStrava(link)
-    setFtpInput(next.ftpWatts !== null ? String(next.ftpWatts) : '')
-    onProfileChange?.(next)
-  }, [onProfileChange])
+  }, [applyProfile])
 
   useEffect(() => {
     if (stravaMessage) clearStravaQuery()
     void refresh()
   }, [refresh, stravaMessage])
-
-  async function onSave(): Promise<void> {
-    const value = Number(ftpInput)
-    if (!Number.isFinite(value) || value <= 0) {
-      setError('Enter a positive FTP in watts')
-      return
-    }
-    setBusy(true)
-    setError(null)
-    try {
-      const next = await setFtp(value)
-      setProfile(next)
-      setFtpInput(String(next.ftpWatts))
-      onProfileChange?.(next)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setBusy(false)
-    }
-  }
 
   async function onDisconnectStrava(): Promise<void> {
     setBusy(true)
@@ -117,28 +101,15 @@ export function ProfilePanel({ onProfileChange }: Props) {
       <section className="panel-block">
         <h2>Rider Profile · FTP</h2>
         <p className="muted">
-          Coggan Power Zones derive from FTP. Zone / %FTP workouts resolve when
-          you ride.
+          Coggan Power Zones derive from FTP. Set or change FTP via MCP (
+          <code>set_ftp</code>). Zone / %FTP workouts resolve when you ride.
         </p>
         <div className="form-row">
-          <input
-            type="number"
-            min={1}
-            max={2000}
-            value={ftpInput}
-            onChange={(e) => setFtpInput(e.target.value)}
-            placeholder="FTP watts"
-            aria-label="FTP watts"
-            disabled={healthy === false}
-          />
-          <button
-            type="button"
-            className="primary"
-            disabled={busy || healthy === false}
-            onClick={() => void onSave()}
-          >
-            Save FTP
-          </button>
+          <p aria-label="FTP watts">
+            {profile?.ftpWatts != null
+              ? `FTP ${profile.ftpWatts} W`
+              : 'FTP not set'}
+          </p>
           <button type="button" disabled={busy} onClick={() => void refresh()}>
             Refresh
           </button>
@@ -156,8 +127,44 @@ export function ProfilePanel({ onProfileChange }: Props) {
         )}
         {profile && profile.ftpWatts === null && (
           <p className="muted">
-            No FTP set yet — absolute-watts workouts still work.
+            No FTP set yet — ask your coach via MCP to call <code>set_ftp</code>.
+            Absolute-watts workouts still work.
           </p>
+        )}
+      </section>
+
+      <section className="panel-block">
+        <h2>Training Intent</h2>
+        <p className="muted">
+          Durable direction for AI week planning. Set or clear via MCP (
+          <code>set_training_intent</code>). Recent training emphasis comes from
+          Activity history; this week&apos;s availability is asked in chat, not
+          stored here.
+        </p>
+        {profile?.intent ? (
+          <dl className="intent-readonly">
+            <dt>Goal</dt>
+            <dd>{profile.intent.goal}</dd>
+            {profile.intent.horizon && (
+              <>
+                <dt>Horizon</dt>
+                <dd>{profile.intent.horizon}</dd>
+              </>
+            )}
+            {profile.intent.note && (
+              <>
+                <dt>Note</dt>
+                <dd>{profile.intent.note}</dd>
+              </>
+            )}
+          </dl>
+        ) : (
+          profile && (
+            <p className="muted">
+              No Intent set — week planning will ask, or set it via MCP (
+              <code>set_training_intent</code>).
+            </p>
+          )
         )}
       </section>
 
