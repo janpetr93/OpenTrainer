@@ -124,14 +124,22 @@ _Avoid_: Session, workout (a **Workout** is the plan; an **Activity** is what wa
 
 **Power Profile**:
 Watts over elapsed time for a plan or ride — for a **Workout**, the planned step chart; for an **Activity**, achieved power (and planned overlay when a **Workout** was followed). Achieved points may also include optional `hrBpm` / `cadenceRpm` / `meterWatts` when those sensors were fresh; the Ride chart overlays these metrics (watts series share a scale with optional **Power Zone** bands from **FTP**; HR/cadence scale independently).
-_Avoid_: Power curve (ambiguous with mean-maximal power), MMP, bests chart
+_Avoid_: Power curve (use **Mean Maximal Power** for bests), MMP as a synonym for this session chart
+
+**Mean Maximal Power** (MMP):
+Lifetime best average trainer watts for fixed durations (5s–90min) across all **Activity** achieved **Power Profile**s — cached in the **Local Store**, shown on the Profile tab, recalculated on demand; distinct from a session **Power Profile**.
+_Avoid_: Power Profile, power curve alone (ambiguous), meter-watts bests
+
+**Estimated FTP**:
+FTP implied by **MMP** as 20min MMP × 0.95, compared to the set **FTP** on the **Rider Profile** — never auto-written back to the profile.
+_Avoid_: Set FTP, threshold test protocol
 
 **Workout Specs**:
 The create/list payload for a **Workout**: name, ordered steps (type, duration, target watts), and its planned **Power Profile**.
 
 **Activity Specs**:
 The summary payload for an **Activity**: start time, duration, average/max power, achieved **Power Profile**, and planned **Power Profile** when the ride followed a **Workout**.
-_Avoid_: Invented HR/cadence; mean-maximal metrics unless explicitly added later
+_Avoid_: Invented HR/cadence
 
 **Free Ride**:
 An **Activity** recorded without starting from a **Workout** or **Scheduled Ride** — achieved **Power Profile** only, no planned overlay.
@@ -151,7 +159,7 @@ Seven Coggan training zones (Z1–Z7) computed from **FTP** as percent-of-FTP ba
 _Avoid_: Custom zones (deferred), heart-rate zones
 
 **Rider Profile**:
-Local Store record of the rider’s **FTP** (and derived **Power Zones**) plus optional **Training Intent**; UI reads it; MCP is the write path for FTP/Intent.
+Local Store record of the rider’s **FTP** (and derived **Power Zones**) plus optional **Training Intent**; UI reads it; MCP is the write path for FTP/Intent. The Profile tab also shows **Mean Maximal Power** (separate cache file).
 _Avoid_: Account, user settings (cloud)
 
 **Training Intent**:
@@ -185,6 +193,8 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - The **Local Companion** owns the **Local Store**; the browser UI and MCP both read through it; **FTP** / **Training Intent** writes are MCP-only (UI remains read-only for those fields).
 - **Connection** / Web Bluetooth stay in the browser, not in the **Local Companion**.
 - **Power Zones** are derived from **FTP** on the **Rider Profile** (Coggan 7-zone defaults).
+- **Mean Maximal Power** is computed from all **Activity** achieved **Power Profile**s (trainer watts), persisted separately from the **Rider Profile**, and marked stale when Activities change until the rider recomputes.
+- **Estimated FTP** uses 20min **MMP** × 0.95 and is compared to set **FTP**; it does not update the **Rider Profile**.
 - **Training Intent** is product-owned context for MCP week planning alongside **Rider Profile** and **Activity** history; weekly availability is asked in chat, not stored; training phase is inferred from recent **Activity**s unless **Training Intent** **note** overrides.
 - An **Activity** can be exported as FIT for manual Strava upload and/or uploaded via API when a **Strava Link** exists.
 - The **Local Companion** owns the **Strava Link** (tokens + upload); the browser never holds the Strava client secret.
@@ -201,8 +211,11 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 > **Dev:** "When you say MCP should create a session, is that a **Workout**, a **Scheduled Ride**, or an **Activity**?"
 > **Rider:** "**Workout** and/or **Scheduled Ride**. An **Activity** only exists after I actually ride."
 >
-> **Dev:** "By power curve, do you mean mean-maximal bests or the session **Power Profile**?"
-> **Rider:** "**Power Profile** — planned steps for a **Workout**, achieved vs planned for an **Activity**."
+> **Dev:** "By power curve on a ride, do you mean mean-maximal bests or the session **Power Profile**?"
+> **Rider:** "On the ride chart, **Power Profile**. Lifetime bests live on Profile as **Mean Maximal Power**."
+>
+> **Dev:** "How does **MMP** relate to my set **FTP**?"
+> **Rider:** "Show **Estimated FTP** from 20min MMP × 0.95 next to the set value — don’t overwrite FTP."
 >
 > **Dev:** "What if I just spin with no plan?"
 > **Rider:** "That's a **Free Ride** — still an **Activity**, but no planned overlay."
@@ -241,7 +254,9 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 | **Workout** | `companion/src/store/localStore.ts`; started via **Scheduled Ride** / Schedule again (not a UI catalog) |
 | **Devices** (tab) | `web/src/DevicesPanel.tsx` — connectors, **Known Devices**, **Connect All Known** / **Disconnect All**, FTMS debug; nav `APP_TAB_ORDER` in `web/src/appTab.ts` |
 | **History** (tab) | `web/src/WorkoutsPanel.tsx` — **Activity** history + Schedule again |
-| **Profile** (tab) | `web/src/ProfilePanel.tsx` — read-only **Rider Profile** (FTP / zones / Intent) + **Strava Link** |
+| **Profile** (tab) | `web/src/ProfilePanel.tsx` — read-only **Rider Profile** (FTP / zones / Intent) + **MMP** + **Strava Link** |
+| **Mean Maximal Power** | `companion/src/domain/meanMaximalPower.ts`; cache `companion/data/mmp.json`; GET/POST `/api/mmp`; MCP `get_mmp`; UI Profile tab |
+| **Estimated FTP** | Derived in MMP enrich (20min × 0.95) vs set FTP on Profile / `get_mmp` |
 | **Schedule again** | `web/src/ScheduleAgain.tsx` via `ActivityActions` |
 | **Scheduled Ride** | `companion/data/scheduled/`; API `/api/scheduled-rides`; today's list in Ride panel (`LiveDisplay`); shared row UI `SessionModule` |
 | **Session Purpose** | `purpose` on **Scheduled Ride** / **Activity**; MCP `create_scheduled_ride`; Calendar + History UI (see `docs/decisions/2026-10-10-session-purpose-on-scheduled-ride.md`) |
@@ -249,7 +264,7 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 | Session module (Scheduled / Activity rows) | `web/src/SessionModule.tsx` + `web/src/session/sessionModuleHelpers.ts`; planned preview via `web/src/domain/scheduledWorkoutPreview.ts` (Ride, History, Calendar) |
 | **Activity** recording | `web/src/workout/` + `POST /api/activities`; runner on Ride tab |
 | **Workout** runner | `web/src/workout/workoutRunner.ts` — start/pause/resume/skip/stop + ERG targets |
-| MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`) |
+| MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`) |
 | **Rider Profile** | `companion/data/profile.json`; GET `/api/profile`; UI Profile tab (read-only); MCP `set_ftp` / `get_rider_profile`; resolve `web/src/domain/resolveTarget.ts` |
 | **Training Intent** | On **Rider Profile** / `profile.json`; UI Profile tab (read-only); MCP `set_training_intent` (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`, `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`) |
 | **Target Prescription** | Workout steps: watts / `%FTP` / zone; resolve at run via current FTP |
@@ -259,7 +274,7 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 
 - "intent" on a planned ride — resolved as **Session Purpose** (`purpose`); **Training Intent** stays on the **Rider Profile**.
 - "Session" — resolved: do not use; say **Workout**, **Scheduled Ride**, or **Activity**.
-- "Power curve" — resolved as **Power Profile** (not mean-maximal).
+- "Power curve" — session chart is **Power Profile**; lifetime bests are **Mean Maximal Power** (Profile).
 - **Free Ride** — resolved: allowed; planned **Power Profile** omitted.
 - **Training Calendar** — resolved: app-local; future Scheduled Rides + past Activities.
 - Build order — resolved: slice1 Bluetooth proof → slice2 local store+MCP → slice3 runner/recording → slice4 export/Power Profile UI → slice5 Training Calendar.

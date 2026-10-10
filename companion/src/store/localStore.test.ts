@@ -232,4 +232,39 @@ describe('LocalStore', () => {
     expect(cleared.intent).toBeNull()
     expect(cleared.ftpWatts).toBe(250)
   })
+
+  it('recomputeMmp persists Mean Maximal Power and marks stale after a new Activity', async () => {
+    expect(await store.getMmpCache()).toBeNull()
+    expect(await store.isMmpStale(null)).toBe(true)
+
+    const watts = Array.from({ length: 60 }, () => 200)
+    await store.saveActivity({
+      startedAt: '2026-10-01T10:00:00.000Z',
+      durationSec: 59,
+      averagePowerWatts: 200,
+      maxPowerWatts: 200,
+      achievedPowerProfile: watts.map((w, tSec) => ({ tSec, watts: w })),
+      plannedPowerProfile: null,
+      workoutId: null,
+    })
+
+    const cache = await store.recomputeMmp()
+    expect(cache.points.find((p) => p.durationSec === 60)?.watts).toBe(200)
+    expect(await store.getMmpCache()).toEqual(cache)
+    expect(await store.isMmpStale(cache)).toBe(false)
+
+    await store.saveActivity({
+      startedAt: '2026-10-02T10:00:00.000Z',
+      durationSec: 10,
+      averagePowerWatts: 100,
+      maxPowerWatts: 100,
+      achievedPowerProfile: Array.from({ length: 11 }, (_, tSec) => ({
+        tSec,
+        watts: 100,
+      })),
+      plannedPowerProfile: null,
+      workoutId: null,
+    })
+    expect(await store.isMmpStale(cache)).toBe(true)
+  })
 })

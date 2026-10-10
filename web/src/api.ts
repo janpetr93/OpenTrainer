@@ -219,6 +219,36 @@ export async function getRiderProfile(): Promise<RiderProfile> {
   return body.profile
 }
 
+export type MmpPointView = {
+  durationSec: number
+  watts: number | null
+  activityId: string | null
+  startedAt: string | null
+  percentFtp: number | null
+}
+
+export type MmpView = {
+  points: MmpPointView[]
+  computedAt: string | null
+  stale: boolean
+  setFtpWatts: number | null
+  estimatedFtpWatts: number | null
+  estimatedFtpDeltaWatts: number | null
+  activityCount: number
+}
+
+export async function getMmp(): Promise<MmpView> {
+  const res = await fetch('/api/mmp')
+  const body = await parseJson<{ mmp: MmpView }>(res)
+  return body.mmp
+}
+
+export async function recomputeMmp(): Promise<MmpView> {
+  const res = await fetch('/api/mmp/recompute', { method: 'POST' })
+  const body = await parseJson<{ mmp: MmpView }>(res)
+  return body.mmp
+}
+
 export async function clearScheduledRides(input: {
   since: string
   until: string

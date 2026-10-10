@@ -28,3 +28,4 @@
 - Local Store: `companion/data/` (gitignored except sample workouts).
 - Override with the `D100_DATA_DIR` env var.
 - FTP must be set (via the `set_ftp` MCP tool) before %FTP / zone targets resolve.
+- Mean Maximal Power: Profile tab Recompute (`POST /api/mmp/recompute`); MCP `get_mmp` is read-only.

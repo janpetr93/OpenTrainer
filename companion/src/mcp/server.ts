@@ -2,6 +2,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import * as z from 'zod/v4'
+import { loadMmpView } from '../domain/mmpView.js'
 import { LocalStore } from '../store/localStore.js'
 import { resolveDataDir } from '../paths.js'
 
@@ -26,7 +27,7 @@ async function main(): Promise<void> {
 
   const server = new McpServer({
     name: 'open-trainer',
-    version: '0.3.3',
+    version: '0.3.4',
   })
 
   server.registerPrompt(
@@ -46,12 +47,13 @@ async function main(): Promise<void> {
               'Plan my next training week using OpenTrainer MCP tools.',
               '1) Call get_rider_profile. If FTP is null, ask me for FTP watts and call set_ftp.',
               '2) If Training Intent (intent) is null, ask once for goal (optional horizon/note) and call set_training_intent — or continue without Intent if I decline. Never invent a goal.',
-              '3) Ask what days/time I have available this week (do not assume; availability is not stored).',
-              '4) Call list_activities (pastDays 14) and list_scheduled_rides for the week window. Infer recent training emphasis from Activities (do not invent a stored phase).',
-              '5) Call clear_scheduled_rides for that week’s since/until before replacing the plan.',
-              '6) create_workout with Target Prescription: prefer percentFtp or zone (1–7 Coggan). Do not leave all targets null; absolute targetWatts only when I ask.',
-              '7) create_scheduled_ride for each day (workoutId + startsAt ISO + purpose). Session Purpose is required in week planning: one short sentence on what the session is for (e.g. improve endurance, raise lactate threshold) — not Training Intent.',
-              '8) Summarize the week with dates, workout names, Session Purpose, and resolved intensity (%FTP/zone), tied to Intent + recent emphasis.',
+              '3) Optionally call get_mmp for lifetime Mean Maximal Power / Estimated FTP context (read-only cache; may be stale or empty until the rider recomputes in the Profile UI).',
+              '4) Ask what days/time I have available this week (do not assume; availability is not stored).',
+              '5) Call list_activities (pastDays 14) and list_scheduled_rides for the week window. Infer recent training emphasis from Activities (do not invent a stored phase).',
+              '6) Call clear_scheduled_rides for that week’s since/until before replacing the plan.',
+              '7) create_workout with Target Prescription: prefer percentFtp or zone (1–7 Coggan). Do not leave all targets null; absolute targetWatts only when I ask.',
+              '8) create_scheduled_ride for each day (workoutId + startsAt ISO + purpose). Session Purpose is required in week planning: one short sentence on what the session is for (e.g. improve endurance, raise lactate threshold) — not Training Intent.',
+              '9) Summarize the week with dates, workout names, Session Purpose, and resolved intensity (%FTP/zone), tied to Intent + recent emphasis.',
             ].join('\n'),
           },
         },
@@ -67,6 +69,16 @@ async function main(): Promise<void> {
       inputSchema: {},
     },
     async () => jsonResult(await store.getRiderProfile()),
+  )
+
+  server.registerTool(
+    'get_mmp',
+    {
+      description:
+        'Get cached Mean Maximal Power (lifetime best averages for fixed durations), Estimated FTP (20min MMP × 0.95) vs set FTP, and stale flag. Read-only — rider recomputes in the Profile UI. Empty/stale when never computed or Activities changed.',
+      inputSchema: {},
+    },
+    async () => jsonResult(await loadMmpView(store)),
   )
 
   server.registerTool(

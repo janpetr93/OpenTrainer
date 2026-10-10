@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { LocalStore, SaveActivityInput } from '../store/localStore.js'
 import type { PowerZoneId } from '../domain/cogganZones.js'
+import { loadMmpView } from '../domain/mmpView.js'
 import type {
   CreateScheduledRideInput,
   CreateWorkoutInput,
@@ -300,6 +301,17 @@ export function createRequestHandler(
 
       if (method === 'GET' && url.pathname === '/api/profile') {
         sendJson(res, 200, { profile: await store.getRiderProfile() })
+        return
+      }
+
+      if (method === 'GET' && url.pathname === '/api/mmp') {
+        sendJson(res, 200, { mmp: await loadMmpView(store) })
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/mmp/recompute') {
+        await store.recomputeMmp()
+        sendJson(res, 200, { mmp: await loadMmpView(store) })
         return
       }
 

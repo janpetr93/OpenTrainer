@@ -74,7 +74,7 @@ Prefer zone / %FTP over absolute watts. Never invent Activities.
 
 ## Tools it should see
 
-`get_rider_profile`, `set_ftp`, `set_training_intent`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, plus prompt `plan_training_week`.
+`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, plus prompt `plan_training_week`.
 
 ## chatgpt.com (browser)
 

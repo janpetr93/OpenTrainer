@@ -18,6 +18,8 @@ Listens on `http://127.0.0.1:8787`. Data dir: `companion/data/` (override with `
 | --- | --- | --- |
 | GET | `/api/health` | Liveness |
 | GET | `/api/profile` | **Rider Profile** + Coggan zones (read-only; set FTP/Intent via MCP) |
+| GET | `/api/mmp` | Cached **Mean Maximal Power** + Estimated FTP vs set FTP + `stale` |
+| POST | `/api/mmp/recompute` | Recompute MMP from all Activities and persist `mmp.json` |
 | GET | `/api/workouts` | List **Workout**s |
 | POST | `/api/workouts` | Create **Workout** |
 | GET | `/api/activities?pastDays=14` | List **Activity**s |
@@ -54,6 +56,7 @@ Use `--silent` so npm’s lifecycle banner does not mix into MCP stdio. `tsx` is
 Server name: `open-trainer`. Tools (v2 week planning):
 
 - `get_rider_profile` / `set_ftp` / `set_training_intent` — **FTP**, Coggan **Power Zones**, **Training Intent**
+- `get_mmp` — cached **Mean Maximal Power** + Estimated FTP (read-only; recompute in Profile UI)
 - `list_workouts` / `create_workout` — templates; steps use watts and/or `%FTP` / zone
 - `list_activities` — past rides + **Power Profile**s
 - `list_scheduled_rides` / `create_scheduled_ride` (optional **Session Purpose**) / `delete_scheduled_ride` — **Training Calendar**

@@ -3,11 +3,16 @@ import {
   beginStravaAuthorize,
   companionHealthy,
   disconnectStrava,
+  getMmp,
   getRiderProfile,
   getStravaStatus,
+  recomputeMmp,
+  type MmpView,
   type RiderProfile,
   type StravaLinkStatus,
 } from './api'
+import { formatMmpDuration } from './mmp/formatDuration'
+import { MmpChart } from './mmp/MmpChart'
 
 type Props = {
   onProfileChange?: (profile: RiderProfile) => void
@@ -32,10 +37,11 @@ function clearStravaQuery(): void {
   window.history.replaceState({}, '', url.pathname + url.search + url.hash)
 }
 
-/** Profile tab — read-only Rider Profile (FTP / zones / Training Intent) + Strava Link. */
+/** Profile tab — read-only Rider Profile (FTP / zones / Training Intent) + MMP + Strava Link. */
 export function ProfilePanel({ onProfileChange }: Props) {
   const [healthy, setHealthy] = useState<boolean | null>(null)
   const [profile, setProfile] = useState<RiderProfile | null>(null)
+  const [mmp, setMmp] = useState<MmpView | null>(null)
   const [strava, setStrava] = useState<StravaLinkStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stravaMessage, setStravaMessage] = useState<string | null>(() =>
@@ -59,12 +65,14 @@ export function ProfilePanel({ onProfileChange }: Props) {
       return
     }
     setError(null)
-    const [next, link] = await Promise.all([
+    const [next, link, nextMmp] = await Promise.all([
       getRiderProfile(),
       getStravaStatus(),
+      getMmp(),
     ])
     applyProfile(next)
     setStrava(link)
+    setMmp(nextMmp)
   }, [applyProfile])
 
   useEffect(() => {
@@ -79,6 +87,18 @@ export function ProfilePanel({ onProfileChange }: Props) {
       await disconnectStrava()
       setStrava(await getStravaStatus())
       setStravaMessage('Strava Link disconnected.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onRecomputeMmp(): Promise<void> {
+    setBusy(true)
+    setError(null)
+    try {
+      setMmp(await recomputeMmp())
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -131,6 +151,95 @@ export function ProfilePanel({ onProfileChange }: Props) {
             Absolute-watts workouts still work.
           </p>
         )}
+      </section>
+
+      <section className="panel-block">
+        <h2>Power curve · Mean Maximal Power</h2>
+        <p className="muted">
+          Lifetime best average trainer watts across all Activities. Recompute
+          after new rides — not updated automatically.
+        </p>
+        {mmp?.stale && (
+          <p className="banner mmp-stale" role="status">
+            Out of date — Recompute to include recent Activities.
+          </p>
+        )}
+        {mmp && mmp.points.length === 0 && (
+          <p className="muted">
+            No MMP cache yet. Ride a few sessions, then Recompute.
+          </p>
+        )}
+        {mmp && mmp.points.length > 0 && (
+          <>
+            <MmpChart points={mmp.points} setFtpWatts={mmp.setFtpWatts} />
+            <div className="mmp-estimate">
+              {mmp.estimatedFtpWatts != null ? (
+                <p>
+                  Estimated FTP (20min × 0.95):{' '}
+                  <strong>{mmp.estimatedFtpWatts} W</strong>
+                  {mmp.setFtpWatts != null ? (
+                    <>
+                      {' '}
+                      vs set <strong>{mmp.setFtpWatts} W</strong>
+                      {mmp.estimatedFtpDeltaWatts != null && (
+                        <span className="muted">
+                          {' '}
+                          ({mmp.estimatedFtpDeltaWatts >= 0 ? '+' : ''}
+                          {mmp.estimatedFtpDeltaWatts} W)
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="muted"> — set FTP via MCP to compare</span>
+                  )}
+                </p>
+              ) : (
+                <p className="muted">
+                  Estimated FTP needs a 20min best — not available yet.
+                </p>
+              )}
+            </div>
+            <table className="mmp-table">
+              <thead>
+                <tr>
+                  <th scope="col">Duration</th>
+                  <th scope="col">Watts</th>
+                  <th scope="col">% FTP</th>
+                  <th scope="col">Best date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mmp.points.map((p) => (
+                  <tr key={p.durationSec}>
+                    <td>{formatMmpDuration(p.durationSec)}</td>
+                    <td>{p.watts == null ? '—' : `${p.watts}`}</td>
+                    <td>{p.percentFtp == null ? '—' : `${p.percentFtp}%`}</td>
+                    <td>
+                      {p.startedAt
+                        ? new Date(p.startedAt).toLocaleDateString()
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+        <div className="form-row">
+          <button
+            type="button"
+            className="primary"
+            disabled={busy || healthy === false}
+            onClick={() => void onRecomputeMmp()}
+          >
+            Recompute
+          </button>
+          {mmp?.computedAt && (
+            <p className="muted mmp-computed-at">
+              Last computed {new Date(mmp.computedAt).toLocaleString()}
+            </p>
+          )}
+        </div>
       </section>
 
       <section className="panel-block">

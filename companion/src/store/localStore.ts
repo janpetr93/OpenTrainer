@@ -6,6 +6,11 @@ import { zonesFromFtp } from '../domain/cogganZones.js'
 import { buildPlannedPowerProfile } from '../domain/plannedPowerProfile.js'
 import { assertStepPrescription } from '../domain/resolveTarget.js'
 import {
+  computeMmpFromActivities,
+  fingerprintsMatch,
+  mmpFingerprint,
+} from '../domain/meanMaximalPower.js'
+import {
   STORE_SCHEMA_VERSION,
   type Activity,
   type ActivityStravaUpload,
@@ -13,6 +18,7 @@ import {
   type CreateWorkoutInput,
   type ListActivitiesQuery,
   type ListScheduledRidesQuery,
+  type MmpCache,
   type RiderProfile,
   type ScheduledRide,
   type StravaLink,
@@ -25,6 +31,7 @@ import {
 const STEP_TYPES: WorkoutStepType[] = ['warmup', 'steady', 'recovery', 'cooldown']
 const PROFILE_FILE = 'profile.json'
 const STRAVA_LINK_FILE = 'strava-link.json'
+const MMP_FILE = 'mmp.json'
 
 export type SaveActivityInput = Omit<
   Activity,
@@ -72,6 +79,7 @@ export class LocalStore {
   private readonly scheduledDir: string
   private readonly profilePath: string
   private readonly stravaLinkPath: string
+  private readonly mmpPath: string
 
   constructor(private readonly rootDir: string) {
     this.workoutsDir = join(rootDir, 'workouts')
@@ -79,6 +87,7 @@ export class LocalStore {
     this.scheduledDir = join(rootDir, 'scheduled')
     this.profilePath = join(rootDir, PROFILE_FILE)
     this.stravaLinkPath = join(rootDir, STRAVA_LINK_FILE)
+    this.mmpPath = join(rootDir, MMP_FILE)
   }
 
   async ensureReady(): Promise<void> {
@@ -298,6 +307,53 @@ export class LocalStore {
     } catch {
       // already absent
     }
+  }
+
+  async getMmpCache(): Promise<MmpCache | null> {
+    try {
+      return await this.readJson<MmpCache>(this.mmpPath)
+    } catch {
+      return null
+    }
+  }
+
+  async writeMmpCache(cache: MmpCache): Promise<MmpCache> {
+    await this.writeJson(this.mmpPath, cache)
+    return cache
+  }
+
+  /** All Activities fingerprint for MMP staleness (ignores list date filters). */
+  async activityMmpFingerprint(): Promise<ReturnType<typeof mmpFingerprint>> {
+    const activities = await this.listActivities({})
+    return mmpFingerprint(activities)
+  }
+
+  async isMmpStale(cache: MmpCache | null): Promise<boolean> {
+    if (!cache) return true
+    const current = await this.activityMmpFingerprint()
+    return !fingerprintsMatch(
+      {
+        activityCount: cache.activityCount,
+        latestActivityId: cache.latestActivityId,
+        latestCreatedAt: cache.latestCreatedAt,
+      },
+      current,
+    )
+  }
+
+  /** Recompute Mean Maximal Power from all Activities and persist mmp.json. */
+  async recomputeMmp(): Promise<MmpCache> {
+    const activities = await this.listActivities({})
+    const { points, fingerprint } = computeMmpFromActivities(activities)
+    const cache: MmpCache = {
+      schemaVersion: STORE_SCHEMA_VERSION,
+      points,
+      computedAt: new Date().toISOString(),
+      activityCount: fingerprint.activityCount,
+      latestActivityId: fingerprint.latestActivityId,
+      latestCreatedAt: fingerprint.latestCreatedAt,
+    }
+    return this.writeMmpCache(cache)
   }
 
   async listActivities(query: ListActivitiesQuery = {}): Promise<Activity[]> {

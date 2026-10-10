@@ -210,4 +210,66 @@ describe('HTTP API', () => {
       expect(body.linked).toBe(false)
     })
   })
+
+  it('GET /api/mmp is empty until POST /api/mmp/recompute; then stale after new Activity', async () => {
+    await store.setFtp(250)
+    await withServer(store, async (baseUrl) => {
+      const empty = await fetch(`${baseUrl}/api/mmp`)
+      expect(empty.status).toBe(200)
+      const emptyBody = (await empty.json()) as {
+        mmp: { points: unknown[]; stale: boolean; computedAt: string | null }
+      }
+      expect(emptyBody.mmp.points).toEqual([])
+      expect(emptyBody.mmp.stale).toBe(true)
+      expect(emptyBody.mmp.computedAt).toBeNull()
+
+      const watts = Array.from({ length: 1200 }, () => 300)
+      await store.saveActivity({
+        startedAt: '2026-10-01T10:00:00.000Z',
+        durationSec: 1199,
+        averagePowerWatts: 300,
+        maxPowerWatts: 300,
+        achievedPowerProfile: watts.map((w, tSec) => ({ tSec, watts: w })),
+        plannedPowerProfile: null,
+        workoutId: null,
+      })
+
+      const recomputed = await fetch(`${baseUrl}/api/mmp/recompute`, {
+        method: 'POST',
+      })
+      expect(recomputed.status).toBe(200)
+      const body = (await recomputed.json()) as {
+        mmp: {
+          stale: boolean
+          estimatedFtpWatts: number | null
+          setFtpWatts: number | null
+          estimatedFtpDeltaWatts: number | null
+          points: Array<{ durationSec: number; watts: number | null; percentFtp: number | null }>
+        }
+      }
+      expect(body.mmp.stale).toBe(false)
+      expect(body.mmp.setFtpWatts).toBe(250)
+      expect(body.mmp.estimatedFtpWatts).toBe(285)
+      expect(body.mmp.estimatedFtpDeltaWatts).toBe(35)
+      expect(body.mmp.points.find((p) => p.durationSec === 1200)?.watts).toBe(300)
+      expect(body.mmp.points.find((p) => p.durationSec === 1200)?.percentFtp).toBe(120)
+
+      await store.saveActivity({
+        startedAt: '2026-10-02T10:00:00.000Z',
+        durationSec: 5,
+        averagePowerWatts: 100,
+        maxPowerWatts: 100,
+        achievedPowerProfile: Array.from({ length: 6 }, (_, tSec) => ({
+          tSec,
+          watts: 100,
+        })),
+        plannedPowerProfile: null,
+        workoutId: null,
+      })
+
+      const staleRes = await fetch(`${baseUrl}/api/mmp`)
+      const staleBody = (await staleRes.json()) as { mmp: { stale: boolean } }
+      expect(staleBody.mmp.stale).toBe(true)
+    })
+  })
 })

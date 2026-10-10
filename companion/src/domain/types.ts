@@ -123,3 +123,20 @@ export type RiderProfile = {
   intent: TrainingIntent | null
   updatedAt: string
 }
+
+/** Cached Mean Maximal Power (lifetime bests). */
+export type MmpCachePoint = {
+  durationSec: number
+  watts: number | null
+  activityId: string | null
+  startedAt: string | null
+}
+
+export type MmpCache = {
+  schemaVersion: typeof STORE_SCHEMA_VERSION
+  points: MmpCachePoint[]
+  computedAt: string
+  activityCount: number
+  latestActivityId: string | null
+  latestCreatedAt: string | null
+}
