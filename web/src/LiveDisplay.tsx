@@ -8,10 +8,6 @@ import { workoutNeedsFtp } from './domain/resolveTarget'
 import { buildRideChartSeries } from './chart/metricSeries'
 import type { TrainerSnapshot } from './ftms'
 import type { HeartRateSnapshot } from './hrm'
-import {
-  ConnectorRole,
-  type ConnectorRoleHandlers,
-} from './ConnectorRole'
 import { PowerProfileLine } from './PowerProfileLine'
 import { SensorStatusStrip } from './SensorStatusStrip'
 import type { RunnerSnapshot } from './workout/workoutRunner'
@@ -30,15 +26,9 @@ type Props = {
   plannedProfile: PowerProfilePoint[]
   achievedProfile: PowerProfilePoint[]
   saveMessage: string | null
-  connectAllSummary: string | null
   ftpWatts: number | null
   onSelectWorkout: (id: string) => void
-  trainer: ConnectorRoleHandlers
-  powerMeter: ConnectorRoleHandlers
-  heartRateLink: ConnectorRoleHandlers
-  cadenceLink: ConnectorRoleHandlers
-  onConnectAllKnown: () => void
-  onDisconnectAll: () => void
+  onOpenDevices: () => void
   onStart: () => void
   onPause: () => void
   onResume: () => void
@@ -74,16 +64,6 @@ function formatClock(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-function canReconnectSensor(link: {
-  connectionState: string
-  deviceName: string | null
-}): boolean {
-  return (
-    link.connectionState === 'disconnected-with-reconnect' ||
-    (link.connectionState === 'disconnected' && link.deviceName !== null)
-  )
-}
-
 export function LiveDisplay({
   snapshot,
   meter,
@@ -97,15 +77,9 @@ export function LiveDisplay({
   plannedProfile,
   achievedProfile,
   saveMessage,
-  connectAllSummary,
   ftpWatts,
   onSelectWorkout,
-  trainer,
-  powerMeter,
-  heartRateLink,
-  cadenceLink,
-  onConnectAllKnown,
-  onDisconnectAll,
+  onOpenDevices,
   onStart,
   onPause,
   onResume,
@@ -194,73 +168,21 @@ export function LiveDisplay({
     },
   ]
 
-  const connectorsBlock = (
-    <>
-      <div className="actions connectors-bulk">
-        <button
-          type="button"
-          className="primary"
-          onClick={onConnectAllKnown}
-        >
-          Connect all known
-        </button>
-        <button type="button" onClick={onDisconnectAll}>
-          Disconnect all
-        </button>
-      </div>
-      {connectAllSummary && (
-        <p className="banner warn">{connectAllSummary}</p>
-      )}
-      <p className="muted connectors-hint">
-        Known devices are ones Chrome already permitted for this app. After
-        the first link, trainers often stop advertising — use Connect (not
-        Find new) to reconnect.
-      </p>
-      <ConnectorRole
-        title="Trainer"
-        connectionState={snapshot.connectionState}
-        deviceName={snapshot.deviceName}
-        knownDevices={snapshot.knownDevices}
-        connected={connected}
-        canReconnect={canReconnectSensor(snapshot)}
-        handlers={trainer}
-      />
-      <ConnectorRole
-        title="Power meter"
-        connectionState={meter.connectionState}
-        deviceName={meter.deviceName}
-        knownDevices={meter.knownDevices}
-        connected={meterConnected}
-        canReconnect={canReconnectSensor(meter)}
-        handlers={powerMeter}
-      />
-      <ConnectorRole
-        title="Heart rate"
-        connectionState={heartRate.connectionState}
-        deviceName={heartRate.deviceName}
-        knownDevices={heartRate.knownDevices}
-        connected={hrConnected}
-        canReconnect={canReconnectSensor(heartRate)}
-        handlers={heartRateLink}
-      />
-      <ConnectorRole
-        title="Cadence"
-        connectionState={cadence.connectionState}
-        deviceName={cadence.deviceName}
-        knownDevices={cadence.knownDevices}
-        connected={cadenceConnected}
-        canReconnect={canReconnectSensor(cadence)}
-        handlers={cadenceLink}
-      />
-    </>
-  )
-
   return (
     <div className={`live-display${riding ? ' live-display-riding' : ''}`}>
       <header className="live-header">
         <div className="brand-row">
           <h1>OpenTrainer</h1>
-          <SensorStatusStrip sensors={sensors} ftpWatts={ftpWatts} />
+          <div className="sensor-status-row">
+            <SensorStatusStrip sensors={sensors} ftpWatts={ftpWatts} />
+            <button
+              type="button"
+              className="linkish"
+              onClick={onOpenDevices}
+            >
+              Manage on Devices
+            </button>
+          </div>
         </div>
       </header>
 
@@ -465,166 +387,101 @@ export function LiveDisplay({
         </div>
       )}
 
-      {riding && (
-        <details className="connectors-strip panel-block">
-          <summary className="connectors-strip-summary">
-            <span>Sensors</span>
-            <SensorStatusStrip sensors={sensors} />
-          </summary>
-          <div className="connectors connectors-expanded" aria-label="Connectors">
-            {connectorsBlock}
-          </div>
-        </details>
-      )}
-
       {!riding && (
-        <>
-          <section className="ride-plan panel-block" aria-label="Ride">
-            <h2>Ride</h2>
-            {todaysScheduled.length === 0 && !calendarSelection ? (
-              <p className="muted">
-                No rides scheduled for today — Start records a Free Ride, or pick
-                one on Calendar.
-              </p>
-            ) : (
-              <ul className="entity-list">
-                {todaysScheduled.map((ride) => {
-                  const isSelected = selectedWorkoutId === ride.workoutId
-                  return (
-                    <li key={ride.id} className="cal-item ride-plan-row">
-                      <div>
-                        <strong>{workoutName(ride.workoutId)}</strong>
-                        <span className="muted">
-                          {new Date(ride.startsAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      </div>
-                      <div className="cal-item-actions">
-                        <button
-                          type="button"
-                          className={isSelected ? 'primary' : undefined}
-                          disabled={selectingLocked}
-                          onClick={() => toggleWorkout(ride.workoutId)}
-                        >
-                          {isSelected ? 'Selected' : 'Select'}
-                        </button>
-                      </div>
-                    </li>
-                  )
-                })}
-                {calendarSelection && (
-                  <li className="cal-item ride-plan-row">
+        <section className="ride-plan panel-block" aria-label="Ride">
+          <h2>Ride</h2>
+          {todaysScheduled.length === 0 && !calendarSelection ? (
+            <p className="muted">
+              No rides scheduled for today — Start records a Free Ride, or pick
+              one on Calendar.
+            </p>
+          ) : (
+            <ul className="entity-list">
+              {todaysScheduled.map((ride) => {
+                const isSelected = selectedWorkoutId === ride.workoutId
+                return (
+                  <li key={ride.id} className="cal-item ride-plan-row">
                     <div>
-                      <strong>{calendarSelection.name}</strong>
-                      <span className="muted">From Calendar</span>
+                      <strong>{workoutName(ride.workoutId)}</strong>
+                      <span className="muted">
+                        {new Date(ride.startsAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
                     </div>
                     <div className="cal-item-actions">
                       <button
                         type="button"
-                        className="primary"
+                        className={isSelected ? 'primary' : undefined}
                         disabled={selectingLocked}
-                        onClick={() => onSelectWorkout('')}
+                        onClick={() => toggleWorkout(ride.workoutId)}
                       >
-                        Selected
+                        {isSelected ? 'Selected' : 'Select'}
                       </button>
                     </div>
                   </li>
-                )}
-              </ul>
-            )}
-            {selectedWorkoutId !== '' && (
+                )
+              })}
+              {calendarSelection && (
+                <li className="cal-item ride-plan-row">
+                  <div>
+                    <strong>{calendarSelection.name}</strong>
+                    <span className="muted">From Calendar</span>
+                  </div>
+                  <div className="cal-item-actions">
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={selectingLocked}
+                      onClick={() => onSelectWorkout('')}
+                    >
+                      Selected
+                    </button>
+                  </div>
+                </li>
+              )}
+            </ul>
+          )}
+          {selectedWorkoutId !== '' && (
+            <button
+              type="button"
+              className="ride-plan-clear"
+              disabled={selectingLocked}
+              onClick={() => onSelectWorkout('')}
+            >
+              Clear · Free Ride instead
+            </button>
+          )}
+          {needsFtp && (ftpWatts === null || ftpWatts <= 0) && (
+            <p className="banner warn">
+              This Workout uses %FTP or zones — set FTP on the Profile tab
+              first.
+            </p>
+          )}
+          <div className="actions ride-start">
+            <button
+              type="button"
+              className="primary"
+              disabled={!canStart}
+              onClick={onStart}
+            >
+              {selectedWorkoutId ? 'Start workout' : 'Start Free Ride'}
+            </button>
+          </div>
+          {!canStart && !connected && (
+            <p className="muted ride-start-hint">
               <button
                 type="button"
-                className="ride-plan-clear"
-                disabled={selectingLocked}
-                onClick={() => onSelectWorkout('')}
+                className="linkish"
+                onClick={onOpenDevices}
               >
-                Clear · Free Ride instead
-              </button>
-            )}
-            {needsFtp && (ftpWatts === null || ftpWatts <= 0) && (
-              <p className="banner warn">
-                This Workout uses %FTP or zones — set FTP on the Profile tab
-                first.
-              </p>
-            )}
-            <div className="actions ride-start">
-              <button
-                type="button"
-                className="primary"
-                disabled={!canStart}
-                onClick={onStart}
-              >
-                {selectedWorkoutId ? 'Start workout' : 'Start Free Ride'}
-              </button>
-            </div>
-            {!canStart && !connected && (
-              <p className="muted ride-start-hint">
-                Connect a trainer below to enable Start.
-              </p>
-            )}
-          </section>
-
-          <section className="connectors" aria-label="Connectors">
-            {connectorsBlock}
-          </section>
-
-          <details className="debug-panel">
-            <summary>FTMS debug</summary>
-            <div className="debug-body">
-              <h3>Features</h3>
-              {snapshot.features ? (
-                <ul>
-                  <li>
-                    Target power supported:{' '}
-                    {snapshot.features.targetPowerSupported ? 'yes' : 'no'}
-                  </li>
-                  <li>
-                    ERG control available:{' '}
-                    {snapshot.ergControlAvailable ? 'yes' : 'no'}
-                  </li>
-                  <li>Raw: {snapshot.features.rawHex}</li>
-                </ul>
-              ) : (
-                <p>No feature data yet.</p>
-              )}
-
-              <h3>Control Probe</h3>
-              {snapshot.controlProbeLog.length === 0 ? (
-                <p>No probe log yet.</p>
-              ) : (
-                <ol>
-                  {snapshot.controlProbeLog.map((line, index) => (
-                    <li key={`${index}-${line}`}>{line}</li>
-                  ))}
-                </ol>
-              )}
-
-              <h3>Services</h3>
-              <ul>
-                {snapshot.services.map((s) => (
-                  <li key={s}>{s}</li>
-                ))}
-              </ul>
-
-              <h3>Characteristics</h3>
-              <ul>
-                {snapshot.characteristics.map((c) => (
-                  <li key={c}>{c}</li>
-                ))}
-              </ul>
-
-              <h3>Last Indoor Bike raw fields</h3>
-              {snapshot.lastIndoorBikeRaw ? (
-                <pre>{JSON.stringify(snapshot.lastIndoorBikeRaw, null, 2)}</pre>
-              ) : (
-                <p>None yet.</p>
-              )}
-            </div>
-          </details>
-        </>
+                Connect trainer on Devices
+              </button>{' '}
+              to enable Start.
+            </p>
+          )}
+        </section>
       )}
     </div>
   )

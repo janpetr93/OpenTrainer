@@ -548,11 +548,37 @@ button.export-fit {
   gap: 0.75rem;
 }
 
+.sensor-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+}
+
 .sensor-status-strip {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.65rem 1rem;
+}
+
+button.linkish {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+button.linkish:hover {
+  color: var(--metric, var(--accent));
 }
 
 .sensor-pills {
@@ -814,29 +840,15 @@ button.export-fit {
   text-align: center;
 }
 
-.connectors-strip {
-  width: 100%;
-  padding: 0.65rem 1rem;
-}
-
-.connectors-strip-summary {
+.devices-panel {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem 1rem;
-  cursor: pointer;
-  list-style: none;
-  font-weight: 600;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
-.connectors-strip-summary::-webkit-details-marker {
-  display: none;
-}
-
-.connectors-strip .connectors-expanded {
-  margin-top: 1rem;
-  width: 100%;
+.devices-panel .debug-panel {
+  width: min(100%, 36rem);
+  margin: 0 auto;
 }
 
 .connector-role {

@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { initialAppTab } from './appTab'
+import { APP_TAB_ORDER, initialAppTab } from './appTab'
+
+describe('APP_TAB_ORDER', () => {
+  it('places Devices immediately after Ride', () => {
+    expect(APP_TAB_ORDER).toEqual([
+      'ride',
+      'devices',
+      'history',
+      'calendar',
+      'profile',
+    ])
+  })
+})
 
 describe('initialAppTab', () => {
   it('opens Profile when Strava OAuth returns a query flag', () => {

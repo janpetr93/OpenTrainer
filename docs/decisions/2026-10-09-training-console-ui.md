@@ -25,6 +25,6 @@ The web UI needed a more professional look. Ride was a long stack of equally wei
 
 ## Consequences
 
-- Ride presentation is mode-dependent (`live-display-riding` / expandable `connectors-strip`).
+- Ride presentation is mode-dependent (`live-display-riding`); mid-ride expandable `connectors-strip` was later moved to a **Devices** tab — see [2026-10-10-devices-tab](2026-10-10-devices-tab.md).
 - Light mode remains secondary via `prefers-color-scheme`.
 - Reversible visual choice — no ADR.

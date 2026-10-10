@@ -7,7 +7,7 @@ status: active
 
 ## Context
 
-Ride tab had four dense Connect / Chooser / Scan-all rows. Riders want in-page device lists and a one-tap connect for the usual stack. Web Bluetooth cannot show a live nearby scan in-page — only previously permitted devices via `getDevices()`.
+Ride tab had four dense Connect / Chooser / Scan-all rows. Riders want in-page device lists and a one-tap connect for the usual stack. Web Bluetooth cannot show a live nearby scan in-page — only previously permitted devices via `getDevices()`. (Connectors UI later moved to the **Devices** tab — see [2026-10-10-devices-tab](2026-10-10-devices-tab.md).)
 
 ## Decision
 

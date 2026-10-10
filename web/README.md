@@ -21,8 +21,9 @@ npm run dev
 
 Open the printed `http://localhost:5173` URL in Chrome/Edge.
 
-- **Ride** — Connect to the D100, Live Power, FTMS debug
-- **Workouts** — list/create Workouts via companion (`/api` proxied to `:8787`)
+- **Ride** — Live Power, ride plan / Start, sensor status (link to Devices)
+- **Devices** — Connect trainer / sensors, Known Devices, FTMS debug
+- **History / Calendar / Profile** — activities, schedule, FTP / Strava
 
 ## Test
 

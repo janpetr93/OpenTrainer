@@ -22,8 +22,9 @@ import { connectAllKnown } from './ble/connectAllKnown'
 import { CadenceConnection, type CadenceSnapshot } from './csc'
 import { TrainerConnection, type TrainerSnapshot } from './ftms'
 import { HeartRateConnection, type HeartRateSnapshot } from './hrm'
-import { initialAppTab, type AppTab } from './appTab'
+import { APP_TAB_ORDER, initialAppTab, type AppTab } from './appTab'
 import { CalendarPanel } from './CalendarPanel'
+import { DevicesPanel } from './DevicesPanel'
 import { LiveDisplay } from './LiveDisplay'
 import { ProfilePanel } from './ProfilePanel'
 import { WorkoutsPanel } from './WorkoutsPanel'
@@ -336,7 +337,9 @@ function App() {
   function onStartScheduledWorkout(workoutId: string): void {
     setSelectedWorkoutId(workoutId)
     setTab('ride')
-    setSaveMessage('Workout selected from calendar — Connect and Start when ready.')
+    setSaveMessage(
+      'Workout selected from calendar — connect on Devices, then Start on Ride.',
+    )
   }
 
   async function onConnectAllKnown(): Promise<void> {
@@ -391,37 +394,71 @@ function App() {
     tab === 'ride' &&
     (runnerSnap.status === 'running' || runnerSnap.status === 'paused')
 
+  const connectorHandlers = {
+    trainer: {
+      onConnect: () => void connection.connect(),
+      onConnectDevice: (deviceId: string) =>
+        void connection.connect({ deviceId }),
+      onChooser: () => void connection.connect({ forceChooser: true }),
+      onScanAll: () => void connection.connect({ acceptAllDevices: true }),
+      onDisconnect: () => void connection.disconnect(),
+      onReconnect: () => void connection.reconnect(),
+    },
+    powerMeter: {
+      onConnect: () => void meterConnection.connect(),
+      onConnectDevice: (deviceId: string) =>
+        void meterConnection.connect({ deviceId }),
+      onChooser: () => void meterConnection.connect({ forceChooser: true }),
+      onScanAll: () =>
+        void meterConnection.connect({ acceptAllDevices: true }),
+      onDisconnect: () => void meterConnection.disconnect(),
+      onReconnect: () => void meterConnection.reconnect(),
+    },
+    heartRateLink: {
+      onConnect: () => void heartRateConnection.connect(),
+      onConnectDevice: (deviceId: string) =>
+        void heartRateConnection.connect({ deviceId }),
+      onChooser: () =>
+        void heartRateConnection.connect({ forceChooser: true }),
+      onScanAll: () =>
+        void heartRateConnection.connect({ acceptAllDevices: true }),
+      onDisconnect: () => void heartRateConnection.disconnect(),
+      onReconnect: () => void heartRateConnection.reconnect(),
+    },
+    cadenceLink: {
+      onConnect: () => void cadenceConnection.connect(),
+      onConnectDevice: (deviceId: string) =>
+        void cadenceConnection.connect({ deviceId }),
+      onChooser: () =>
+        void cadenceConnection.connect({ forceChooser: true }),
+      onScanAll: () =>
+        void cadenceConnection.connect({ acceptAllDevices: true }),
+      onDisconnect: () => void cadenceConnection.disconnect(),
+      onReconnect: () => void cadenceConnection.reconnect(),
+    },
+  }
+
+  const tabLabels: Record<AppTab, string> = {
+    ride: 'Ride',
+    devices: 'Devices',
+    history: 'History',
+    calendar: 'Calendar',
+    profile: 'Profile',
+  }
+
   return (
     <main className={riding ? 'app app-riding' : 'app'}>
       <nav className="tabs" aria-label="App sections">
-        <button
-          type="button"
-          className={tab === 'ride' ? 'tab active' : 'tab'}
-          onClick={() => setTab('ride')}
-        >
-          Ride
-        </button>
-        <button
-          type="button"
-          className={tab === 'history' ? 'tab active' : 'tab'}
-          onClick={() => setTab('history')}
-        >
-          History
-        </button>
-        <button
-          type="button"
-          className={tab === 'calendar' ? 'tab active' : 'tab'}
-          onClick={() => setTab('calendar')}
-        >
-          Calendar
-        </button>
-        <button
-          type="button"
-          className={tab === 'profile' ? 'tab active' : 'tab'}
-          onClick={() => setTab('profile')}
-        >
-          Profile
-        </button>
+        {APP_TAB_ORDER.map((id) => (
+          <button
+            key={id}
+            type="button"
+            className={tab === id ? 'tab active' : 'tab'}
+            onClick={() => setTab(id)}
+          >
+            {tabLabels[id]}
+          </button>
+        ))}
       </nav>
 
       {tab === 'ride' && (
@@ -438,59 +475,29 @@ function App() {
           plannedProfile={plannedProfile}
           achievedProfile={achievedProfile}
           saveMessage={saveMessage}
-          connectAllSummary={connectAllSummary}
           ftpWatts={ftpWatts}
           onSelectWorkout={setSelectedWorkoutId}
-          trainer={{
-            onConnect: () => void connection.connect(),
-            onConnectDevice: (deviceId) =>
-              void connection.connect({ deviceId }),
-            onChooser: () => void connection.connect({ forceChooser: true }),
-            onScanAll: () =>
-              void connection.connect({ acceptAllDevices: true }),
-            onDisconnect: () => void connection.disconnect(),
-            onReconnect: () => void connection.reconnect(),
-          }}
-          powerMeter={{
-            onConnect: () => void meterConnection.connect(),
-            onConnectDevice: (deviceId) =>
-              void meterConnection.connect({ deviceId }),
-            onChooser: () =>
-              void meterConnection.connect({ forceChooser: true }),
-            onScanAll: () =>
-              void meterConnection.connect({ acceptAllDevices: true }),
-            onDisconnect: () => void meterConnection.disconnect(),
-            onReconnect: () => void meterConnection.reconnect(),
-          }}
-          heartRateLink={{
-            onConnect: () => void heartRateConnection.connect(),
-            onConnectDevice: (deviceId) =>
-              void heartRateConnection.connect({ deviceId }),
-            onChooser: () =>
-              void heartRateConnection.connect({ forceChooser: true }),
-            onScanAll: () =>
-              void heartRateConnection.connect({ acceptAllDevices: true }),
-            onDisconnect: () => void heartRateConnection.disconnect(),
-            onReconnect: () => void heartRateConnection.reconnect(),
-          }}
-          cadenceLink={{
-            onConnect: () => void cadenceConnection.connect(),
-            onConnectDevice: (deviceId) =>
-              void cadenceConnection.connect({ deviceId }),
-            onChooser: () =>
-              void cadenceConnection.connect({ forceChooser: true }),
-            onScanAll: () =>
-              void cadenceConnection.connect({ acceptAllDevices: true }),
-            onDisconnect: () => void cadenceConnection.disconnect(),
-            onReconnect: () => void cadenceConnection.reconnect(),
-          }}
-          onConnectAllKnown={() => void onConnectAllKnown()}
-          onDisconnectAll={() => void onDisconnectAll()}
+          onOpenDevices={() => setTab('devices')}
           onStart={onStart}
           onPause={onPause}
           onResume={onResume}
           onSkip={onSkip}
           onStop={onStop}
+        />
+      )}
+      {tab === 'devices' && (
+        <DevicesPanel
+          snapshot={snapshot}
+          meter={meter}
+          heartRate={heartRate}
+          cadence={cadence}
+          connectAllSummary={connectAllSummary}
+          trainer={connectorHandlers.trainer}
+          powerMeter={connectorHandlers.powerMeter}
+          heartRateLink={connectorHandlers.heartRateLink}
+          cadenceLink={connectorHandlers.cadenceLink}
+          onConnectAllKnown={() => void onConnectAllKnown()}
+          onDisconnectAll={() => void onDisconnectAll()}
         />
       )}
       {tab === 'history' && <WorkoutsPanel />}

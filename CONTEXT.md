@@ -46,11 +46,11 @@ Bluetooth devices this origin may reconnect to without a new **Device Picker** �
 _Avoid_: Advertising list, OS paired devices (unless also permitted for this origin)
 
 **Connect All Known**:
-One Ride-tab action that sequentially connects every role that has at least one **Known Device** and is not already connected; roles with none stay disconnected and are named in a short summary.
+One **Devices**-tab action that sequentially connects every role that has at least one **Known Device** and is not already connected; roles with none stay disconnected and are named in a short summary.
 _Avoid_: Auto-connect on page load, parallel GATT storm
 
 **Disconnect All**:
-One Ride-tab action that disconnects **Trainer**, **Power Meter**, **Heart Rate Monitor**, and **Cadence Sensor** links.
+One **Devices**-tab action that disconnects **Trainer**, **Power Meter**, **Heart Rate Monitor**, and **Cadence Sensor** links.
 _Avoid_: OS unpair, revoking browser permission
 
 **Find New Device**:
@@ -75,15 +75,19 @@ _Avoid_: Calibration offset (no auto-correction in this slice), dual Power Profi
 **Live Power** or **Meter Power** marked unusable because no power notification arrived within the freshness window (~2s).
 _Avoid_: Zero watts, disconnected (connection may still be up)
 
+**Devices** (tab):
+The top-level tab for **Connection** / sensor links, **Known Devices**, **Connect All Known** / **Disconnect All**, and **Find New Device** — separate from the **Live Display** ride surface.
+_Avoid_: Sensors tab (pills/status only), Settings, Pairing screen
+
 **Live Display**:
-The on-screen view of **Connection** / sensor links, **Known Devices**, **Connect All Known** / **Disconnect All**, **Live Power** / **Meter Power** / **Power Alignment**, later confirmed FTMS fields (e.g. cadence/speed if present), and (in slice 1) a collapsible FTMS debug panel.
-_Avoid_: Dashboard, analytics view, invented sensor values
+The Ride-tab view of **Live Power** / **Meter Power** / **Power Alignment**, later confirmed FTMS fields (e.g. cadence/speed if present), ride plan / runner controls, and a thin sensor-status strip with a link that switches to the **Devices** tab (full connectors live only there — including mid-ride); when Start is blocked for no trainer, the same tab-switch affordance replaces “connect below” copy.
+_Avoid_: Dashboard, analytics view, invented sensor values, full **Known Devices** list on Ride
 
 **Connection State**:
 One of: disconnected, connecting, connected, or disconnected-with-reconnect (link lost; samples/UI preserved for reconnect).
 
 **Control Probe**:
-An automatic post-connect FTMS check that Request Control and (if advertised) target-power commands are accepted, reported in the debug panel only.
+An automatic post-connect FTMS check that Request Control and (if advertised) target-power commands are accepted, reported in the **Devices**-tab FTMS debug panel only.
 _Avoid_: Workout, ERG mode UI, silent resistance changes without surfacing the result
 
 ### Persistence (from slice 2)
@@ -212,12 +216,13 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 | Shared notify sensors | `web/src/ble/notifySensorConnection.ts` |
 | **Power Alignment** | `web/src/cps/powerAlignment.ts` + Ride tab in `LiveDisplay` |
 | **Live Display** | `web/src/LiveDisplay.tsx` |
-| **Known Devices** / **Connect All Known** / **Disconnect All** | `web/src/ble/connectAllKnown.ts` + Ride connectors UI in `LiveDisplay` (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`) |
+| **Known Devices** / **Connect All Known** / **Disconnect All** | `web/src/ble/connectAllKnown.ts` + **Devices** tab UI (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`) |
 | **Control Probe** | `web/src/ftms/controlProbe.ts` + probe runner in `trainerConnection.ts` |
 | **Live Power** / **Stale Power** | `web/src/ftms/livePowerFreshness.ts` |
 | **Activity** export | `web/src/export/encodeActivityFit.ts` — indoor FIT (manual download + Strava upload payload) |
 | **Strava Link** | `companion/src/strava/`; routes `/api/strava/*`; UI Profile tab (`ProfilePanel`) + `ActivityActions` |
 | **Workout** | `companion/src/store/localStore.ts`; started via **Scheduled Ride** / Schedule again (not a UI catalog) |
+| **Devices** (tab) | `web/src/DevicesPanel.tsx` — connectors, **Known Devices**, **Connect All Known** / **Disconnect All**, FTMS debug; nav `APP_TAB_ORDER` in `web/src/appTab.ts` |
 | **History** (tab) | `web/src/WorkoutsPanel.tsx` — **Activity** history + Schedule again |
 | **Profile** (tab) | `web/src/ProfilePanel.tsx` — **Rider Profile** (FTP / zones) + **Strava Link** |
 | **Schedule again** | `web/src/ScheduleAgain.tsx` via `ActivityActions` |
@@ -247,3 +252,4 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - **Power Meter** — resolved: Assioma Uno via CPS; comparison-only / live **Power Alignment**; trainer stays primary (see `docs/decisions/2026-10-09-power-meter-comparison-only.md`).
 - **Heart Rate Monitor** / **Cadence Sensor** — resolved: live connectors + optional fields on achieved **Power Profile** (see `docs/decisions/2026-10-09-hrm-and-cadence-connectors.md`).
 - Friendlier connectors — resolved: in-page **Known Devices**, explicit **Connect All Known** / **Disconnect All**, collapsed **Find New Device** (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`).
+- **Devices** tab — resolved: top-level tab owns full connectors + FTMS debug; Ride keeps sensor-status strip + tab-switch link only; nav order Ride · Devices · History · Calendar · Profile.
