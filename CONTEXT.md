@@ -68,8 +68,12 @@ The current instantaneous power in watts reported by the **Power Meter** (Assiom
 _Avoid_: Live Power, primary watts
 
 **Power Alignment**:
-Live comparison of **Live Power** vs **Meter Power** (both values plus delta) so the rider can see how the **Trainer** and **Power Meter** agree — not a recorded metric and not used for ERG.
-_Avoid_: Calibration offset (no auto-correction in this slice), dual Power Profile
+Live comparison of **Live Power** vs **Meter Power** (both values plus a rolling ~5s delta) so the rider can see how the **Trainer** and **Power Meter** agree — not used for ERG; the ride-average form is **Average Alignment Delta**.
+_Avoid_: Calibration offset (no auto-correction), dual Power Profile
+
+**Average Alignment Delta**:
+Mean of (Meter − Trainer) watts over an **Activity**’s achieved samples where `meterWatts` is present; stored as `averageAlignmentDeltaWatts` (null when no paired samples); shown as **Δ** on Session module rows.
+_Avoid_: Live rolling Power Alignment, calibration offset
 
 **Stale Power**:
 **Live Power** or **Meter Power** marked unusable because no power notification arrived within the freshness window (~2s).
@@ -150,7 +154,7 @@ _Avoid_: Set FTP, threshold test protocol
 The create/list payload for a **Workout**: name, ordered steps (type, duration, target watts), and its planned **Power Profile**.
 
 **Activity Specs**:
-The summary payload for an **Activity**: start time, duration, average/max power, achieved **Power Profile**, planned **Power Profile** when the ride followed a **Workout**, plus **Session Load** / **Session Adherence** when computed.
+The summary payload for an **Activity**: start time, duration, average/max power, achieved **Power Profile**, planned **Power Profile** when the ride followed a **Workout**, plus **Session Load** / **Session Adherence** / **Average Alignment Delta** when computed.
 _Avoid_: Invented HR/cadence
 
 **Free Ride**:
@@ -259,6 +263,7 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 | **Cadence Sensor** | `web/src/csc/cadenceConnection.ts` |
 | Shared notify sensors | `web/src/ble/notifySensorConnection.ts` |
 | **Power Alignment** | `web/src/cps/powerAlignment.ts` + Ride tab in `LiveDisplay` |
+| **Average Alignment Delta** | `companion/src/domain/powerAlignment.ts`; on **Activity** JSON; Session module `Δ` via `activityMeta` |
 | **Live Display** | `web/src/LiveDisplay.tsx` |
 | **Known Devices** / **Connect All Known** / **Disconnect All** | `web/src/ble/connectAllKnown.ts` + **Devices** tab UI (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`) |
 | **Control Probe** | `web/src/ftms/controlProbe.ts` + probe runner in `trainerConnection.ts` |
@@ -302,7 +307,7 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - Long-term plan / **Training Intent** — resolved: Local Store goal + optional horizon/note; not chat-only; no stored phase or availability (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`).
 - **Rider Profile** writes — resolved: MCP-only for FTP/Intent; Profile tab read-only; no HTTP PUTs (see `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`).
 - Strava — resolved: keep manual FIT; add optional **Strava Link** + one-click upload (see `docs/decisions/2026-10-09-strava-link-and-upload.md`).
-- **Power Meter** — resolved: Assioma Uno via CPS; comparison-only / live **Power Alignment**; trainer stays primary (see `docs/decisions/2026-10-09-power-meter-comparison-only.md`).
+- **Power Meter** — resolved: Assioma Uno via CPS; comparison-only / live **Power Alignment** + recorded **Average Alignment Delta**; trainer stays primary (see `docs/decisions/2026-10-09-power-meter-comparison-only.md`, `docs/decisions/2026-10-10-average-alignment-delta-on-activity.md`).
 - **Heart Rate Monitor** / **Cadence Sensor** — resolved: live connectors + optional fields on achieved **Power Profile** (see `docs/decisions/2026-10-09-hrm-and-cadence-connectors.md`).
 - Friendlier connectors — resolved: in-page **Known Devices**, explicit **Connect All Known** / **Disconnect All**, collapsed **Find New Device** (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`).
 - **Devices** tab — resolved: top-level tab owns full connectors + FTMS debug; Ride keeps sensor-status strip + tab-switch link only; nav order Ride · Devices · History · Calendar · Profile.

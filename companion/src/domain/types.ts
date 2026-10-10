@@ -74,6 +74,11 @@ export type Activity = {
   sessionLoad: SessionLoad | null
   /** Prescription adherence; null for Free Ride. */
   sessionAdherence: SessionAdherence | null
+  /**
+   * Mean Meter − Trainer watts over samples with meterWatts; null when none.
+   * Comparison-only; does not affect primary power / ERG / FIT.
+   */
+  averageAlignmentDeltaWatts: number | null
   createdAt: string
   /** Set after a successful Strava API upload (optional). */
   stravaUpload?: ActivityStravaUpload | null

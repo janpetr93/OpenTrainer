@@ -121,6 +121,22 @@ describe('activityMeta', () => {
     expect(meta.metrics.at(-2)).toEqual({ label: 'Done', value: '80%' })
     expect(meta.metrics.at(-1)).toEqual({ label: 'On-target', value: '65%' })
   })
+
+  it('inserts Average Alignment Delta after Max when present', () => {
+    const meta = activityMeta(
+      activity({ averageAlignmentDeltaWatts: 8 }),
+    )
+    const labels = meta.metrics.map((m) => m.label)
+    expect(labels.indexOf('Δ')).toBe(labels.indexOf('Max') + 1)
+    expect(meta.metrics.find((m) => m.label === 'Δ')?.value).toBe('+8 W')
+  })
+
+  it('omits Δ when Average Alignment Delta is null', () => {
+    const meta = activityMeta(
+      activity({ averageAlignmentDeltaWatts: null }),
+    )
+    expect(meta.metrics.some((m) => m.label === 'Δ')).toBe(false)
+  })
 })
 
 describe('scheduledMeta', () => {

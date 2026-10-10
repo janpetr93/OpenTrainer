@@ -91,6 +91,10 @@ export type Activity = {
   purpose?: string | null
   sessionLoad?: SessionLoad | null
   sessionAdherence?: SessionAdherence | null
+  /**
+   * Mean Meter − Trainer watts over samples with meterWatts; null when none.
+   */
+  averageAlignmentDeltaWatts?: number | null
   stravaUpload?: ActivityStravaUpload | null
 }
 

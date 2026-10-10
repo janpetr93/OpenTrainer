@@ -1,4 +1,5 @@
 import type { Activity, PowerProfilePoint, Workout } from '../api'
+import { formatAlignmentDelta } from '../cps'
 import { buildScheduledWorkoutPreview } from '../domain/scheduledWorkoutPreview'
 import type { PowerProfileSeries } from '../PowerProfileLine'
 
@@ -65,6 +66,17 @@ export function activityMeta(activity: Activity): SessionMeta {
     { label: 'Duration', value: formatDuration(activity.durationSec) },
     { label: 'Avg', value: wattsLabel(activity.averagePowerWatts) },
     { label: 'Max', value: wattsLabel(activity.maxPowerWatts) },
+  ]
+  if (
+    activity.averageAlignmentDeltaWatts !== null &&
+    activity.averageAlignmentDeltaWatts !== undefined
+  ) {
+    metrics.push({
+      label: 'Δ',
+      value: formatAlignmentDelta(activity.averageAlignmentDeltaWatts),
+    })
+  }
+  metrics.push(
     { label: 'NP', value: wattsLabel(load?.normalizedPowerWatts) },
     {
       label: 'IF',
@@ -74,7 +86,7 @@ export function activityMeta(activity: Activity): SessionMeta {
       label: 'TSS',
       value: String(load?.trainingStressScore ?? 0),
     },
-  ]
+  )
   const adherence = activity.sessionAdherence
   if (adherence) {
     metrics.push({

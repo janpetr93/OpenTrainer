@@ -208,6 +208,58 @@ describe('LocalStore', () => {
       completionRatio: 1,
       targetAdherence: 1,
     })
+    expect(activity.averageAlignmentDeltaWatts).toBeNull()
+  })
+
+  it('saveActivity stores Average Alignment Delta from paired meter samples', async () => {
+    const activity = await store.saveActivity({
+      startedAt: '2026-10-12T08:00:00.000Z',
+      durationSec: 3,
+      averagePowerWatts: 200,
+      maxPowerWatts: 220,
+      achievedPowerProfile: [
+        { tSec: 0, watts: 200, meterWatts: 210 },
+        { tSec: 1, watts: 200 },
+        { tSec: 2, watts: 220, meterWatts: 230 },
+      ],
+      plannedPowerProfile: null,
+      workoutId: null,
+    })
+    expect(activity.averageAlignmentDeltaWatts).toBe(10)
+  })
+
+  it('backfillActivityMetrics adds Average Alignment Delta to older Activities', async () => {
+    const { writeFile, mkdir } = await import('node:fs/promises')
+    const activitiesDir = join(root, 'activities')
+    await mkdir(activitiesDir, { recursive: true })
+    const id = 'legacy-align-1'
+    await writeFile(
+      join(activitiesDir, `${id}.json`),
+      JSON.stringify({
+        schemaVersion: 1,
+        id,
+        startedAt: '2026-10-01T10:00:00.000Z',
+        durationSec: 2,
+        averagePowerWatts: 200,
+        maxPowerWatts: 200,
+        achievedPowerProfile: [
+          { tSec: 0, watts: 200, meterWatts: 208 },
+          { tSec: 1, watts: 200, meterWatts: 212 },
+        ],
+        plannedPowerProfile: null,
+        workoutId: null,
+        scheduledRideId: null,
+        purpose: null,
+        sessionLoad: null,
+        sessionAdherence: null,
+        createdAt: '2026-10-01T10:00:02.000Z',
+      }),
+    )
+
+    const updated = await store.backfillActivityMetrics()
+    expect(updated).toBe(1)
+    const activity = await store.getActivity(id)
+    expect(activity?.averageAlignmentDeltaWatts).toBe(10)
   })
 
   it('clearScheduledRides deletes orphan Workouts with no remaining rides or Activities', async () => {

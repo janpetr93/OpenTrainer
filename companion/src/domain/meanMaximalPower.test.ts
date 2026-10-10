@@ -26,7 +26,11 @@ function activity(
     achievedPowerProfile: profile(watts),
     plannedPowerProfile: null,
     workoutId: null,
+    scheduledRideId: null,
     purpose: null,
+    sessionLoad: null,
+    sessionAdherence: null,
+    averageAlignmentDeltaWatts: null,
     createdAt: startedAt,
   }
 }

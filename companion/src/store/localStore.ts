@@ -14,6 +14,7 @@ import {
   hydrateScheduledRide,
   toScheduledRideView,
 } from '../domain/scheduledRideOutcome.js'
+import { computeAverageAlignmentDeltaWatts } from '../domain/powerAlignment.js'
 import { computeSessionAdherence } from '../domain/sessionAdherence.js'
 import { computeSessionLoad } from '../domain/sessionLoad.js'
 import {
@@ -49,6 +50,7 @@ export type SaveActivityInput = Omit<
   | 'stravaUpload'
   | 'sessionLoad'
   | 'sessionAdherence'
+  | 'averageAlignmentDeltaWatts'
   | 'scheduledRideId'
 > & {
   purpose?: string | null
@@ -110,6 +112,14 @@ function withPurposeField<T extends { purpose?: string | null }>(
   record: T,
 ): T & { purpose: string | null } {
   return { ...record, purpose: normalizePurpose(record.purpose) }
+}
+
+function needsActivityMetricsBackfill(raw: Activity): boolean {
+  return !(
+    'sessionLoad' in raw &&
+    'sessionAdherence' in raw &&
+    'averageAlignmentDeltaWatts' in raw
+  )
 }
 
 function normalizeStep(raw: WorkoutStep): WorkoutStep {
@@ -352,6 +362,9 @@ export class LocalStore {
         input.achievedPowerProfile,
         input.plannedPowerProfile,
       ),
+      averageAlignmentDeltaWatts: computeAverageAlignmentDeltaWatts(
+        input.achievedPowerProfile,
+      ),
       createdAt: now,
       stravaUpload: null,
     }
@@ -376,8 +389,8 @@ export class LocalStore {
   }
 
   /**
-   * Persist Session Load / Adherence for Activities that predate those fields.
-   * Safe to call on companion / MCP startup.
+   * Persist Session Load / Adherence / Average Alignment Delta for Activities
+   * that predate those fields. Safe to call on companion / MCP startup.
    */
   async backfillActivityMetrics(): Promise<number> {
     const profile = await this.getRiderProfile()
@@ -385,7 +398,7 @@ export class LocalStore {
     let updated = 0
     for (const file of files) {
       const raw = await this.readJson<Activity>(join(this.activitiesDir, file))
-      if ('sessionLoad' in raw && 'sessionAdherence' in raw) continue
+      if (!needsActivityMetricsBackfill(raw)) continue
       await this.hydrateActivityMetrics(raw, profile.ftpWatts, true)
       updated += 1
     }
@@ -398,22 +411,32 @@ export class LocalStore {
     persist: boolean,
   ): Promise<Activity> {
     const base = withPurposeField(raw)
-    if ('sessionLoad' in raw && 'sessionAdherence' in raw) {
+    const hasLoad = 'sessionLoad' in raw && 'sessionAdherence' in raw
+    const hasAlignment = 'averageAlignmentDeltaWatts' in raw
+    if (hasLoad && hasAlignment) {
       return {
         ...base,
         scheduledRideId: raw.scheduledRideId ?? null,
         sessionLoad: raw.sessionLoad ?? null,
         sessionAdherence: raw.sessionAdherence ?? null,
+        averageAlignmentDeltaWatts: raw.averageAlignmentDeltaWatts ?? null,
       }
     }
     const next: Activity = {
       ...base,
       scheduledRideId: base.scheduledRideId ?? null,
-      sessionLoad: computeSessionLoad(base.achievedPowerProfile, ftpWatts),
-      sessionAdherence: computeSessionAdherence(
-        base.achievedPowerProfile,
-        base.plannedPowerProfile,
-      ),
+      sessionLoad: hasLoad
+        ? (raw.sessionLoad ?? null)
+        : computeSessionLoad(base.achievedPowerProfile, ftpWatts),
+      sessionAdherence: hasLoad
+        ? (raw.sessionAdherence ?? null)
+        : computeSessionAdherence(
+            base.achievedPowerProfile,
+            base.plannedPowerProfile,
+          ),
+      averageAlignmentDeltaWatts: hasAlignment
+        ? (raw.averageAlignmentDeltaWatts ?? null)
+        : computeAverageAlignmentDeltaWatts(base.achievedPowerProfile),
     }
     if (persist) {
       await this.writeJson(join(this.activitiesDir, `${next.id}.json`), next)
