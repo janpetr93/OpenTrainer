@@ -1,0 +1,18 @@
+.DS_Store
+*.log
+.cursor/
+.docs/
+node_modules/
+companion/.env
+companion/.env.*
+!**/.env.example
+# Local Store: ignore runtime data; ship only sample workouts
+companion/data/**
+!companion/data/.gitkeep
+!companion/data/workouts/
+!companion/data/workouts/.gitkeep
+!companion/data/workouts/sample-*.json
+!companion/data/activities/
+!companion/data/activities/.gitkeep
+!companion/data/scheduled/
+!companion/data/scheduled/.gitkeep

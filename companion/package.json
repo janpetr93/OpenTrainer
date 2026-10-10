@@ -1,0 +1,27 @@
+{
+  "name": "open-trainer-companion",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "dev": "tsx src/http/server.ts",
+    "mcp": "tsx src/mcp/server.ts",
+    "test:watch": "vitest",
+    "build": "tsc -p tsconfig.json"
+  },
+  "keywords": [],
+  "author": "Jan Petr",
+  "license": "MIT",
+  "description": "OpenTrainer local companion — JSON store, HTTP API, and MCP",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^3.2.7"
+  },
+  "type": "module"
+}

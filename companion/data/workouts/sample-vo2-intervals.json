@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-vo2-intervals",
+  "name": "Sample — VO2 4×3 min",
+  "steps": [
+    {
+      "type": "warmup",
+      "durationSec": 600,
+      "targetWatts": null,
+      "percentFtp": 55,
+      "zone": null
+    },
+    {
+      "type": "steady",
+      "durationSec": 180,
+      "targetWatts": null,
+      "percentFtp": 110,
+      "zone": null
+    },
+    {
+      "type": "recovery",
+      "durationSec": 180,
+      "targetWatts": null,
+      "percentFtp": 50,
+      "zone": null
+    },
+    {
+      "type": "steady",
+      "durationSec": 180,
+      "targetWatts": null,
+      "percentFtp": 110,
+      "zone": null
+    },
+    {
+      "type": "recovery",
+      "durationSec": 180,
+      "targetWatts": null,
+      "percentFtp": 50,
+      "zone": null
+    },
+    {
+      "type": "steady",
+      "durationSec": 180,
+      "targetWatts": null,
+      "percentFtp": 110,
+      "zone": null
+    },
+    {
+      "type": "recovery",
+      "durationSec": 180,
+      "targetWatts": null,
+      "percentFtp": 50,
+      "zone": null
+    },
+    {
+      "type": "steady",
+      "durationSec": 180,
+      "targetWatts": null,
+      "percentFtp": 110,
+      "zone": null
+    },
+    {
+      "type": "cooldown",
+      "durationSec": 600,
+      "targetWatts": null,
+      "percentFtp": 45,
+      "zone": null
+    }
+  ],
+  "createdAt": "2026-01-01T12:00:00.000Z"
+}

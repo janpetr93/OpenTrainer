@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.log
+# Local Store — ignore runtime data; samples tracked via root exceptions
+data/**
+!data/.gitkeep
+!data/workouts/
+!data/workouts/.gitkeep
+!data/workouts/sample-*.json
+!data/activities/
+!data/activities/.gitkeep
+!data/scheduled/
+!data/scheduled/.gitkeep
+.env
+.env.*
+!.env.example

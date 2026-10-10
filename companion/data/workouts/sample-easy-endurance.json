@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-easy-endurance",
+  "name": "Sample — Easy endurance (Z2)",
+  "steps": [
+    {
+      "type": "warmup",
+      "durationSec": 300,
+      "targetWatts": null,
+      "percentFtp": 50,
+      "zone": null
+    },
+    {
+      "type": "steady",
+      "durationSec": 2400,
+      "targetWatts": null,
+      "percentFtp": null,
+      "zone": 2
+    },
+    {
+      "type": "cooldown",
+      "durationSec": 300,
+      "targetWatts": null,
+      "percentFtp": 45,
+      "zone": null
+    }
+  ],
+  "createdAt": "2026-01-01T12:00:00.000Z"
+}
