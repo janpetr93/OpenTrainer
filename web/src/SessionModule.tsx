@@ -13,7 +13,7 @@ type Props = {
   showLegend?: boolean
 }
 
-const CHART_HEIGHT = 140
+const CHART_HEIGHT = 240
 
 /** Shared Scheduled Ride / Activity row chrome across Ride, History, Calendar. */
 export function SessionModule({

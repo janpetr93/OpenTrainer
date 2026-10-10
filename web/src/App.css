@@ -231,10 +231,6 @@ button.tab.active {
   font-size: 0.85rem;
 }
 
-.session-power-chart {
-  height: 8rem;
-}
-
 button.export-fit {
   padding: 0.45rem 0.75rem;
   font-size: 0.85rem;
@@ -381,6 +377,11 @@ button.export-fit {
   color: var(--accent);
   background: color-mix(in srgb, var(--code-bg) 70%, var(--bg));
   border-radius: 0.5rem;
+}
+
+/* Must follow .power-profile-line — same specificity, later rule wins. */
+.power-profile-line.session-power-chart {
+  height: 14rem;
 }
 
 .power-profile-line .zone-band rect {
