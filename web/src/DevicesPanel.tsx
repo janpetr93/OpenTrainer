@@ -49,13 +49,25 @@ export function DevicesPanel({
   const meterConnected = meter.connectionState === 'connected'
   const hrConnected = heartRate.connectionState === 'connected'
   const cadenceConnected = cadence.connectionState === 'connected'
+  const linkedCount = [
+    connected,
+    meterConnected,
+    hrConnected,
+    cadenceConnected,
+  ].filter(Boolean).length
 
   return (
     <div className="devices-panel">
       <header className="live-header">
-        <div className="brand-row">
-          <h1>Devices</h1>
-        </div>
+        <h1>Devices</h1>
+        <p className="connection-state">
+          Bluetooth:{' '}
+          {!snapshot.webBluetoothSupported
+            ? 'unavailable'
+            : linkedCount === 0
+              ? 'ready'
+              : `${linkedCount} linked`}
+        </p>
       </header>
 
       {!snapshot.webBluetoothSupported && (
@@ -72,8 +84,14 @@ export function DevicesPanel({
       )}
       {cadence.lastError && <p className="banner error">{cadence.lastError}</p>}
 
-      <section className="connectors" aria-label="Connectors">
-        <div className="actions connectors-bulk">
+      <section className="panel-block" aria-label="Connectors">
+        <h2>Connectors</h2>
+        <p className="muted">
+          Known devices are ones Chrome already permitted for this app. After
+          the first link, trainers often stop advertising — use Connect (not
+          Find new) to reconnect.
+        </p>
+        <div className="form-row connectors-bulk">
           <button
             type="button"
             className="primary"
@@ -88,102 +106,101 @@ export function DevicesPanel({
         {connectAllSummary && (
           <p className="banner warn">{connectAllSummary}</p>
         )}
-        <p className="muted connectors-hint">
-          Known devices are ones Chrome already permitted for this app. After
-          the first link, trainers often stop advertising — use Connect (not
-          Find new) to reconnect.
-        </p>
-        <ConnectorRole
-          title="Trainer"
-          connectionState={snapshot.connectionState}
-          deviceName={snapshot.deviceName}
-          knownDevices={snapshot.knownDevices}
-          connected={connected}
-          canReconnect={canReconnectSensor(snapshot)}
-          handlers={trainer}
-        />
-        <ConnectorRole
-          title="Power meter"
-          connectionState={meter.connectionState}
-          deviceName={meter.deviceName}
-          knownDevices={meter.knownDevices}
-          connected={meterConnected}
-          canReconnect={canReconnectSensor(meter)}
-          handlers={powerMeter}
-        />
-        <ConnectorRole
-          title="Heart rate"
-          connectionState={heartRate.connectionState}
-          deviceName={heartRate.deviceName}
-          knownDevices={heartRate.knownDevices}
-          connected={hrConnected}
-          canReconnect={canReconnectSensor(heartRate)}
-          handlers={heartRateLink}
-        />
-        <ConnectorRole
-          title="Cadence"
-          connectionState={cadence.connectionState}
-          deviceName={cadence.deviceName}
-          knownDevices={cadence.knownDevices}
-          connected={cadenceConnected}
-          canReconnect={canReconnectSensor(cadence)}
-          handlers={cadenceLink}
-        />
+        <div className="connectors">
+          <ConnectorRole
+            title="Trainer"
+            connectionState={snapshot.connectionState}
+            deviceName={snapshot.deviceName}
+            knownDevices={snapshot.knownDevices}
+            connected={connected}
+            canReconnect={canReconnectSensor(snapshot)}
+            handlers={trainer}
+          />
+          <ConnectorRole
+            title="Power meter"
+            connectionState={meter.connectionState}
+            deviceName={meter.deviceName}
+            knownDevices={meter.knownDevices}
+            connected={meterConnected}
+            canReconnect={canReconnectSensor(meter)}
+            handlers={powerMeter}
+          />
+          <ConnectorRole
+            title="Heart rate"
+            connectionState={heartRate.connectionState}
+            deviceName={heartRate.deviceName}
+            knownDevices={heartRate.knownDevices}
+            connected={hrConnected}
+            canReconnect={canReconnectSensor(heartRate)}
+            handlers={heartRateLink}
+          />
+          <ConnectorRole
+            title="Cadence"
+            connectionState={cadence.connectionState}
+            deviceName={cadence.deviceName}
+            knownDevices={cadence.knownDevices}
+            connected={cadenceConnected}
+            canReconnect={canReconnectSensor(cadence)}
+            handlers={cadenceLink}
+          />
+        </div>
       </section>
 
-      <details className="debug-panel">
-        <summary>FTMS debug</summary>
-        <div className="debug-body">
-          <h3>Features</h3>
-          {snapshot.features ? (
+      <section className="panel-block">
+        <details className="debug-panel">
+          <summary>FTMS debug</summary>
+          <div className="debug-body">
+            <h3>Features</h3>
+            {snapshot.features ? (
+              <ul>
+                <li>
+                  Target power supported:{' '}
+                  {snapshot.features.targetPowerSupported ? 'yes' : 'no'}
+                </li>
+                <li>
+                  ERG control available:{' '}
+                  {snapshot.ergControlAvailable ? 'yes' : 'no'}
+                </li>
+                <li>Raw: {snapshot.features.rawHex}</li>
+              </ul>
+            ) : (
+              <p>No feature data yet.</p>
+            )}
+
+            <h3>Control Probe</h3>
+            {snapshot.controlProbeLog.length === 0 ? (
+              <p>No probe log yet.</p>
+            ) : (
+              <ol>
+                {snapshot.controlProbeLog.map((line, index) => (
+                  <li key={`${index}-${line}`}>{line}</li>
+                ))}
+              </ol>
+            )}
+
+            <h3>Services</h3>
             <ul>
-              <li>
-                Target power supported:{' '}
-                {snapshot.features.targetPowerSupported ? 'yes' : 'no'}
-              </li>
-              <li>
-                ERG control available:{' '}
-                {snapshot.ergControlAvailable ? 'yes' : 'no'}
-              </li>
-              <li>Raw: {snapshot.features.rawHex}</li>
-            </ul>
-          ) : (
-            <p>No feature data yet.</p>
-          )}
-
-          <h3>Control Probe</h3>
-          {snapshot.controlProbeLog.length === 0 ? (
-            <p>No probe log yet.</p>
-          ) : (
-            <ol>
-              {snapshot.controlProbeLog.map((line, index) => (
-                <li key={`${index}-${line}`}>{line}</li>
+              {snapshot.services.map((s) => (
+                <li key={s}>{s}</li>
               ))}
-            </ol>
-          )}
+            </ul>
 
-          <h3>Services</h3>
-          <ul>
-            {snapshot.services.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ul>
+            <h3>Characteristics</h3>
+            <ul>
+              {snapshot.characteristics.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
 
-          <h3>Characteristics</h3>
-          <ul>
-            {snapshot.characteristics.map((c) => (
-              <li key={c}>{c}</li>
-            ))}
-          </ul>
-
-          <h3>Last Indoor Bike raw fields</h3>
-          {snapshot.lastIndoorBikeRaw ? (
-            <pre>{JSON.stringify(snapshot.lastIndoorBikeRaw, null, 2)}</pre>
-          ) : (
-            <p>None yet.</p>
-          )}
-        </div>
-      </details>
+            <h3>Last Indoor Bike raw fields</h3>
+            {snapshot.lastIndoorBikeRaw ? (
+              <pre>{JSON.stringify(snapshot.lastIndoorBikeRaw, null, 2)}</pre>
+            ) : (
+              <p>None yet.</p>
+            )}
+          </div>
+        </details>
+      </section>
     </div>
   )
 }

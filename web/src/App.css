@@ -61,7 +61,8 @@ button.tab.active {
 }
 
 .workouts-panel,
-.profile-panel {
+.profile-panel,
+.devices-panel {
   width: var(--content-width);
   display: grid;
   gap: 1.25rem;
@@ -822,33 +823,22 @@ button.linkish:hover {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  width: min(100%, 36rem);
-  margin: 0 auto;
+  margin-top: 1rem;
+  width: 100%;
 }
 
-.connectors-bulk {
-  justify-content: stretch;
-}
-
-.connectors-bulk button {
-  flex: 1;
-}
-
-.connectors-hint {
+.devices-panel .panel-block .debug-panel {
+  width: 100%;
   margin: 0;
-  font-size: 0.85rem;
-  text-align: center;
+  border: none;
+  background: transparent;
+  padding: 0;
 }
 
-.devices-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.devices-panel .debug-panel {
-  width: min(100%, 36rem);
-  margin: 0 auto;
+.devices-panel .panel-block .debug-panel summary {
+  font-weight: 650;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
 }
 
 .connector-role {
