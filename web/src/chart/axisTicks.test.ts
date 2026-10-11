@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatAxisBpm,
+  formatAxisRpm,
   formatAxisTime,
   formatAxisWatts,
   threeAxisTicks,
@@ -47,5 +49,19 @@ describe('formatAxisWatts', () => {
   it('labels rounded watts', () => {
     expect(formatAxisWatts(0)).toBe('0 W')
     expect(formatAxisWatts(187.4)).toBe('187 W')
+  })
+})
+
+describe('formatAxisBpm', () => {
+  it('labels rounded heart rate', () => {
+    expect(formatAxisBpm(40)).toBe('40 bpm')
+    expect(formatAxisBpm(162.6)).toBe('163 bpm')
+  })
+})
+
+describe('formatAxisRpm', () => {
+  it('labels rounded cadence', () => {
+    expect(formatAxisRpm(0)).toBe('0 rpm')
+    expect(formatAxisRpm(88.2)).toBe('88 rpm')
   })
 })

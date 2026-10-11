@@ -1,10 +1,19 @@
 import {
+  formatAxisBpm,
+  formatAxisRpm,
   formatAxisTime,
   formatAxisWatts,
   threeAxisTicks,
   wattsAxisDomain,
 } from './chart/axisTicks'
-import type { ChartSeries } from './chart/metricSeries'
+import {
+  bodyChartAxisSides,
+  chartScaleDomain,
+  type ChartPoint,
+  type ChartScale,
+  type ChartSeries,
+} from './chart/metricSeries'
+import { smoothChartPoints } from './chart/smoothSeries'
 import {
   powerAxisMaxWatts,
   wattsToY,
@@ -32,10 +41,15 @@ type Props = {
   /** When set, draw Coggan Power Zone bands on the shared watts axis. */
   ftpWatts?: number | null
   /**
-   * Session charts: HTML watts/time ticks around the plot plus faint gridlines.
+   * HTML Y/time ticks around the plot plus faint gridlines.
    * Keeps tick text crisp while the plot still stretches to fill.
    */
   showAxes?: boolean
+  /**
+   * Session charts: zoom the watts Y domain to data ± margin.
+   * Ride keeps 0-based / FTP zone domain when this is false.
+   */
+  zoomWattsToData?: boolean
 }
 
 const DEFAULT_WIDTH = 640
@@ -48,6 +62,11 @@ type PlotPad = {
   right: number
   top: number
   bottom: number
+}
+
+type AxisSideLabels = {
+  values: number[]
+  format: (n: number) => string
 }
 
 function isChartSeries(s: ChartSeries | PowerProfileSeries): s is ChartSeries {
@@ -116,6 +135,34 @@ function strokeWidth(tone: ChartSeries['tone']): number {
   }
 }
 
+/** Measured watts lines get a light display-only smooth; plan stays stepped. */
+const MEASURED_SMOOTH_WINDOW_SEC = 5
+
+function displayPoints(series: ChartSeries): ChartPoint[] {
+  if (
+    series.scale === 'watts' &&
+    (series.tone === 'achieved' || series.tone === 'meter')
+  ) {
+    return smoothChartPoints(series.points, MEASURED_SMOOTH_WINDOW_SEC)
+  }
+  return series.points
+}
+
+function formatBodyScale(scale: 'heartRate' | 'cadence'): (n: number) => string {
+  return scale === 'heartRate' ? formatAxisBpm : formatAxisRpm
+}
+
+function sideLabels(scale: ChartScale): AxisSideLabels | null {
+  const domain = chartScaleDomain(scale)
+  if (!domain || (scale !== 'heartRate' && scale !== 'cadence')) return null
+  return {
+    values: [...new Set(threeAxisTicks(domain.min, domain.max))].sort(
+      (a, b) => b - a,
+    ),
+    format: formatBodyScale(scale),
+  }
+}
+
 /** SVG multi-metric profile; watts share a scale (optional zone bands). */
 export function PowerProfileLine({
   series,
@@ -127,6 +174,7 @@ export function PowerProfileLine({
   width = DEFAULT_WIDTH,
   ftpWatts = null,
   showAxes = false,
+  zoomWattsToData = false,
 }: Props) {
   const normalized = normalizeSeries(series).filter((s) => s.points.length >= 2)
   if (normalized.length < 1) {
@@ -142,21 +190,20 @@ export function PowerProfileLine({
   const wattsDataMax = Math.max(1, ...wattsValues)
   const wattsDataMin = wattsValues.length > 0 ? Math.min(...wattsValues) : 0
 
-  // Session charts: zoom Y to data ± margin. Live ride keeps 0-based (zones).
-  const wattsDomain = showAxes
-    ? wattsAxisDomain(wattsDataMin, wattsDataMax)
-    : {
-        min: 0,
-        max:
-          ftpWatts !== null && ftpWatts > 0
-            ? powerAxisMaxWatts({ ftpWatts, dataMaxWatts: wattsDataMax })
-            : wattsDataMax,
-      }
+  const wattsDomain =
+    ftpWatts !== null && ftpWatts > 0
+      ? {
+          min: 0,
+          max: powerAxisMaxWatts({ ftpWatts, dataMaxWatts: wattsDataMax }),
+        }
+      : zoomWattsToData
+        ? wattsAxisDomain(wattsDataMin, wattsDataMax)
+        : { min: 0, max: wattsDataMax }
   const wattsMin = wattsDomain.min
   const wattsMax = wattsDomain.max
 
   const bands =
-    !showAxes && ftpWatts !== null && ftpWatts > 0 && wattsSeries.length > 0
+    ftpWatts !== null && ftpWatts > 0 && wattsSeries.length > 0
       ? zoneBandRects(ftpWatts, wattsMax)
       : []
 
@@ -165,16 +212,48 @@ export function PowerProfileLine({
       ? xOf(Math.min(cursorSec, maxT), maxT, width, pad)
       : null
 
-  const yTicks = showAxes ? [...new Set(threeAxisTicks(wattsMin, wattsMax))] : []
+  const hasWatts = wattsSeries.length > 0
+  const bodySides = bodyChartAxisSides(normalized.map((s) => s.scale))
+  const leftBody = bodySides.left ? sideLabels(bodySides.left) : null
+  const rightBody = bodySides.right ? sideLabels(bodySides.right) : null
+
+  const leftAxis: AxisSideLabels | null = hasWatts
+    ? {
+        values: [...new Set(threeAxisTicks(wattsMin, wattsMax))].sort(
+          (a, b) => b - a,
+        ),
+        format: formatAxisWatts,
+      }
+    : leftBody
+
+  const rightAxis: AxisSideLabels | null = hasWatts ? null : rightBody
+
+  // Gridlines follow the left Y domain (same visual thirds for fixed body bands).
+  const gridMin = hasWatts
+    ? wattsMin
+    : leftBody
+      ? Math.min(...leftBody.values)
+      : null
+  const gridMax = hasWatts
+    ? wattsMax
+    : leftBody
+      ? Math.max(...leftBody.values)
+      : null
+  const yTicks =
+    showAxes && gridMin !== null && gridMax !== null
+      ? [...new Set(threeAxisTicks(gridMin, gridMax))]
+      : []
   const xTicks = showAxes ? [...new Set(threeAxisTicks(0, maxT))] : []
-  // Top → bottom for a column flex that matches the plot (high watts at top).
-  const yTickLabels = [...yTicks].sort((a, b) => b - a)
   const plotLeft = pad.left
   const plotWidth = width - pad.left - pad.right
 
   const svg = (
     <svg
-      className={showAxes ? 'power-profile-line session-power-chart-plot' : (className ?? 'power-profile-line')}
+      className={
+        showAxes
+          ? 'power-profile-line session-power-chart-plot'
+          : (className ?? 'power-profile-line')
+      }
       viewBox={`0 0 ${width} ${height}`}
       role={showAxes ? 'presentation' : 'img'}
       aria-label={showAxes ? undefined : label}
@@ -219,26 +298,30 @@ export function PowerProfileLine({
           </g>
         )
       })}
-      {yTicks.map((watts) => {
-        const y = yOf(watts, wattsMin, wattsMax, height, pad)
-        return (
-          <line
-            key={`grid-y-${watts}`}
-            className="axis-grid"
-            x1={plotLeft}
-            x2={plotLeft + plotWidth}
-            y1={y}
-            y2={y}
-            vectorEffect="nonScalingStroke"
-          />
-        )
-      })}
+      {gridMin !== null &&
+        gridMax !== null &&
+        yTicks.map((tick) => {
+          const y = yOf(tick, gridMin, gridMax, height, pad)
+          return (
+            <line
+              key={`grid-y-${tick}`}
+              className="axis-grid"
+              x1={plotLeft}
+              x2={plotLeft + plotWidth}
+              y1={y}
+              y2={y}
+              vectorEffect="nonScalingStroke"
+            />
+          )
+        })}
       {normalized.map((s) => {
-        const minV = s.scale === 'watts' ? wattsMin : 0
+        const points = displayPoints(s)
+        const fixed = chartScaleDomain(s.scale)
+        const minV = s.scale === 'watts' ? wattsMin : (fixed?.min ?? 0)
         const maxV =
           s.scale === 'watts'
             ? wattsMax
-            : Math.max(...s.points.map((p) => p.value), 1)
+            : (fixed?.max ?? Math.max(...points.map((p) => p.value), 1))
         return (
           <polyline
             key={`${s.tone}-${s.label}`}
@@ -248,7 +331,7 @@ export function PowerProfileLine({
             strokeLinejoin="round"
             strokeLinecap="round"
             vectorEffect="nonScalingStroke"
-            points={toPoints(s.points, maxT, minV, maxV, width, height, pad)}
+            points={toPoints(points, maxT, minV, maxV, width, height, pad)}
           />
         )
       })}
@@ -268,18 +351,29 @@ export function PowerProfileLine({
 
   if (!showAxes) return svg
 
+  const dualY = rightAxis !== null
+
   return (
     <div
-      className={`session-chart-axes ${className ?? ''}`.trim()}
+      className={`session-chart-axes${dualY ? ' session-chart-axes-dual-y' : ''} ${className ?? ''}`.trim()}
       role="img"
       aria-label={label}
     >
-      <div className="session-chart-y" aria-hidden="true">
-        {yTickLabels.map((watts) => (
-          <span key={`y-${watts}`}>{formatAxisWatts(watts)}</span>
-        ))}
-      </div>
+      {leftAxis && (
+        <div className="session-chart-y session-chart-y-left" aria-hidden="true">
+          {leftAxis.values.map((v) => (
+            <span key={`y-left-${v}`}>{leftAxis.format(v)}</span>
+          ))}
+        </div>
+      )}
       {svg}
+      {rightAxis && (
+        <div className="session-chart-y session-chart-y-right" aria-hidden="true">
+          {rightAxis.values.map((v) => (
+            <span key={`y-right-${v}`}>{rightAxis.format(v)}</span>
+          ))}
+        </div>
+      )}
       <div className="session-chart-x" aria-hidden="true">
         {xTicks.map((tSec) => (
           <span key={`x-${tSec}`}>{formatAxisTime(tSec)}</span>

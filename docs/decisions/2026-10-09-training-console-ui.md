@@ -12,7 +12,7 @@ The web UI needed a more professional look. Ride was a long stack of equally wei
 ## Decision
 
 - **Depth:** Visual polish plus Ride hierarchy — not a full app-shell rewrite; no BLE/workout logic changes.
-- **Look:** Training console — dark stage, live watts as hero, green reserved for ok/connected. *(Visual tokens revised 2026-10-10 — see [dark-first cockpit density](2026-10-10-dark-first-cockpit-density.md).)*
+- **Look:** Training console — live watts as hero, green reserved for ok/connected. *(Visual tokens: light high-contrast paper — see [2026-10-11-light-high-contrast-cockpit](2026-10-11-light-high-contrast-cockpit.md); earlier dark pass [2026-10-10-dark-first-cockpit-density](2026-10-10-dark-first-cockpit-density.md) superseded.)*
 - **Ride modes (soft):** Pre-ride shows one **Ride** panel (today’s Scheduled Rides + Start; Free Ride when none selected) → full connectors. While running/paused, chart + metrics + controls dominate; connectors collapse into an expandable status strip. Completed/stopped return to setup so Start is available again.
 - **Secondary tabs:** Same tokens and control chrome; no History/Calendar/Profile IA changes.
 
@@ -27,4 +27,4 @@ The web UI needed a more professional look. Ride was a long stack of equally wei
 
 - Ride presentation is mode-dependent (`live-display-riding`); mid-ride expandable `connectors-strip` was later moved to a **Devices** tab — see [2026-10-10-devices-tab](2026-10-10-devices-tab.md).
 - Reversible visual choice — no ADR.
-- Palette/type/density updated in [2026-10-10-dark-first-cockpit-density](2026-10-10-dark-first-cockpit-density.md) (dark-only); Ride hierarchy above still applies.
+- Palette climate is light-only per [2026-10-11-light-high-contrast-cockpit](2026-10-11-light-high-contrast-cockpit.md); Ride hierarchy above still applies.

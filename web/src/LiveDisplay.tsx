@@ -5,7 +5,10 @@ import {
 } from './cps'
 import type { CadenceSnapshot } from './csc'
 import { workoutNeedsFtp } from './domain/resolveTarget'
-import { buildRideChartSeries } from './chart/metricSeries'
+import {
+  buildRideChartSeries,
+  splitRideChartSeries,
+} from './chart/metricSeries'
 import type { TrainerSnapshot } from './ftms'
 import type { HeartRateSnapshot } from './hrm'
 import { PowerProfileLine } from './PowerProfileLine'
@@ -163,10 +166,18 @@ export function LiveDisplay({
     planned: plannedProfile,
     achieved: achievedProfile,
   })
-  const showChart = rideSeries.length > 0
+  const { power: powerSeries, body: bodySeries } =
+    splitRideChartSeries(rideSeries)
+  const showChart = powerSeries.length > 0
+  const showBodyChart = bodySeries.length > 0
+  const chartMaxTSec = plannedProfile.length
+    ? Math.max(...plannedProfile.map((p) => p.tSec))
+    : undefined
   /** Soft riding mode: setup collapses only while actively riding. */
   const riding =
     runner.status === 'running' || runner.status === 'paused'
+  const chartCursorSec =
+    riding || inWorkout ? runner.elapsedSec : null
   const sensors = [
     {
       id: 'trainer',
@@ -230,22 +241,31 @@ export function LiveDisplay({
       <section className="power-panel" aria-live="polite">
         {showChart && (
           <div className="ride-chart ride-chart-hero">
-            <PowerProfileLine
-              className="power-profile-line ride-power-chart"
-              label="Live metrics versus time with power zones"
-              height={360}
-              width={960}
-              ftpWatts={ftpWatts}
-              maxTSec={
-                plannedProfile.length
-                  ? Math.max(...plannedProfile.map((p) => p.tSec))
-                  : undefined
-              }
-              cursorSec={
-                riding || inWorkout ? runner.elapsedSec : null
-              }
-              series={rideSeries}
-            />
+            <div className="ride-chart-stack">
+              <PowerProfileLine
+                className="ride-power-chart"
+                label="Live power versus time with power zones"
+                height={360}
+                width={960}
+                ftpWatts={ftpWatts}
+                maxTSec={chartMaxTSec}
+                cursorSec={chartCursorSec}
+                series={powerSeries}
+                showAxes
+              />
+              {showBodyChart && (
+                <PowerProfileLine
+                  className="ride-body-chart"
+                  label="Heart rate and cadence versus time"
+                  height={120}
+                  width={960}
+                  maxTSec={chartMaxTSec}
+                  cursorSec={chartCursorSec}
+                  series={bodySeries}
+                  showAxes
+                />
+              )}
+            </div>
             <p className="chart-legend muted">
               {ftpWatts !== null && ftpWatts > 0 && (
                 <span className="legend-zones">Zones</span>
@@ -259,11 +279,11 @@ export function LiveDisplay({
                 </span>
               ))}
             </p>
-            {showChart && (ftpWatts === null || ftpWatts <= 0) && (
+            {ftpWatts === null || ftpWatts <= 0 ? (
               <p className="alignment-hint muted">
                 Set FTP via MCP (set_ftp) to show Power Zone bands.
               </p>
-            )}
+            ) : null}
           </div>
         )}
 

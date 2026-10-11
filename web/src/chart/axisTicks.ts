@@ -39,3 +39,13 @@ export function formatAxisTime(sec: number): string {
 export function formatAxisWatts(watts: number): string {
   return `${Math.round(watts)} W`
 }
+
+/** Heart-rate label for chart Y ticks. */
+export function formatAxisBpm(bpm: number): string {
+  return `${Math.round(bpm)} bpm`
+}
+
+/** Cadence label for chart Y ticks. */
+export function formatAxisRpm(rpm: number): string {
+  return `${Math.round(rpm)} rpm`
+}

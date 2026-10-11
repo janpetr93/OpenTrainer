@@ -7,14 +7,31 @@ export type ChartPoint = {
 
 export type ChartTone = 'planned' | 'achieved' | 'heartRate' | 'cadence' | 'meter'
 
-/** Watts series share one Y axis (for zone bands); others scale alone. */
-export type ChartScale = 'watts' | 'independent'
+/** Watts share one Y axis (zone bands); HR/cadence use fixed physiological bands. */
+export type ChartScale = 'watts' | 'heartRate' | 'cadence'
 
 export type ChartSeries = {
   points: ChartPoint[]
   tone: ChartTone
   label: string
   scale: ChartScale
+}
+
+/** Fixed Y domains for body-metric scales (values outside clamp to the edge). */
+export const HEART_RATE_AXIS = { min: 40, max: 200 } as const
+export const CADENCE_AXIS = { min: 0, max: 120 } as const
+
+export function chartScaleDomain(
+  scale: ChartScale,
+): { min: number; max: number } | null {
+  switch (scale) {
+    case 'heartRate':
+      return { min: HEART_RATE_AXIS.min, max: HEART_RATE_AXIS.max }
+    case 'cadence':
+      return { min: CADENCE_AXIS.min, max: CADENCE_AXIS.max }
+    case 'watts':
+      return null
+  }
 }
 
 export function wattsSeries(
@@ -28,6 +45,19 @@ export function wattsSeries(
     label,
     scale: 'watts',
     points: points.map((p) => ({ tSec: p.tSec, value: p.watts })),
+  }
+}
+
+function scaleForMetric(
+  key: 'hrBpm' | 'cadenceRpm' | 'meterWatts',
+): ChartScale {
+  switch (key) {
+    case 'hrBpm':
+      return 'heartRate'
+    case 'cadenceRpm':
+      return 'cadence'
+    case 'meterWatts':
+      return 'watts'
   }
 }
 
@@ -47,7 +77,7 @@ export function optionalMetricSeries(
   return {
     tone,
     label,
-    scale: key === 'meterWatts' ? 'watts' : 'independent',
+    scale: scaleForMetric(key),
     points: series,
   }
 }
@@ -69,4 +99,37 @@ export function buildRideChartSeries(input: {
       'Cadence',
     ),
   ].filter((s): s is ChartSeries => s !== null)
+}
+
+/** Partition ride series into the power chart vs the body-metric strip. */
+export function splitRideChartSeries(series: ChartSeries[]): {
+  power: ChartSeries[]
+  body: ChartSeries[]
+} {
+  const power: ChartSeries[] = []
+  const body: ChartSeries[] = []
+  for (const s of series) {
+    if (s.scale === 'watts') power.push(s)
+    else body.push(s)
+  }
+  return { power, body }
+}
+
+/**
+ * Y-axis sides for the body strip: HR left when present; cadence on the right
+ * when both exist, otherwise alone on the left.
+ */
+export function bodyChartAxisSides(scales: Iterable<ChartScale>): {
+  left: 'heartRate' | 'cadence' | null
+  right: 'heartRate' | 'cadence' | null
+} {
+  const set = new Set(scales)
+  const hasHr = set.has('heartRate')
+  const hasCadence = set.has('cadence')
+  if (hasHr && hasCadence) {
+    return { left: 'heartRate', right: 'cadence' }
+  }
+  if (hasHr) return { left: 'heartRate', right: null }
+  if (hasCadence) return { left: 'cadence', right: null }
+  return { left: null, right: null }
 }

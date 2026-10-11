@@ -19,7 +19,7 @@
   width: var(--content-width);
 }
 
-.app-riding .ride-power-chart {
+.app-riding .ride-chart-stack {
   height: clamp(22rem, 56vh, 40rem);
 }
 
@@ -280,7 +280,7 @@ button.tab.active {
 
 .workout-live-targets strong {
   color: var(--metric);
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .entity-list {
@@ -369,7 +369,7 @@ button.tab.active {
   margin: 0;
   font-family: var(--font-mono);
   font-size: 1.2rem;
-  font-weight: 650;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1.15;
   color: var(--text);
@@ -579,7 +579,7 @@ button.export-fit {
   height: 14rem;
 }
 
-/* HTML ticks around a stretching plot — SessionModule watt charts. */
+/* HTML ticks around a stretching plot — SessionModule + Ride charts. */
 .session-chart-axes.session-power-chart,
 .session-chart-axes {
   display: grid;
@@ -595,6 +595,10 @@ button.export-fit {
   box-sizing: border-box;
 }
 
+.session-chart-axes-dual-y {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
 .session-chart-axes .session-chart-y {
   grid-column: 1;
   grid-row: 1;
@@ -608,6 +612,12 @@ button.export-fit {
   line-height: 1;
   color: var(--muted);
   user-select: none;
+}
+
+.session-chart-axes-dual-y .session-chart-y-right {
+  grid-column: 3;
+  grid-row: 1;
+  align-items: flex-start;
 }
 
 .session-chart-axes .session-power-chart-plot {
@@ -645,25 +655,25 @@ button.export-fit {
 }
 
 .power-profile-line .zone-band-z1 rect {
-  fill: color-mix(in srgb, #6b7c8a 22%, transparent);
+  fill: color-mix(in srgb, #6b7c8a 32%, transparent);
 }
 .power-profile-line .zone-band-z2 rect {
-  fill: color-mix(in srgb, #3d8fd4 20%, transparent);
+  fill: color-mix(in srgb, #3d8fd4 30%, transparent);
 }
 .power-profile-line .zone-band-z3 rect {
-  fill: color-mix(in srgb, #3d9a6a 18%, transparent);
+  fill: color-mix(in srgb, #3d9a6a 28%, transparent);
 }
 .power-profile-line .zone-band-z4 rect {
-  fill: color-mix(in srgb, #d4a017 20%, transparent);
+  fill: color-mix(in srgb, #d4a017 30%, transparent);
 }
 .power-profile-line .zone-band-z5 rect {
-  fill: color-mix(in srgb, #d47a2a 22%, transparent);
+  fill: color-mix(in srgb, #d47a2a 32%, transparent);
 }
 .power-profile-line .zone-band-z6 rect {
-  fill: color-mix(in srgb, #d4534a 22%, transparent);
+  fill: color-mix(in srgb, #d4534a 32%, transparent);
 }
 .power-profile-line .zone-band-z7 rect {
-  fill: color-mix(in srgb, #9b5de5 20%, transparent);
+  fill: color-mix(in srgb, #9b5de5 30%, transparent);
 }
 
 .power-profile-line .zone-band-label {
@@ -715,9 +725,41 @@ button.export-fit {
   margin: 0 0 1.25rem;
 }
 
-.ride-power-chart {
+.ride-chart-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   height: clamp(18rem, 48vh, 30rem);
   border-radius: var(--radius);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--code-bg) 70%, var(--bg));
+}
+
+.ride-chart-stack .session-chart-axes.ride-power-chart,
+.ride-chart-stack .session-chart-axes.ride-body-chart {
+  min-height: 0;
+  height: auto;
+  width: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+  padding: 0.3rem 0.45rem 0.15rem;
+  background: transparent;
+  border-radius: 0;
+}
+
+.ride-chart-stack .session-chart-axes.ride-power-chart {
+  flex: 3 1 0;
+}
+
+.ride-chart-stack .session-chart-axes.ride-body-chart {
+  flex: 1 1 0;
+}
+
+.ride-chart-stack .session-chart-y {
+  font-size: 0.65rem;
+}
+
+.ride-chart-stack .session-chart-x {
+  font-size: 0.65rem;
 }
 
 
@@ -1009,7 +1051,7 @@ button.linkish:hover {
   margin: 0.2rem 0 0;
   font-family: var(--font-mono);
   font-size: clamp(3.75rem, 17vw, 6.25rem);
-  font-weight: 700;
+  font-weight: 800;
   line-height: 0.95;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.045em;
@@ -1057,7 +1099,7 @@ button.linkish:hover {
 
 .alignment-watts {
   font-size: 1.65rem;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
 }
 
@@ -1091,11 +1133,13 @@ button.linkish:hover {
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 1rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .secondary-metrics [data-status='fresh'] {
   color: var(--text);
+  font-weight: 800;
 }
 
 .actions {
@@ -1369,8 +1413,8 @@ button.primary {
 }
 
 button.primary:hover {
-  border-color: color-mix(in srgb, var(--accent) 70%, white);
-  background: color-mix(in srgb, var(--accent) 88%, white);
+  border-color: color-mix(in srgb, var(--accent) 85%, black);
+  background: color-mix(in srgb, var(--accent) 88%, black);
 }
 
 button.danger {

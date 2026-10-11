@@ -1,9 +1,11 @@
 ---
 date: 2026-10-09
-status: active
+status: superseded
 ---
 
 # Ride chart as multi-metric centerpiece
+
+> Superseded by [ride chart body-metric strip](2026-10-11-ride-chart-body-metric-strip.md).
 
 ## Context
 

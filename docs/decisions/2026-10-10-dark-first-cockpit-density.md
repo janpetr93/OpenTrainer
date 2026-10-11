@@ -1,7 +1,9 @@
 ---
 date: 2026-10-10
-status: active
+status: superseded
 ---
+
+> Superseded by [2026-10-11-light-high-contrast-cockpit](2026-10-11-light-high-contrast-cockpit.md) (light-only paper climate; density/type split lessons still useful historically).
 
 # Dark-first cockpit density restyle
 

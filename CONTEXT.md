@@ -131,7 +131,7 @@ The recorded outcome of an actual ride (timestamped power samples and interval m
 _Avoid_: Session, workout (a **Workout** is the plan; an **Activity** is what was ridden)
 
 **Power Profile**:
-Watts over elapsed time for a plan or ride — for a **Workout**, the planned step chart; for an **Activity**, achieved power (and planned overlay when a **Workout** was followed). Achieved points may also include optional `hrBpm` / `cadenceRpm` / `meterWatts` when those sensors were fresh; the Ride chart overlays these metrics (watts series share a scale with optional **Power Zone** bands from **FTP**; HR/cadence scale independently).
+Watts over elapsed time for a plan or ride — for a **Workout**, the planned step chart; for an **Activity**, achieved power (and planned overlay when a **Workout** was followed). Achieved points may also include optional `hrBpm` / `cadenceRpm` / `meterWatts` when those sensors were fresh; the Ride chart shows watts (shared scale, optional **Power Zone** bands from **FTP**) on the hero plot and HR/cadence on a body-metric strip with fixed bands (40–200 bpm, 0–120 rpm).
 _Avoid_: Power curve (use **Mean Maximal Power** for bests), MMP as a synonym for this session chart
 
 **Session Load**:

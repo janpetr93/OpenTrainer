@@ -75,6 +75,7 @@ export function SessionModule({
               height={CHART_HEIGHT}
               series={series}
               showAxes
+              zoomWattsToData
             />
           )
         )}

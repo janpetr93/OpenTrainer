@@ -1,20 +1,20 @@
 :root {
-  /* Cockpit is dark-only — does not follow system light preference. */
-  color-scheme: dark;
-  --bg: #0b0e11;
-  --text: #e6ecf0;
-  --muted: #84929c;
-  --panel: #13181c;
-  --border: #232b31;
-  --accent: #6a9fb5;
-  --accent-text: #061018;
-  --ok: #3bbf72;
-  --warn: #c9a227;
-  --warn-text: #f0e4b0;
-  --danger: #d2554d;
-  --danger-text: #ffd4d0;
-  --code-bg: #0e1216;
-  --metric: #8fcbe0;
+  /* Cockpit is light-only — does not follow system dark preference. */
+  color-scheme: light;
+  --bg: #f4f6f8;
+  --text: #121417;
+  --muted: #3d4853;
+  --panel: #ffffff;
+  --border: #9aa8b5;
+  --accent: #1b4fd8;
+  --accent-text: #ffffff;
+  --ok: #1b8a4a;
+  --warn: #b8860b;
+  --warn-text: #6b4e00;
+  --danger: #c4332b;
+  --danger-text: #8b1e18;
+  --code-bg: #e8ecf0;
+  --metric: #153db8;
   --radius: 0.4rem;
   --font-sans: 'Source Sans 3', 'Segoe UI', sans-serif;
   --font-mono: 'Source Code Pro', ui-monospace, monospace;
@@ -23,7 +23,7 @@
   font-weight: 400;
   color: var(--text);
   background:
-    radial-gradient(900px 420px at 6% -18%, #152028 0%, transparent 58%),
+    radial-gradient(900px 420px at 6% -18%, #dde5ee 0%, transparent 58%),
     var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
