@@ -4,6 +4,7 @@ import {
   type PowerMeterSnapshot,
 } from './cps'
 import type { CadenceSnapshot } from './csc'
+import type { PowerSourceMode } from './domain/powerSourceMode'
 import { workoutNeedsFtp } from './domain/resolveTarget'
 import {
   buildRideChartSeries,
@@ -29,6 +30,8 @@ type Props = {
   meter: PowerMeterSnapshot
   /** Rolling ~5s average of Meter − Trainer (null when window empty). */
   alignmentDelta: number | null
+  /** Locked at Start; drives Live Power primary while riding. */
+  powerSourceMode: PowerSourceMode
   heartRate: HeartRateSnapshot
   cadence: CadenceSnapshot
   workouts: Workout[]
@@ -53,26 +56,27 @@ type Props = {
   onStop: () => void
 }
 
-function powerLabel(snapshot: TrainerSnapshot): string {
-  if (snapshot.powerStatus === 'missing') return '—'
-  if (snapshot.watts === null) return '—'
-  return String(snapshot.watts)
+function devicePowerLabel(
+  status: 'missing' | 'stale' | 'fresh',
+  watts: number | null,
+): string {
+  if (status === 'missing' || watts === null) return '—'
+  return String(watts)
 }
 
-function powerHint(snapshot: TrainerSnapshot): string {
-  switch (snapshot.powerStatus) {
+function livePowerHint(
+  mode: PowerSourceMode,
+  status: 'missing' | 'stale' | 'fresh',
+): string {
+  const source = mode === 'meter' ? 'meter' : 'trainer'
+  switch (status) {
     case 'missing':
       return 'No power data yet'
     case 'stale':
-      return 'Stale — no recent power notification'
+      return `Stale — no recent ${source} power`
     case 'fresh':
-      return 'Live Power (trainer)'
+      return `Live Power (${source})`
   }
-}
-
-function meterPowerLabel(meter: PowerMeterSnapshot): string {
-  if (meter.powerStatus === 'missing' || meter.watts === null) return '—'
-  return String(meter.watts)
 }
 
 function formatClock(sec: number): string {
@@ -85,6 +89,7 @@ export function LiveDisplay({
   snapshot,
   meter,
   alignmentDelta,
+  powerSourceMode,
   heartRate,
   cadence,
   workouts,
@@ -106,6 +111,7 @@ export function LiveDisplay({
 }: Props) {
   const connected = snapshot.connectionState === 'connected'
   const meterConnected = meter.connectionState === 'connected'
+  const meterPrimary = powerSourceMode === 'meter'
   const hrConnected = heartRate.connectionState === 'connected'
   const cadenceConnected = cadence.connectionState === 'connected'
   const inWorkout =
@@ -176,6 +182,18 @@ export function LiveDisplay({
   /** Soft riding mode: setup collapses only while actively riding. */
   const riding =
     runner.status === 'running' || runner.status === 'paused'
+  const primaryStatus = meterPrimary ? meter.powerStatus : snapshot.powerStatus
+  const primaryWatts = meterPrimary ? meter.watts : snapshot.watts
+  const secondaryLabel = meterPrimary ? 'Trainer' : 'Meter'
+  const secondaryWatts = meterPrimary
+    ? devicePowerLabel(snapshot.powerStatus, snapshot.watts)
+    : devicePowerLabel(meter.powerStatus, meter.watts)
+  const secondaryStatus = meterPrimary ? snapshot.powerStatus : meter.powerStatus
+  const showAlignment =
+    meterConnected ||
+    meter.connectionState === 'disconnected-with-reconnect' ||
+    meter.deviceName !== null ||
+    meterPrimary
   const chartCursorSec =
     riding || inWorkout ? runner.elapsedSec : null
   const sensors = [
@@ -343,22 +361,22 @@ export function LiveDisplay({
             </div>
 
             <div className="live-metric-primary">
-              <p className="power-hint">{powerHint(snapshot)}</p>
-              <p className="power-value" data-status={snapshot.powerStatus}>
-                {powerLabel(snapshot)}
+              <p className="power-hint">
+                {livePowerHint(powerSourceMode, primaryStatus)}
+              </p>
+              <p className="power-value" data-status={primaryStatus}>
+                {devicePowerLabel(primaryStatus, primaryWatts)}
                 <span className="power-unit">W</span>
               </p>
-              {(meterConnected ||
-                meter.connectionState === 'disconnected-with-reconnect' ||
-                meter.deviceName !== null) && (
+              {showAlignment && (
                 <p
                   className="alignment-row alignment-row-compact"
-                  data-status={meter.powerStatus}
+                  data-status={secondaryStatus}
                   title="Power Alignment · 5s avg · Meter − Trainer"
                 >
-                  <span className="alignment-label">Meter</span>
+                  <span className="alignment-label">{secondaryLabel}</span>
                   <span className="alignment-watts">
-                    {meterPowerLabel(meter)}
+                    {secondaryWatts}
                     <span className="power-unit">W</span>
                   </span>
                   <span className="alignment-delta">
@@ -410,9 +428,11 @@ export function LiveDisplay({
           <>
             <div className="live-metrics-row">
               <div className="live-metric-primary">
-                <p className="power-hint">{powerHint(snapshot)}</p>
-                <p className="power-value" data-status={snapshot.powerStatus}>
-                  {powerLabel(snapshot)}
+                <p className="power-hint">
+                  {livePowerHint(powerSourceMode, primaryStatus)}
+                </p>
+                <p className="power-value" data-status={primaryStatus}>
+                  {devicePowerLabel(primaryStatus, primaryWatts)}
                   <span className="power-unit">W</span>
                 </p>
               </div>
@@ -447,14 +467,12 @@ export function LiveDisplay({
               )}
             </div>
 
-            {(meterConnected ||
-              meter.connectionState === 'disconnected-with-reconnect' ||
-              meter.deviceName !== null) && (
-              <div className="power-alignment" data-status={meter.powerStatus}>
+            {showAlignment && (
+              <div className="power-alignment" data-status={secondaryStatus}>
                 <p className="alignment-row">
-                  <span className="alignment-label">Meter</span>
+                  <span className="alignment-label">{secondaryLabel}</span>
                   <span className="alignment-watts">
-                    {meterPowerLabel(meter)}
+                    {secondaryWatts}
                     <span className="power-unit">W</span>
                   </span>
                   <span className="alignment-delta" title="Meter − Trainer">
@@ -462,8 +480,9 @@ export function LiveDisplay({
                   </span>
                 </p>
                 <p className="alignment-hint muted">
-                  Power Alignment · 5s avg · comparison only (trainer stays
-                  primary)
+                  {meterPrimary
+                    ? 'Meter-primary · targets follow Assioma; trainer runs hybrid ERG'
+                    : 'Power Alignment · 5s avg · connect meter at Start for meter-primary'}
                 </p>
               </div>
             )}

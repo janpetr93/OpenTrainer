@@ -23,9 +23,11 @@ import {
   type ActivityStravaUpload,
   type CreateScheduledRideInput,
   type CreateWorkoutInput,
+  type ErgCalibration,
   type ListActivitiesQuery,
   type ListScheduledRidesQuery,
   type MmpCache,
+  type PowerSourceMode,
   type RiderProfile,
   type ScheduledRide,
   type ScheduledRideView,
@@ -40,6 +42,7 @@ const STEP_TYPES: WorkoutStepType[] = ['warmup', 'steady', 'recovery', 'cooldown
 const PROFILE_FILE = 'profile.json'
 const STRAVA_LINK_FILE = 'strava-link.json'
 const MMP_FILE = 'mmp.json'
+const ERG_CALIBRATION_FILE = 'erg-calibration.json'
 
 export type SaveActivityInput = Omit<
   Activity,
@@ -52,10 +55,12 @@ export type SaveActivityInput = Omit<
   | 'sessionAdherence'
   | 'averageAlignmentDeltaWatts'
   | 'scheduledRideId'
+  | 'primaryPowerSource'
 > & {
   purpose?: string | null
   scheduledRideId?: string | null
   stravaUpload?: ActivityStravaUpload | null
+  primaryPowerSource?: PowerSourceMode | null
 }
 
 export type RiderProfileView = RiderProfile & {
@@ -139,6 +144,7 @@ export class LocalStore {
   private readonly profilePath: string
   private readonly stravaLinkPath: string
   private readonly mmpPath: string
+  private readonly ergCalibrationPath: string
 
   constructor(private readonly rootDir: string) {
     this.workoutsDir = join(rootDir, 'workouts')
@@ -147,6 +153,7 @@ export class LocalStore {
     this.profilePath = join(rootDir, PROFILE_FILE)
     this.stravaLinkPath = join(rootDir, STRAVA_LINK_FILE)
     this.mmpPath = join(rootDir, MMP_FILE)
+    this.ergCalibrationPath = join(rootDir, ERG_CALIBRATION_FILE)
   }
 
   async ensureReady(): Promise<void> {
@@ -175,6 +182,60 @@ export class LocalStore {
           ? zonesFromFtp(profile.ftpWatts)
           : null,
     }
+  }
+
+  async getErgCalibration(): Promise<ErgCalibration> {
+    try {
+      const raw = await this.readJson<Partial<ErgCalibration>>(
+        this.ergCalibrationPath,
+      )
+      const scale =
+        typeof raw.scale === 'number' &&
+        Number.isFinite(raw.scale) &&
+        raw.scale > 0
+          ? raw.scale
+          : 1
+      const offsetWatts =
+        typeof raw.offsetWatts === 'number' && Number.isFinite(raw.offsetWatts)
+          ? raw.offsetWatts
+          : 0
+      return {
+        schemaVersion: STORE_SCHEMA_VERSION,
+        scale,
+        offsetWatts,
+        updatedAt:
+          typeof raw.updatedAt === 'string'
+            ? raw.updatedAt
+            : new Date(0).toISOString(),
+      }
+    } catch {
+      return {
+        schemaVersion: STORE_SCHEMA_VERSION,
+        scale: 1,
+        offsetWatts: 0,
+        updatedAt: new Date(0).toISOString(),
+      }
+    }
+  }
+
+  async saveErgCalibration(input: {
+    scale: number
+    offsetWatts: number
+  }): Promise<ErgCalibration> {
+    if (!Number.isFinite(input.scale) || input.scale <= 0) {
+      throw new Error('scale must be a positive finite number')
+    }
+    if (!Number.isFinite(input.offsetWatts)) {
+      throw new Error('offsetWatts must be a finite number')
+    }
+    const calibration: ErgCalibration = {
+      schemaVersion: STORE_SCHEMA_VERSION,
+      scale: input.scale,
+      offsetWatts: input.offsetWatts,
+      updatedAt: new Date().toISOString(),
+    }
+    await this.writeJson(this.ergCalibrationPath, calibration)
+    return calibration
   }
 
   async setFtp(ftpWatts: number): Promise<RiderProfileView> {
@@ -365,6 +426,7 @@ export class LocalStore {
       averageAlignmentDeltaWatts: computeAverageAlignmentDeltaWatts(
         input.achievedPowerProfile,
       ),
+      primaryPowerSource: input.primaryPowerSource ?? null,
       createdAt: now,
       stravaUpload: null,
     }

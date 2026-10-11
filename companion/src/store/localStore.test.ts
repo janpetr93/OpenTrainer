@@ -228,6 +228,37 @@ describe('LocalStore', () => {
     expect(activity.averageAlignmentDeltaWatts).toBe(10)
   })
 
+  it('saveActivity stores Average Alignment Delta for meter-primary trainerWatts', async () => {
+    const activity = await store.saveActivity({
+      startedAt: '2026-10-12T09:00:00.000Z',
+      durationSec: 2,
+      averagePowerWatts: 121,
+      maxPowerWatts: 122,
+      achievedPowerProfile: [
+        { tSec: 0, watts: 122, trainerWatts: 145 },
+        { tSec: 1, watts: 120, trainerWatts: 144 },
+      ],
+      plannedPowerProfile: null,
+      workoutId: null,
+      primaryPowerSource: 'meter',
+    })
+    expect(activity.averageAlignmentDeltaWatts).toBe(-23)
+    expect(activity.primaryPowerSource).toBe('meter')
+  })
+
+  it('getErgCalibration defaults and saveErgCalibration persists', async () => {
+    const initial = await store.getErgCalibration()
+    expect(initial.scale).toBe(1)
+    expect(initial.offsetWatts).toBe(0)
+    const saved = await store.saveErgCalibration({
+      scale: 0.85,
+      offsetWatts: 2,
+    })
+    expect(saved.scale).toBe(0.85)
+    expect(saved.offsetWatts).toBe(2)
+    expect(await store.getErgCalibration()).toEqual(saved)
+  })
+
   it('backfillActivityMetrics adds Average Alignment Delta to older Activities', async () => {
     const { writeFile, mkdir } = await import('node:fs/promises')
     const activitiesDir = join(root, 'activities')

@@ -3,6 +3,8 @@ date: 2026-10-10
 status: active
 ---
 
+> Watt source updated: [mmp-prefer-power-meter](2026-10-11-mmp-prefer-power-meter.md) (meter-preferred with trainer fallback). Durations, cache, and Estimated FTP formula below still apply.
+
 # Mean Maximal Power on Profile (cached, on-demand recompute)
 
 ## Context
@@ -12,7 +14,7 @@ Riders want Garmin-style lifetime best averages (5s–90min). That conflicts wit
 ## Decision
 
 - Canonical term: **Mean Maximal Power (MMP)** — distinct from session **Power Profile**. UI may say “Power curve.”
-- Durations: 5s, 10s, 30s, 1min, 5min, 10min, 20min, 60min, 90min; all-time across Local Store Activities; trainer watts only.
+- Durations: 5s, 10s, 30s, 1min, 5min, 10min, 20min, 60min, 90min; all-time across Local Store Activities; watt source: see [mmp-prefer-power-meter](2026-10-11-mmp-prefer-power-meter.md).
 - Persist `mmp.json` in the **Local Store**; Profile **Recompute** (HTTP `POST /api/mmp/recompute`) refreshes it. Do not auto-recompute on Activity save.
 - On read, compare a fingerprint of Activities to the cache and expose `stale` when out of date.
 - **Estimated FTP** = 20min MMP × 0.95, compared to set **FTP** (never auto-written).

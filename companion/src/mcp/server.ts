@@ -52,7 +52,7 @@ async function main(): Promise<void> {
               '4) Ask what days/time I have available this week (do not assume; availability is not stored). Honor Intent constraints when set (max hard days, preferred long-ride weekday, constraintsNote).',
               '5) Call list_activities (pastDays 14) and list_scheduled_rides for the week window. Use Session Load / Session Adherence and ride outcomes (missed/skipped/completed) when present. Infer recent training emphasis from Activities (do not invent a stored phase).',
               '6) Call clear_scheduled_rides for that week’s since/until before replacing the plan.',
-              '7) create_workout with Target Prescription: prefer percentFtp or zone (1–7 Coggan). Do not leave all targets null; absolute targetWatts only when I ask.',
+              '7) create_workout with Target Prescription: prefer percentFtp or zone (1–7 Coggan). Do not leave all targets null; absolute targetWatts only when I ask. Name the Workout by training content only (e.g. “Upper Z2 90 min with FTP bursts”) — never include a weekday or calendar date; the Scheduled Ride startsAt already carries when it runs.',
               '8) create_scheduled_ride for each day (workoutId + startsAt ISO + purpose). Session Purpose is required in week planning: one short sentence on what the session is for (e.g. improve endurance, raise lactate threshold) — not Training Intent.',
               '9) Summarize the week with dates, workout names, Session Purpose, and resolved intensity (%FTP/zone), tied to Intent constraints + recent emphasis.',
             ].join('\n'),
@@ -218,9 +218,14 @@ async function main(): Promise<void> {
     'create_workout',
     {
       description:
-        'Create a reusable Workout template. Prefer percentFtp or zone (1–7 Coggan) for intensity; absolute targetWatts optional. Do not omit all targets. After create, call create_scheduled_ride to place it on the Training Calendar.',
+        'Create a reusable Workout template. Prefer percentFtp or zone (1–7 Coggan) for intensity; absolute targetWatts optional. Do not omit all targets. Name by training content only — never a weekday or calendar date (timing lives on the Scheduled Ride). After create, call create_scheduled_ride to place it on the Training Calendar.',
       inputSchema: {
-        name: z.string().min(1).describe('Workout name'),
+        name: z
+          .string()
+          .min(1)
+          .describe(
+            'Workout name by content only (e.g. “VO2 5×3 min”); do not include weekday or date',
+          ),
         steps: z
           .array(stepSchema)
           .min(1)

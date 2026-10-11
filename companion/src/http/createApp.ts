@@ -93,9 +93,16 @@ function parseProfilePoints(value: unknown, field: string): PowerProfilePoint[] 
     const hrBpm = optionalMetric(p.hrBpm, field, index, 'hrBpm')
     const cadenceRpm = optionalMetric(p.cadenceRpm, field, index, 'cadenceRpm')
     const meterWatts = optionalMetric(p.meterWatts, field, index, 'meterWatts')
+    const trainerWatts = optionalMetric(
+      p.trainerWatts,
+      field,
+      index,
+      'trainerWatts',
+    )
     if (hrBpm !== undefined) parsed.hrBpm = hrBpm
     if (cadenceRpm !== undefined) parsed.cadenceRpm = cadenceRpm
     if (meterWatts !== undefined) parsed.meterWatts = meterWatts
+    if (trainerWatts !== undefined) parsed.trainerWatts = trainerWatts
     return parsed
   })
 }
@@ -145,6 +152,18 @@ function parseSaveActivity(body: unknown): SaveActivityInput {
       ? null
       : parseProfilePoints(record.plannedPowerProfile, 'plannedPowerProfile')
 
+  const primaryPowerSource =
+    record.primaryPowerSource === undefined || record.primaryPowerSource === null
+      ? null
+      : record.primaryPowerSource
+  if (
+    primaryPowerSource !== null &&
+    primaryPowerSource !== 'meter' &&
+    primaryPowerSource !== 'trainer'
+  ) {
+    throw new Error('primaryPowerSource must be "meter", "trainer", or null')
+  }
+
   return {
     startedAt: record.startedAt,
     durationSec: record.durationSec,
@@ -158,6 +177,7 @@ function parseSaveActivity(body: unknown): SaveActivityInput {
     workoutId,
     scheduledRideId,
     purpose,
+    primaryPowerSource,
   }
 }
 
@@ -309,6 +329,36 @@ export function createRequestHandler(
 
       if (method === 'GET' && url.pathname === '/api/profile') {
         sendJson(res, 200, { profile: await store.getRiderProfile() })
+        return
+      }
+
+      if (method === 'GET' && url.pathname === '/api/erg-calibration') {
+        sendJson(res, 200, {
+          calibration: await store.getErgCalibration(),
+        })
+        return
+      }
+
+      if (method === 'PUT' && url.pathname === '/api/erg-calibration') {
+        const body = await readJsonBody(req)
+        if (!body || typeof body !== 'object') {
+          throw new Error('JSON body required')
+        }
+        const record = body as Record<string, unknown>
+        if (typeof record.scale !== 'number' || !Number.isFinite(record.scale)) {
+          throw new Error('scale must be a finite number')
+        }
+        if (
+          typeof record.offsetWatts !== 'number' ||
+          !Number.isFinite(record.offsetWatts)
+        ) {
+          throw new Error('offsetWatts must be a finite number')
+        }
+        const calibration = await store.saveErgCalibration({
+          scale: record.scale,
+          offsetWatts: record.offsetWatts,
+        })
+        sendJson(res, 200, { calibration })
         return
       }
 

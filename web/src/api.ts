@@ -44,9 +44,13 @@ export type PowerProfilePoint = {
   hrBpm?: number | null
   /** Present when a Cadence Sensor (or trainer cadence) was fresh at sample time. */
   cadenceRpm?: number | null
-  /** Present when Power Meter was fresh (comparison only; not primary power). */
+  /** Present when Power Meter was fresh in trainer-primary (comparison). */
   meterWatts?: number | null
+  /** Present when Trainer was fresh in meter-primary (ERG / alignment). */
+  trainerWatts?: number | null
 }
+
+export type PowerSourceMode = 'meter' | 'trainer'
 
 export type Workout = {
   id: string
@@ -92,9 +96,10 @@ export type Activity = {
   sessionLoad?: SessionLoad | null
   sessionAdherence?: SessionAdherence | null
   /**
-   * Mean Meter − Trainer watts over samples with meterWatts; null when none.
+   * Mean Meter − Trainer watts over paired samples; null when none.
    */
   averageAlignmentDeltaWatts?: number | null
+  primaryPowerSource?: PowerSourceMode | null
   stravaUpload?: ActivityStravaUpload | null
 }
 
@@ -241,6 +246,13 @@ export type SaveActivityInput = {
   workoutId: string | null
   scheduledRideId?: string | null
   purpose?: string | null
+  primaryPowerSource?: PowerSourceMode | null
+}
+
+export type ErgCalibration = {
+  scale: number
+  offsetWatts: number
+  updatedAt: string
 }
 
 export async function saveActivity(input: SaveActivityInput): Promise<Activity> {
@@ -266,6 +278,25 @@ export async function getRiderProfile(): Promise<RiderProfile> {
   const res = await fetch('/api/profile')
   const body = await parseJson<{ profile: RiderProfile }>(res)
   return body.profile
+}
+
+export async function getErgCalibration(): Promise<ErgCalibration> {
+  const res = await fetch('/api/erg-calibration')
+  const body = await parseJson<{ calibration: ErgCalibration }>(res)
+  return body.calibration
+}
+
+export async function putErgCalibration(input: {
+  scale: number
+  offsetWatts: number
+}): Promise<ErgCalibration> {
+  const res = await fetch('/api/erg-calibration', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  const body = await parseJson<{ calibration: ErgCalibration }>(res)
+  return body.calibration
 }
 
 export type MmpPointView = {

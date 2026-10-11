@@ -49,7 +49,7 @@ export function wattsSeries(
 }
 
 function scaleForMetric(
-  key: 'hrBpm' | 'cadenceRpm' | 'meterWatts',
+  key: 'hrBpm' | 'cadenceRpm' | 'meterWatts' | 'trainerWatts',
 ): ChartScale {
   switch (key) {
     case 'hrBpm':
@@ -57,13 +57,14 @@ function scaleForMetric(
     case 'cadenceRpm':
       return 'cadence'
     case 'meterWatts':
+    case 'trainerWatts':
       return 'watts'
   }
 }
 
 export function optionalMetricSeries(
   points: PowerProfilePoint[],
-  key: 'hrBpm' | 'cadenceRpm' | 'meterWatts',
+  key: 'hrBpm' | 'cadenceRpm' | 'meterWatts' | 'trainerWatts',
   tone: ChartTone,
   label: string,
 ): ChartSeries | null {
@@ -91,6 +92,7 @@ export function buildRideChartSeries(input: {
     wattsSeries(input.planned, 'planned', 'Plan'),
     wattsSeries(input.achieved, 'achieved', 'Power'),
     optionalMetricSeries(input.achieved, 'meterWatts', 'meter', 'Meter'),
+    optionalMetricSeries(input.achieved, 'trainerWatts', 'meter', 'Trainer'),
     optionalMetricSeries(input.achieved, 'hrBpm', 'heartRate', 'Heart rate'),
     optionalMetricSeries(
       input.achieved,

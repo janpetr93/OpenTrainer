@@ -27,8 +27,21 @@ export type PowerProfilePoint = {
   hrBpm?: number | null
   /** Present when a Cadence Sensor (or trainer cadence) was fresh at sample time. */
   cadenceRpm?: number | null
-  /** Present when Power Meter was fresh (comparison only; not primary power). */
+  /** Present when Power Meter was fresh in trainer-primary (comparison). */
   meterWatts?: number | null
+  /** Present when Trainer was fresh in meter-primary (ERG / alignment). */
+  trainerWatts?: number | null
+}
+
+export type PowerSourceMode = 'meter' | 'trainer'
+
+/** Durable ERG Calibration map (Local Store; not Rider Profile). */
+export type ErgCalibration = {
+  schemaVersion: typeof STORE_SCHEMA_VERSION
+  /** Typical Meter/Trainer ratio. Open-loop ERG = target / scale + offset. */
+  scale: number
+  offsetWatts: number
+  updatedAt: string
 }
 
 export type Workout = {
@@ -75,10 +88,11 @@ export type Activity = {
   /** Prescription adherence; null for Free Ride. */
   sessionAdherence: SessionAdherence | null
   /**
-   * Mean Meter − Trainer watts over samples with meterWatts; null when none.
-   * Comparison-only; does not affect primary power / ERG / FIT.
+   * Mean Meter − Trainer watts over paired samples; null when none.
    */
   averageAlignmentDeltaWatts: number | null
+  /** Power Source Mode locked at Start; omitted on older Activities. */
+  primaryPowerSource?: PowerSourceMode | null
   createdAt: string
   /** Set after a successful Strava API upload (optional). */
   stravaUpload?: ActivityStravaUpload | null

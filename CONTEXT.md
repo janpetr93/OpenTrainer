@@ -11,8 +11,12 @@ The D100 smart trainer as a single Bluetooth FTMS device this app connects to.
 _Avoid_: Bike, sensor (unless a separate HR/cadence device), machine
 
 **Power Meter**:
-A separate Bluetooth Cycling Power Service (CPS) device — in this app, the Favero Assioma Uno pedal — used only to compare against **Trainer** power, not to control resistance or own the recorded **Power Profile**.
-_Avoid_: Trainer, sensor (generic), primary power source
+A separate Bluetooth Cycling Power Service (CPS) device — in this app, the Favero Assioma Uno pedal — optional second power source; when connected and fresh at **Start**, it becomes primary for **Live Power** / recording while the **Trainer** still runs ERG.
+_Avoid_: Trainer, sensor (generic)
+
+**Power Source Mode**:
+Session mode chosen at **Start**: **meter-primary** if a **Power Meter** is connected and fresh, otherwise **trainer-primary**; does not switch mid-ride if the meter later drops.
+_Avoid_: Primary power source (vague), selectable profile preference (deferred)
 
 **Heart Rate Monitor**:
 A separate Bluetooth Heart Rate Service (`0x180D`) strap/device used for live bpm on the Ride tab — not written into **Activity** / FIT in this slice.
@@ -60,20 +64,28 @@ _Avoid_: In-page BLE scan results
 ### Live ride
 
 **Live Power**:
-The current instantaneous power in watts reported by the **Trainer**, or a clear stale/missing state when notifications stop. Remains the primary live watts even when a **Power Meter** is connected.
-_Avoid_: Average power, normalized power (those are later analytics), Meter Power
+The current primary instantaneous watts on the **Live Display** — **Meter Power** in **meter-primary**, **Trainer** watts in **trainer-primary** — or a clear stale/missing state when that source stops notifying.
+_Avoid_: Average power, normalized power (those are later analytics), ERG setpoint
 
 **Meter Power**:
 The current instantaneous power in watts reported by the **Power Meter** (Assioma Uno estimated total from one pedal), or a clear stale/missing state.
-_Avoid_: Live Power, primary watts
+_Avoid_: Trainer watts, ERG setpoint
+
+**Trainer Power**:
+Instantaneous watts from the **Trainer** FTMS stream; primary only in **trainer-primary**; in **meter-primary** used for **Power Alignment**, **ERG Calibration**, and optional `trainerWatts` on the achieved **Power Profile**.
+_Avoid_: Live Power (when meter-primary), Meter Power
 
 **Power Alignment**:
-Live comparison of **Live Power** vs **Meter Power** (both values plus a rolling ~5s delta) so the rider can see how the **Trainer** and **Power Meter** agree — not used for ERG; the ride-average form is **Average Alignment Delta**.
-_Avoid_: Calibration offset (no auto-correction), dual Power Profile
+Live comparison of **Trainer Power** vs **Meter Power** (both values plus a rolling ~5s Meter − Trainer delta); does not redefine workout targets; ride-average form is **Average Alignment Delta**.
+_Avoid_: ERG Calibration (the map used for setpoints), dual primary
 
 **Average Alignment Delta**:
-Mean of (Meter − Trainer) watts over an **Activity**’s achieved samples where `meterWatts` is present; stored as `averageAlignmentDeltaWatts` (null when no paired samples); shown as **Δ** on Session module rows.
-_Avoid_: Live rolling Power Alignment, calibration offset
+Mean of (Meter − Trainer) watts over an **Activity**’s paired samples; stored as `averageAlignmentDeltaWatts` (null when none); shown as **Δ** on Session module rows — sign is always Meter − Trainer even when `watts` is meter-primary.
+_Avoid_: Live rolling Power Alignment
+
+**ERG Calibration**:
+Durable scale/offset map (Local Store file, not **Rider Profile**) from meter-target watts to **Trainer** FTMS setpoint; seeded/adapted from steady paired samples and used for hybrid ERG in **meter-primary**.
+_Avoid_: Power Alignment, FTP, spin-down (device factory calibration outside the app)
 
 **Stale Power**:
 **Live Power** or **Meter Power** marked unusable because no power notification arrived within the freshness window (~2s).
@@ -143,8 +155,8 @@ How closely an **Activity** followed its planned **Power Profile**: completion r
 _Avoid_: Compliance score (synonym — use this term), TSS
 
 **Mean Maximal Power** (MMP):
-Lifetime best average trainer watts for fixed durations (5s–90min) across all **Activity** achieved **Power Profile**s — cached in the **Local Store**, shown on the Profile tab, recomputed automatically when an **Activity** is saved (manual Recompute remains); distinct from a session **Power Profile**.
-_Avoid_: Power Profile, power curve alone (ambiguous), meter-watts bests
+Lifetime best average watts for fixed durations (5s–90min) across all **Activity** achieved **Power Profile**s — prefers **Meter Power** (`meterWatts`) when present, else primary `watts` (meter in **meter-primary**, **Trainer** when no meter); cached in the **Local Store**, shown on the Profile tab, recomputed automatically when an **Activity** is saved (manual Recompute remains); distinct from a session **Power Profile**.
+_Avoid_: Power Profile, power curve alone (ambiguous)
 
 **Estimated FTP**:
 FTP implied by **MMP** as 20min MMP × 0.95, compared to the set **FTP** on the **Rider Profile** — never auto-written back to the profile.
@@ -192,9 +204,11 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 
 - A **Connection** is to exactly one **Trainer** at a time; **Power Meter**, **Heart Rate Monitor**, and **Cadence Sensor** links are independent optional Web Bluetooth connections.
 - Live HR/cadence from dedicated sensors are recorded onto achieved **Power Profile** samples when fresh, then available via Local Store / MCP / FIT.
-- **Live Power** is fresh only while a **Connection** is delivering FTMS power notifications; otherwise the **Live Display** shows **Stale Power** or “no power data.”
-- **Meter Power** does not replace **Live Power** for ERG, workout targets, or the achieved **Power Profile**.
-- **Power Alignment** is live-only comparison; it does not rewrite trainer watts.
+- **Power Source Mode** is fixed at **Start** from whether a **Power Meter** is connected and fresh; trainer-only riders stay **trainer-primary**.
+- In **meter-primary**, **Live Power** / achieved `watts` / FIT follow **Meter Power**; **Trainer** ERG uses **ERG Calibration** (hybrid open-loop + light trim); secondary stream is `trainerWatts`.
+- If **Meter Power** goes stale mid-ride, ERG holds the calibration map (no trim) and primary does not flip to the **Trainer** for that session.
+- **Live Power** is stale when the active primary source stops notifying within the freshness window; **Trainer Power** / **Meter Power** each have their own freshness for alignment and trim.
+- **Power Alignment** compares the two device streams; it does not change **Target Prescription** watts.
 - The **Device Picker** is how a **Connection** or **Power Meter Connection** begins (separate chooser filters).
 - A successful **Connection** triggers a **Control Probe**; the main **Live Display** still only shows power/connection, not workout controls.
 - A **Scheduled Ride** references exactly one **Workout** and may carry a **Session Purpose**.
@@ -210,7 +224,8 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - The **Local Companion** owns the **Local Store**; the browser UI and MCP both read through it; **FTP** / **Training Intent** writes are MCP-only (UI remains read-only for those fields).
 - **Connection** / Web Bluetooth stay in the browser, not in the **Local Companion**.
 - **Power Zones** are derived from **FTP** on the **Rider Profile** (Coggan 7-zone defaults).
-- **Mean Maximal Power** is computed from all **Activity** achieved **Power Profile**s (trainer watts), persisted separately from the **Rider Profile**, and marked stale when Activities change until the rider recomputes.
+- **Mean Maximal Power** prefers **Meter Power** on each sample when recorded, else primary `watts`; persisted separately from the **Rider Profile**, and marked stale when Activities change until recompute (auto on Activity save + Profile Recompute).
+- **ERG Calibration** is Local Store device state (not **Rider Profile** / MCP FTP writes).
 - **Estimated FTP** uses 20min **MMP** × 0.95 and is compared to set **FTP**; it does not update the **Rider Profile**.
 - **Session Load** and **Session Adherence** are computed when an **Activity** is saved (and backfilled for older Activities when FTP is known); MCP `list_activities` and the Session module UI read them.
 - **Training Intent** is product-owned context for MCP week planning alongside **Rider Profile** and **Activity** history; weekly availability is asked in chat, not stored; training phase is inferred from recent **Activity**s unless **Training Intent** **note** overrides.
@@ -252,6 +267,9 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 >
 > **Dev:** "When MCP schedules Tuesday’s ride, where does ‘raise lactate threshold’ go?"
 > **Rider:** "That’s **Session Purpose** on the **Scheduled Ride** — not **Training Intent**. Copy it onto the **Activity** when I finish."
+>
+> **Dev:** "If Assioma and the D100 disagree, which watts own the workout?"
+> **Rider:** "When the **Power Meter** is connected at **Start**, targets and recording are Assioma (**meter-primary**); the **Trainer** only provides ERG via **ERG Calibration**. No meter → **trainer-primary** as before."
 
 ## Code map
 
@@ -263,6 +281,8 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 | **Cadence Sensor** | `web/src/csc/cadenceConnection.ts` |
 | Shared notify sensors | `web/src/ble/notifySensorConnection.ts` |
 | **Power Alignment** | `web/src/cps/powerAlignment.ts` + Ride tab in `LiveDisplay` |
+| **Power Source Mode** / hybrid ERG | [ADR 0002](docs/adr/0002-meter-primary-hybrid-erg.md); `web/src/domain/powerSourceMode.ts`, `samplePowerMetrics.ts`, `ergCalibration.ts`; wired in `App.tsx` / `LiveDisplay.tsx` |
+| **ERG Calibration** | `companion/data/erg-calibration.json`; GET/PUT `/api/erg-calibration`; `LocalStore.getErgCalibration` |
 | **Average Alignment Delta** | `companion/src/domain/powerAlignment.ts`; on **Activity** JSON; Session module `Δ` via `activityMeta` |
 | **Live Display** | `web/src/LiveDisplay.tsx` |
 | **Known Devices** / **Connect All Known** / **Disconnect All** | `web/src/ble/connectAllKnown.ts` + **Devices** tab UI (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`) |
@@ -307,7 +327,7 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - Long-term plan / **Training Intent** — resolved: Local Store goal + optional horizon/note; not chat-only; no stored phase or availability (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`).
 - **Rider Profile** writes — resolved: MCP-only for FTP/Intent; Profile tab read-only; no HTTP PUTs (see `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`).
 - Strava — resolved: keep manual FIT; add optional **Strava Link** + one-click upload (see `docs/decisions/2026-10-09-strava-link-and-upload.md`).
-- **Power Meter** — resolved: Assioma Uno via CPS; comparison-only / live **Power Alignment** + recorded **Average Alignment Delta**; trainer stays primary (see `docs/decisions/2026-10-09-power-meter-comparison-only.md`, `docs/decisions/2026-10-10-average-alignment-delta-on-activity.md`).
+- **Power Meter** / **Power Source Mode** — resolved: [ADR 0002](docs/adr/0002-meter-primary-hybrid-erg.md) + `docs/decisions/2026-10-11-meter-primary-hybrid-erg.md` (supersedes trainer-always-primary in `2026-10-09-power-meter-comparison-only.md`; Δ still `2026-10-10-average-alignment-delta-on-activity.md`).
 - **Heart Rate Monitor** / **Cadence Sensor** — resolved: live connectors + optional fields on achieved **Power Profile** (see `docs/decisions/2026-10-09-hrm-and-cadence-connectors.md`).
 - Friendlier connectors — resolved: in-page **Known Devices**, explicit **Connect All Known** / **Disconnect All**, collapsed **Find New Device** (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`).
 - **Devices** tab — resolved: top-level tab owns full connectors + FTMS debug; Ride keeps sensor-status strip + tab-switch link only; nav order Ride · Devices · History · Calendar · Profile.

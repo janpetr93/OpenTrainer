@@ -5,6 +5,7 @@ export type SampleMetrics = {
   hrBpm?: number | null
   cadenceRpm?: number | null
   meterWatts?: number | null
+  trainerWatts?: number | null
 }
 
 function pointFromMetrics(tSec: number, metrics: SampleMetrics): PowerProfilePoint | null {
@@ -18,6 +19,9 @@ function pointFromMetrics(tSec: number, metrics: SampleMetrics): PowerProfilePoi
   }
   if (metrics.meterWatts !== null && metrics.meterWatts !== undefined) {
     point.meterWatts = metrics.meterWatts
+  }
+  if (metrics.trainerWatts !== null && metrics.trainerWatts !== undefined) {
+    point.trainerWatts = metrics.trainerWatts
   }
   return point
 }

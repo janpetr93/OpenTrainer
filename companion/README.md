@@ -57,7 +57,7 @@ Server name: `open-trainer`. Tools (v2 week planning):
 
 - `get_rider_profile` / `set_ftp` / `set_training_intent` — **FTP**, Coggan **Power Zones**, **Training Intent**
 - `get_mmp` — cached **Mean Maximal Power** + Estimated FTP (read-only; recompute in Profile UI)
-- `list_workouts` / `create_workout` — templates; steps use watts and/or `%FTP` / zone
+- `list_workouts` / `create_workout` — templates; steps use watts and/or `%FTP` / zone; names are content-only (no weekday/date)
 - `list_activities` — past rides + **Power Profile**s
 - `list_scheduled_rides` / `create_scheduled_ride` (optional **Session Purpose**) / `delete_scheduled_ride` — **Training Calendar**
 - `clear_scheduled_rides` — wipe a date range before writing a new week

@@ -91,6 +91,50 @@ describe('computeMmpFromActivities', () => {
       latestCreatedAt: '2026-01-01T10:00:00.000Z',
     })
   })
+
+  it('prefers Power Meter watts over Trainer when meterWatts is present', () => {
+    const points: PowerProfilePoint[] = Array.from({ length: 5 }, (_, tSec) => ({
+      tSec,
+      watts: 200,
+      meterWatts: 150,
+    }))
+    const act: Activity = {
+      ...activity('metered', []),
+      achievedPowerProfile: points,
+      durationSec: 4,
+    }
+    const result = computeMmpFromActivities([act])
+    expect(result.points.find((p) => p.durationSec === 5)?.watts).toBe(150)
+  })
+
+  it('falls back to Trainer watts when meterWatts is absent', () => {
+    const points: PowerProfilePoint[] = Array.from({ length: 5 }, (_, tSec) => ({
+      tSec,
+      watts: 200,
+    }))
+    const act: Activity = {
+      ...activity('trainer-only', []),
+      achievedPowerProfile: points,
+      durationSec: 4,
+    }
+    const result = computeMmpFromActivities([act])
+    expect(result.points.find((p) => p.durationSec === 5)?.watts).toBe(200)
+  })
+
+  it('uses primary watts in meter-primary (already Meter Power)', () => {
+    const points: PowerProfilePoint[] = Array.from({ length: 5 }, (_, tSec) => ({
+      tSec,
+      watts: 140,
+      trainerWatts: 165,
+    }))
+    const act: Activity = {
+      ...activity('meter-primary', []),
+      achievedPowerProfile: points,
+      durationSec: 4,
+    }
+    const result = computeMmpFromActivities([act])
+    expect(result.points.find((p) => p.durationSec === 5)?.watts).toBe(140)
+  })
 })
 
 describe('estimatedFtpFromMmp', () => {

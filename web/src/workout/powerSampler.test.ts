@@ -18,7 +18,7 @@ describe('PowerSampler', () => {
     })
   })
 
-  it('attaches optional HR, cadence, and meter watts when provided', () => {
+  it('attaches optional HR, cadence, meter, and trainer watts when provided', () => {
     const sampler = new PowerSampler()
     sampler.record(0, {
       watts: 200,
@@ -26,10 +26,10 @@ describe('PowerSampler', () => {
       cadenceRpm: 88,
       meterWatts: 205,
     })
-    sampler.record(1, { watts: 210, hrBpm: 150 })
+    sampler.record(1, { watts: 210, hrBpm: 150, trainerWatts: 230 })
     expect(sampler.getProfile()).toEqual([
       { tSec: 0, watts: 200, hrBpm: 148, cadenceRpm: 88, meterWatts: 205 },
-      { tSec: 1, watts: 210, hrBpm: 150 },
+      { tSec: 1, watts: 210, hrBpm: 150, trainerWatts: 230 },
     ])
   })
 

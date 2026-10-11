@@ -1,7 +1,9 @@
 ---
 date: 2026-10-09
-status: active
+status: superseded
 ---
+
+> Superseded by [2026-10-11-meter-primary-hybrid-erg.md](./2026-10-11-meter-primary-hybrid-erg.md) for primary-power / ERG semantics. CPS **Power Meter Connection**, live **Power Alignment**, and Meter − Trainer Δ still apply; trainer-only comparison-only is no longer the end state when a meter is connected at Start.
 
 # Power Meter comparison-only (Assioma Uno)
 

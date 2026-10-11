@@ -25,27 +25,41 @@ export type MmpComputeResult = {
   fingerprint: MmpFingerprint
 }
 
+/**
+ * Watts for Mean Maximal Power: prefer Power Meter (`meterWatts` in
+ * trainer-primary), else primary `watts` (meter in meter-primary, Trainer
+ * when no meter stream).
+ */
+export function mmpSourceWatts(point: PowerProfilePoint): number {
+  if (point.meterWatts !== null && point.meterWatts !== undefined) {
+    return point.meterWatts
+  }
+  return point.watts
+}
+
 /** Contiguous 1s watt runs; gaps (non-consecutive tSec) start a new segment. */
 export function contiguousWattSegments(
   points: PowerProfilePoint[],
+  wattsOf: (point: PowerProfilePoint) => number = (p) => p.watts,
 ): number[][] {
   if (points.length === 0) return []
   const sorted = [...points].sort((a, b) => a.tSec - b.tSec)
   const segments: number[][] = []
-  let current: number[] = [sorted[0]!.watts]
+  let current: number[] = [wattsOf(sorted[0]!)]
   let prevT = sorted[0]!.tSec
 
   for (let i = 1; i < sorted.length; i++) {
     const p = sorted[i]!
+    const w = wattsOf(p)
     if (p.tSec === prevT + 1) {
-      current.push(p.watts)
+      current.push(w)
       prevT = p.tSec
     } else if (p.tSec === prevT) {
       // Same second: keep last sample (matches PowerSampler overwrite).
-      current[current.length - 1] = p.watts
+      current[current.length - 1] = w
     } else {
       segments.push(current)
-      current = [p.watts]
+      current = [w]
       prevT = p.tSec
     }
   }
@@ -70,7 +84,10 @@ function bestForActivity(
   durationSec: number,
 ): number | null {
   let best: number | null = null
-  for (const seg of contiguousWattSegments(activity.achievedPowerProfile)) {
+  for (const seg of contiguousWattSegments(
+    activity.achievedPowerProfile,
+    mmpSourceWatts,
+  )) {
     const mean = maxMeanForDuration(seg, durationSec)
     if (mean === null) continue
     if (best === null || mean > best) best = mean

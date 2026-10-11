@@ -128,16 +128,11 @@ export function ProfilePanel({ onProfileChange }: Props) {
           Coggan Power Zones derive from FTP. Set or change FTP via MCP (
           <code>set_ftp</code>). Zone / %FTP workouts resolve when you ride.
         </p>
-        <div className="form-row">
-          <p aria-label="FTP watts">
-            {profile?.ftpWatts != null
-              ? `FTP ${profile.ftpWatts} W`
-              : 'FTP not set'}
-          </p>
-          <button type="button" disabled={busy} onClick={() => void refresh()}>
-            Refresh
-          </button>
-        </div>
+        <p aria-label="FTP watts">
+          {profile?.ftpWatts != null
+            ? `FTP ${profile.ftpWatts} W`
+            : 'FTP not set'}
+        </p>
         {profile?.zones && (
           <ul className="zone-list">
             {profile.zones.map((z) => (
@@ -160,8 +155,9 @@ export function ProfilePanel({ onProfileChange }: Props) {
       <section className="panel-block">
         <h2>Power curve · Mean Maximal Power</h2>
         <p className="muted">
-          Lifetime best average trainer watts across all Activities. Recompute
-          after new rides — not updated automatically.
+          Lifetime best averages across all Activities — Power Meter watts when
+          recorded, otherwise Trainer. Recompute after new rides (also refreshes
+          automatically when an Activity is saved).
         </p>
         {mmp?.stale && (
           <p className="banner mmp-stale" role="status">

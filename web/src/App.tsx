@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  getErgCalibration,
   getRiderProfile,
   listScheduledRides,
   listWorkouts,
+  putErgCalibration,
   saveActivity,
   type PowerProfilePoint,
   type RiderProfile,
@@ -11,8 +13,18 @@ import {
 } from './api'
 import { dayRangeIso } from './calendar/monthGrid'
 import { scheduledRidesForLocalDay } from './calendar/todaysScheduledRides'
+import {
+  DEFAULT_ERG_CALIBRATION,
+  adaptErgCalibration,
+  resolveErgSetpoint,
+} from './domain/ergCalibration'
 import { buildPlannedPowerProfile } from './domain/plannedPowerProfile'
+import {
+  resolvePowerSourceMode,
+  type PowerSourceMode,
+} from './domain/powerSourceMode'
 import { workoutNeedsFtp } from './domain/resolveTarget'
+import { samplePowerMetrics } from './domain/samplePowerMetrics'
 import {
   AlignmentDeltaAverager,
   PowerMeterConnection,
@@ -50,10 +62,15 @@ function App() {
   const runner = useMemo(() => new WorkoutRunner(), [])
   const sampler = useMemo(() => new PowerSampler(), [])
   const alignmentAverager = useMemo(() => new AlignmentDeltaAverager(), [])
+  const powerSourceModeRef = useRef<PowerSourceMode>('trainer')
+  const ergCalRef = useRef(DEFAULT_ERG_CALIBRATION)
+  const lastErgPushSecRef = useRef(-1)
 
   const [snapshot, setSnapshot] = useState<TrainerSnapshot>(() =>
     connection.getSnapshot(),
   )
+  const [powerSourceMode, setPowerSourceMode] =
+    useState<PowerSourceMode>('trainer')
   const [meter, setMeter] = useState<PowerMeterSnapshot>(() =>
     meterConnection.getSnapshot(),
   )
@@ -105,15 +122,43 @@ function App() {
     setRunnerSnap(runner.getSnapshot())
   }, [runner])
 
-  const applyErgIfNeeded = useCallback(async () => {
-    const snap = runner.getSnapshot()
-    if (!snap.targetChanged) return
-    runner.clearTargetChanged()
-    setRunnerSnap(runner.getSnapshot())
-    if (snap.stepTargetWatts !== null && snapshot.ergControlAvailable) {
-      await connection.setTargetPower(snap.stepTargetWatts)
-    }
-  }, [connection, runner, snapshot.ergControlAvailable])
+  const pushErgTarget = useCallback(
+    async (force: boolean) => {
+      const snap = runner.getSnapshot()
+      if (snap.stepTargetWatts === null || !snapshot.ergControlAvailable) {
+        if (snap.targetChanged) {
+          runner.clearTargetChanged()
+          setRunnerSnap(runner.getSnapshot())
+        }
+        return
+      }
+      const sec = Math.floor(snap.elapsedSec)
+      if (!force && !snap.targetChanged && sec === lastErgPushSecRef.current) {
+        return
+      }
+      lastErgPushSecRef.current = sec
+      if (snap.targetChanged) {
+        runner.clearTargetChanged()
+        setRunnerSnap(runner.getSnapshot())
+      }
+
+      const mode = powerSourceModeRef.current
+      if (mode === 'trainer') {
+        await connection.setTargetPower(snap.stepTargetWatts)
+        return
+      }
+
+      const powerMeter = meterConnection.getSnapshot()
+      const setpoint = resolveErgSetpoint({
+        meterTargetWatts: snap.stepTargetWatts,
+        calibration: ergCalRef.current,
+        meterWatts: powerMeter.watts,
+        meterFresh: powerMeter.powerStatus === 'fresh',
+      })
+      await connection.setTargetPower(setpoint)
+    },
+    [connection, meterConnection, runner, snapshot.ergControlAvailable],
+  )
 
   const finishAndSave = useCallback(async () => {
     if (savingRef.current) return
@@ -125,6 +170,7 @@ function App() {
       summary.durationSec,
       runner.getSnapshot().elapsedSec,
     )
+    const mode = powerSourceModeRef.current
     try {
       await saveActivity({
         startedAt,
@@ -136,7 +182,15 @@ function App() {
         workoutId: workout?.id ?? null,
         scheduledRideId: activeScheduledRideId,
         purpose: activePurpose,
+        primaryPowerSource: mode,
       })
+      if (mode === 'meter') {
+        try {
+          await putErgCalibration(ergCalRef.current)
+        } catch {
+          /* companion may be down; in-memory map still used next session if reloaded */
+        }
+      }
       setSaveMessage('Activity saved to Local Store.')
     } catch (error) {
       setSaveMessage(
@@ -150,6 +204,9 @@ function App() {
       setActivePurpose(null)
       setActiveScheduledRideId(null)
       startedAtRef.current = null
+      powerSourceModeRef.current = 'trainer'
+      setPowerSourceMode('trainer')
+      lastErgPushSecRef.current = -1
       refreshRunner()
     }
   }, [
@@ -213,6 +270,16 @@ function App() {
       .catch(() => {
         /* companion may be down */
       })
+    void getErgCalibration()
+      .then((cal) => {
+        ergCalRef.current = {
+          scale: cal.scale,
+          offsetWatts: cal.offsetWatts,
+        }
+      })
+      .catch(() => {
+        /* companion may be down — keep defaults */
+      })
   }, [])
 
   useEffect(() => {
@@ -260,21 +327,37 @@ function App() {
           : trainer.cadenceRpm !== null && trainer.powerStatus === 'fresh'
             ? Math.round(trainer.cadenceRpm)
             : null
+      const mode = powerSourceModeRef.current
+      const power = samplePowerMetrics({
+        mode,
+        trainerWatts: trainer.watts,
+        trainerFresh: trainer.powerStatus === 'fresh',
+        meterWatts: powerMeter.watts,
+        meterFresh: powerMeter.powerStatus === 'fresh',
+      })
       sampler.record(snap.elapsedSec, {
-        watts: trainer.watts,
+        watts: power.watts,
+        trainerWatts: power.trainerWatts,
+        meterWatts: power.meterWatts,
         hrBpm:
           hr.status === 'fresh' && hr.bpm !== null ? hr.bpm : null,
         cadenceRpm,
-        meterWatts:
-          powerMeter.powerStatus === 'fresh' && powerMeter.watts !== null
-            ? powerMeter.watts
-            : null,
       })
+      if (
+        mode === 'meter' &&
+        power.watts !== null &&
+        power.trainerWatts !== null
+      ) {
+        ergCalRef.current = adaptErgCalibration(ergCalRef.current, {
+          meterWatts: power.watts,
+          trainerWatts: power.trainerWatts,
+        })
+      }
       setRunnerSnap(snap)
       setAchievedProfile(sampler.getProfile())
 
-      if (snap.targetChanged) {
-        void applyErgIfNeeded()
+      if (snap.targetChanged || mode === 'meter') {
+        void pushErgTarget(snap.targetChanged)
       }
 
       if (snap.status === 'completed') {
@@ -289,7 +372,7 @@ function App() {
     meterConnection,
     heartRateConnection,
     cadenceConnection,
-    applyErgIfNeeded,
+    pushErgTarget,
     finishAndSave,
   ])
 
@@ -299,6 +382,14 @@ function App() {
     setAchievedProfile([])
     savingRef.current = false
     startedAtRef.current = new Date().toISOString()
+    lastErgPushSecRef.current = -1
+
+    const meterSnap = meterConnection.getSnapshot()
+    const mode = resolvePowerSourceMode({
+      meterFresh: meterSnap.powerStatus === 'fresh',
+    })
+    powerSourceModeRef.current = mode
+    setPowerSourceMode(mode)
 
     if (!selectedWorkoutId) {
       setActiveWorkout(null)
@@ -336,7 +427,7 @@ function App() {
       return
     }
     refreshRunner()
-    void applyErgIfNeeded()
+    void pushErgTarget(true)
   }
 
   function onPause(): void {
@@ -352,7 +443,7 @@ function App() {
   function onSkip(): void {
     runner.skip(Date.now())
     refreshRunner()
-    void applyErgIfNeeded()
+    void pushErgTarget(true)
     if (runner.getSnapshot().status === 'completed') {
       void finishAndSave()
     }
@@ -510,6 +601,7 @@ function App() {
           snapshot={snapshot}
           meter={meter}
           alignmentDelta={alignmentDelta}
+          powerSourceMode={powerSourceMode}
           heartRate={heartRate}
           cadence={cadence}
           workouts={workouts}

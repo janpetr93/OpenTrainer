@@ -65,7 +65,7 @@ Week-plan workflow:
 3. Ask what days I have available this week (not stored)
 4. list_activities (pastDays 14) + list_scheduled_rides for next week — infer recent emphasis from Activities
 5. clear_scheduled_rides for that week’s since/until if replacing the plan
-6. create_workout with percentFtp or zone on every working step (not null targets)
+6. create_workout with percentFtp or zone on every working step (not null targets); name by training content only — no weekday or date
 7. create_scheduled_ride for each day (workoutId + startsAt ISO + purpose — Session Purpose: what the session is for, e.g. improve endurance)
 8. Summarize dates, names, Session Purpose, and %FTP/zone tied to Intent + recent emphasis
 

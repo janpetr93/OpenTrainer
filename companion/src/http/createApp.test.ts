@@ -75,6 +75,36 @@ describe('HTTP API', () => {
     })
   })
 
+  it('GET/PUT /api/erg-calibration reads and persists ERG Calibration', async () => {
+    await withServer(store, async (baseUrl) => {
+      const getRes = await fetch(`${baseUrl}/api/erg-calibration`)
+      expect(getRes.status).toBe(200)
+      const getBody = (await getRes.json()) as {
+        calibration: { scale: number; offsetWatts: number }
+      }
+      expect(getBody.calibration.scale).toBe(1)
+      expect(getBody.calibration.offsetWatts).toBe(0)
+
+      const putRes = await fetch(`${baseUrl}/api/erg-calibration`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scale: 0.85, offsetWatts: -2 }),
+      })
+      expect(putRes.status).toBe(200)
+      const putBody = (await putRes.json()) as {
+        calibration: { scale: number; offsetWatts: number }
+      }
+      expect(putBody.calibration.scale).toBe(0.85)
+      expect(putBody.calibration.offsetWatts).toBe(-2)
+
+      const again = await fetch(`${baseUrl}/api/erg-calibration`)
+      const againBody = (await again.json()) as {
+        calibration: { scale: number; offsetWatts: number }
+      }
+      expect(againBody.calibration.scale).toBe(0.85)
+    })
+  })
+
   it('GET /api/profile returns Rider Profile; PUT profile routes are not exposed', async () => {
     await store.setFtp(240)
     await store.setTrainingIntent({
