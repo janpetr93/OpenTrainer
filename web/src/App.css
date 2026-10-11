@@ -595,18 +595,17 @@ button.export-fit {
   box-sizing: border-box;
 }
 
-.session-chart-axes-dual-y {
+.session-chart-axes-dual-y,
+.session-chart-axes-zones {
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
 .session-chart-axes .session-chart-y {
   grid-column: 1;
   grid-row: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-end;
-  padding: 0.15rem 0;
+  position: relative;
+  align-self: stretch;
+  min-width: 2.4rem;
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -614,10 +613,78 @@ button.export-fit {
   user-select: none;
 }
 
+.session-chart-axes .session-chart-y span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
 .session-chart-axes-dual-y .session-chart-y-right {
   grid-column: 3;
   grid-row: 1;
-  align-items: flex-start;
+}
+
+.session-chart-axes-dual-y .session-chart-y-right span {
+  right: auto;
+  left: 0;
+}
+
+/* Crisp zone labels outside the stretched SVG (right rail). */
+.session-chart-zones {
+  grid-column: 3;
+  grid-row: 1;
+  position: relative;
+  align-self: stretch;
+  min-width: 1.35rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--muted);
+  user-select: none;
+}
+
+.session-chart-zone {
+  position: absolute;
+  left: 0.15rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  opacity: 0.72;
+  white-space: nowrap;
+}
+
+.session-chart-zone::before {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 2px;
+  flex: 0 0 auto;
+  background: var(--zone-swatch, var(--muted));
+}
+
+.session-chart-zone-z1 {
+  --zone-swatch: #6b7c8a;
+}
+.session-chart-zone-z2 {
+  --zone-swatch: #3d8fd4;
+}
+.session-chart-zone-z3 {
+  --zone-swatch: #3d9a6a;
+}
+.session-chart-zone-z4 {
+  --zone-swatch: #d4a017;
+}
+.session-chart-zone-z5 {
+  --zone-swatch: #d47a2a;
+}
+.session-chart-zone-z6 {
+  --zone-swatch: #d4534a;
+}
+.session-chart-zone-z7 {
+  --zone-swatch: #9b5de5;
 }
 
 .session-chart-axes .session-power-chart-plot {
@@ -646,7 +713,7 @@ button.export-fit {
 
 .session-power-chart-plot .axis-grid,
 .power-profile-line .axis-grid {
-  stroke: color-mix(in srgb, var(--muted) 35%, transparent);
+  stroke: color-mix(in srgb, var(--muted) 22%, transparent);
   stroke-width: 1;
 }
 
@@ -655,33 +722,25 @@ button.export-fit {
 }
 
 .power-profile-line .zone-band-z1 rect {
-  fill: color-mix(in srgb, #6b7c8a 32%, transparent);
+  fill: color-mix(in srgb, #6b7c8a 18%, transparent);
 }
 .power-profile-line .zone-band-z2 rect {
-  fill: color-mix(in srgb, #3d8fd4 30%, transparent);
+  fill: color-mix(in srgb, #3d8fd4 16%, transparent);
 }
 .power-profile-line .zone-band-z3 rect {
-  fill: color-mix(in srgb, #3d9a6a 28%, transparent);
+  fill: color-mix(in srgb, #3d9a6a 15%, transparent);
 }
 .power-profile-line .zone-band-z4 rect {
-  fill: color-mix(in srgb, #d4a017 30%, transparent);
+  fill: color-mix(in srgb, #d4a017 16%, transparent);
 }
 .power-profile-line .zone-band-z5 rect {
-  fill: color-mix(in srgb, #d47a2a 32%, transparent);
+  fill: color-mix(in srgb, #d47a2a 17%, transparent);
 }
 .power-profile-line .zone-band-z6 rect {
-  fill: color-mix(in srgb, #d4534a 32%, transparent);
+  fill: color-mix(in srgb, #d4534a 17%, transparent);
 }
 .power-profile-line .zone-band-z7 rect {
-  fill: color-mix(in srgb, #9b5de5 30%, transparent);
-}
-
-.power-profile-line .zone-band-label {
-  fill: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  opacity: 0.85;
-  pointer-events: none;
+  fill: color-mix(in srgb, #9b5de5 16%, transparent);
 }
 
 .power-profile-line .profile-series {
@@ -689,9 +748,14 @@ button.export-fit {
   vector-effect: non-scaling-stroke;
 }
 
+.power-profile-line .profile-series-area-planned {
+  fill: color-mix(in srgb, var(--accent) 14%, transparent);
+  stroke: none;
+}
+
 .power-profile-line .profile-series-planned {
-  stroke: color-mix(in srgb, var(--muted) 55%, var(--accent));
-  opacity: 0.8;
+  stroke: color-mix(in srgb, var(--muted) 45%, var(--accent));
+  opacity: 0.78;
 }
 
 .power-profile-line .profile-series-achieved {
@@ -699,7 +763,8 @@ button.export-fit {
 }
 
 .power-profile-line .profile-series-meter {
-  stroke: #c4a35a;
+  stroke: #b8923f;
+  opacity: 0.85;
 }
 
 .power-profile-line .profile-series-heartRate {
@@ -710,10 +775,30 @@ button.export-fit {
   stroke: #5b9fd4;
 }
 
-.power-profile-line .profile-cursor {
-  stroke: var(--warn);
-  opacity: 0.85;
+.power-profile-line .profile-future-dim {
+  fill: color-mix(in srgb, var(--panel) 62%, transparent);
+  pointer-events: none;
+}
+
+.power-profile-line .profile-cursor-glow {
+  stroke: color-mix(in srgb, #c45a12 28%, transparent);
+  opacity: 1;
   vector-effect: non-scaling-stroke;
+}
+
+.power-profile-line .profile-cursor {
+  stroke: #c45a12;
+  opacity: 0.95;
+  vector-effect: non-scaling-stroke;
+}
+
+.ride-chart-stack .profile-cursor {
+  /* Full-height strokes meet at the chart seam for one done/ahead edge. */
+  stroke: #c45a12;
+}
+
+.session-chart-axes-no-x {
+  grid-template-rows: minmax(12rem, 14rem);
 }
 
 .ride-chart {
@@ -722,44 +807,106 @@ button.export-fit {
 }
 
 .ride-chart-hero {
-  margin: 0 0 1.25rem;
+  margin: 0 0 1rem;
 }
 
 .ride-chart-stack {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0;
   height: clamp(18rem, 48vh, 30rem);
   border-radius: var(--radius);
   overflow: hidden;
-  background: color-mix(in srgb, var(--code-bg) 70%, var(--bg));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--panel) 55%, var(--code-bg)) 0%,
+      color-mix(in srgb, var(--code-bg) 85%, var(--bg)) 100%
+    );
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent);
 }
 
 .ride-chart-stack .session-chart-axes.ride-power-chart,
 .ride-chart-stack .session-chart-axes.ride-body-chart {
+  /* Shared gutters so the done/ahead playhead lines up across the stack. */
+  --ride-chart-y-gutter: 3.35rem;
   min-height: 0;
   height: auto;
   width: 100%;
+  grid-template-columns: var(--ride-chart-y-gutter) minmax(0, 1fr) var(--ride-chart-y-gutter);
   grid-template-rows: minmax(0, 1fr) auto;
-  padding: 0.3rem 0.45rem 0.15rem;
+  column-gap: 0.4rem;
+  padding: 0.35rem 0.45rem 0.2rem;
   background: transparent;
   border-radius: 0;
 }
 
+.ride-chart-stack .session-chart-axes.ride-power-chart.session-chart-axes-no-x {
+  grid-template-rows: minmax(0, 1fr);
+  padding-bottom: 0.1rem;
+}
+
 .ride-chart-stack .session-chart-axes.ride-power-chart {
-  flex: 3 1 0;
+  flex: 3.2 1 0;
 }
 
 .ride-chart-stack .session-chart-axes.ride-body-chart {
   flex: 1 1 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  padding-top: 0.25rem;
 }
 
 .ride-chart-stack .session-chart-y {
-  font-size: 0.65rem;
+  min-width: 0;
+  width: 100%;
+  font-size: 0.62rem;
+  opacity: 0.9;
 }
 
 .ride-chart-stack .session-chart-x {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
+  opacity: 0.9;
+}
+
+.ride-chart-stack .session-chart-zones {
+  min-width: 0;
+  width: 100%;
+  font-size: 0.58rem;
+}
+
+.ride-chart-stack .session-chart-zone {
+  opacity: 0.65;
+}
+
+.ride-chart-stack .session-chart-zone::before {
+  width: 0.32rem;
+  height: 0.32rem;
+}
+
+.ride-chart-stack .profile-series-area-planned {
+  fill: color-mix(in srgb, var(--accent) 11%, transparent);
+}
+
+.ride-chart-stack .profile-series-planned {
+  stroke-dasharray: 5 3;
+  opacity: 0.7;
+}
+
+.ride-chart-stack .profile-series-meter {
+  stroke-dasharray: 3 2.5;
+  opacity: 0.8;
+}
+
+.ride-chart-stack .profile-series-achieved {
+  stroke-width: 3;
+}
+
+.chart-legend-compact {
+  margin-top: 0.35rem;
+  gap: 0.55rem 0.9rem;
+  font-size: 0.72rem;
+  opacity: 0.9;
 }
 
 
@@ -769,13 +916,175 @@ button.export-fit {
 }
 
 .live-display-riding .power-value {
-  font-size: clamp(3.5rem, 13vw, 6rem);
+  font-size: clamp(3.25rem, 9vw, 5.25rem);
 }
 
 .live-metrics-row {
   display: grid;
   gap: 0.55rem;
   justify-items: center;
+}
+
+/* In-ride digits: body | power | session — use horizontal space. */
+.live-metrics-hud {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 1fr) minmax(11rem, 1.35fr) minmax(6.5rem, 1fr);
+  grid-template-areas:
+    'title title title'
+    'body power session';
+  align-items: center;
+  column-gap: clamp(0.75rem, 2.5vw, 2rem);
+  row-gap: 0.55rem;
+  margin-top: 0.15rem;
+}
+
+.live-metrics-hud-title {
+  grid-area: title;
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+}
+
+.live-metric-rail {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.live-metric-rail:empty {
+  display: none;
+}
+
+.live-metrics-hud:not(:has(.live-metric-rail-body > *)) {
+  grid-template-columns: minmax(11rem, 1.35fr) minmax(6.5rem, 1fr);
+  grid-template-areas:
+    'title title'
+    'power session';
+}
+
+.live-metrics-hud:not(:has(.live-metric-rail-session > *)) {
+  grid-template-columns: minmax(6.5rem, 1fr) minmax(11rem, 1.35fr);
+  grid-template-areas:
+    'title title'
+    'body power';
+}
+
+.live-metric-rail-body {
+  grid-area: body;
+  justify-items: end;
+  text-align: right;
+}
+
+.live-metric-primary {
+  grid-area: power;
+  justify-self: center;
+  text-align: center;
+  min-width: 0;
+}
+
+.live-metric-rail-session {
+  grid-area: session;
+  justify-items: start;
+  text-align: left;
+}
+
+.live-metric-rail-session .live-metric-value {
+  color: var(--metric);
+}
+
+.live-metric-tile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.4rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+
+.live-metric-rail-body .live-metric-tile {
+  justify-content: flex-end;
+}
+
+.live-metric-label {
+  flex: 0 0 4.25rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-family: var(--font-sans);
+}
+
+.live-metric-rail-body .live-metric-label {
+  text-align: right;
+}
+
+.live-metric-value {
+  font-family: var(--font-mono);
+  font-size: clamp(1.25rem, 2.8vw, 1.7rem);
+  font-weight: 800;
+  color: var(--text);
+}
+
+.live-metric-tile[data-status='stale'] .live-metric-value,
+.live-metric-tile[data-status='missing'] .live-metric-value {
+  color: var(--muted);
+}
+
+.live-metric-tile[data-status='fresh'] .live-metric-value {
+  color: var(--metric);
+}
+
+.live-metric-unit {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.live-metric-note {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  max-width: 12rem;
+}
+
+.alignment-row-compact {
+  margin: 0.45rem 0 0;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.alignment-row-compact .alignment-watts {
+  font-size: 1.15rem;
+}
+
+.alignment-row-compact .alignment-delta {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 28rem) {
+  .live-metrics-hud {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'title title'
+      'power power'
+      'body session';
+    align-items: start;
+  }
+
+  .live-metric-rail-body,
+  .live-metric-rail-session {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .live-metric-rail-body .live-metric-tile {
+    justify-content: center;
+  }
+
+  .live-metric-rail-body .live-metric-label {
+    text-align: center;
+  }
 }
 
 .chart-legend {
@@ -822,8 +1131,13 @@ button.export-fit {
 }
 
 .legend-planned::before {
-  background: color-mix(in srgb, var(--muted) 55%, var(--accent));
-  opacity: 0.8;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--muted) 45%, var(--accent)) 0 55%,
+    transparent 55% 100%
+  );
+  background-size: 0.35rem 2px;
+  opacity: 0.85;
 }
 
 .legend-achieved::before {
@@ -831,7 +1145,12 @@ button.export-fit {
 }
 
 .legend-meter::before {
-  background: #c4a35a;
+  background: linear-gradient(
+    90deg,
+    #b8923f 0 50%,
+    transparent 50% 100%
+  );
+  background-size: 0.28rem 2px;
 }
 
 .legend-heartRate::before {

@@ -4,6 +4,7 @@ import {
   formatAxisRpm,
   formatAxisTime,
   formatAxisWatts,
+  niceAxisTicks,
   threeAxisTicks,
   wattsAxisDomain,
 } from './axisTicks'
@@ -19,6 +20,21 @@ describe('threeAxisTicks', () => {
 
   it('rounds the midpoint when the span is odd', () => {
     expect(threeAxisTicks(0, 251)).toEqual([0, 126, 251])
+  })
+})
+
+describe('niceAxisTicks', () => {
+  it('picks round watt steps instead of raw midpoints for an FTP zone axis', () => {
+    // 250 W FTP × 1.65 → ~413 W ceiling (current ride preview domain).
+    expect(niceAxisTicks(0, 413, 5)).toEqual([0, 100, 200, 300, 400])
+  })
+
+  it('keeps ticks inside a zoomed watts window', () => {
+    expect(niceAxisTicks(90, 220, 4)).toEqual([100, 150, 200])
+  })
+
+  it('handles a flat or tiny span without duplicating junk', () => {
+    expect(niceAxisTicks(150, 150, 3)).toEqual([150])
   })
 })
 
@@ -49,6 +65,10 @@ describe('formatAxisWatts', () => {
   it('labels rounded watts', () => {
     expect(formatAxisWatts(0)).toBe('0 W')
     expect(formatAxisWatts(187.4)).toBe('187 W')
+  })
+
+  it('can omit the unit for inner ticks', () => {
+    expect(formatAxisWatts(200, false)).toBe('200')
   })
 })
 

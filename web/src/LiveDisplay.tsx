@@ -252,6 +252,7 @@ export function LiveDisplay({
                 cursorSec={chartCursorSec}
                 series={powerSeries}
                 showAxes
+                hideXAxis={showBodyChart}
               />
               {showBodyChart && (
                 <PowerProfileLine
@@ -266,7 +267,9 @@ export function LiveDisplay({
                 />
               )}
             </div>
-            <p className="chart-legend muted">
+            <p
+              className={`chart-legend muted${riding ? ' chart-legend-compact' : ''}`}
+            >
               {ftpWatts !== null && ftpWatts > 0 && (
                 <span className="legend-zones">Zones</span>
               )}
@@ -287,24 +290,29 @@ export function LiveDisplay({
           </div>
         )}
 
-        <div className="live-metrics-row">
-          <div className="live-metric-primary">
-            <p className="power-hint">{powerHint(snapshot)}</p>
-            <p className="power-value" data-status={snapshot.powerStatus}>
-              {powerLabel(snapshot)}
-              <span className="power-unit">W</span>
-            </p>
-          </div>
+        {riding ? (
+          <div className="live-metrics-hud">
+            {inWorkout && (
+              <p className="workout-live-title live-metrics-hud-title">
+                {isFreeRide || runner.stepCount === 0
+                  ? 'Free Ride'
+                  : `${runner.workoutName ?? 'Workout'} · step ${runner.stepIndex + 1}/${runner.stepCount}${runner.stepType ? ` · ${runner.stepType}` : ''}`}
+              </p>
+            )}
 
-          {showSecondary && (
-            <p className="secondary-metrics">
+            <div className="live-metric-rail live-metric-rail-body">
               {(heartRate.bpm !== null || hrConnected) && (
-                <span data-status={heartRate.status}>
-                  {heartRate.bpm === null ? '—' : heartRate.bpm} bpm
-                </span>
+                <div className="live-metric-tile" data-status={heartRate.status}>
+                  <span className="live-metric-label">HR</span>
+                  <span className="live-metric-value">
+                    {heartRate.bpm === null ? '—' : heartRate.bpm}
+                  </span>
+                  <span className="live-metric-unit">bpm</span>
+                </div>
               )}
               {(displayCadenceRpm !== null || cadenceConnected) && (
-                <span
+                <div
+                  className="live-metric-tile"
                   data-status={
                     cadenceConnected ? cadence.status : snapshot.powerStatus
                   }
@@ -314,87 +322,207 @@ export function LiveDisplay({
                       : 'Trainer cadence'
                   }
                 >
-                  {displayCadenceRpm === null
-                    ? '—'
-                    : `${displayCadenceRpm.toFixed(0)} rpm`}
-                </span>
+                  <span className="live-metric-label">Cadence</span>
+                  <span className="live-metric-value">
+                    {displayCadenceRpm === null
+                      ? '—'
+                      : displayCadenceRpm.toFixed(0)}
+                  </span>
+                  <span className="live-metric-unit">rpm</span>
+                </div>
               )}
               {snapshot.speedKmh !== null && (
-                <span>{snapshot.speedKmh.toFixed(1)} km/h</span>
+                <div className="live-metric-tile">
+                  <span className="live-metric-label">Speed</span>
+                  <span className="live-metric-value">
+                    {snapshot.speedKmh.toFixed(1)}
+                  </span>
+                  <span className="live-metric-unit">km/h</span>
+                </div>
               )}
-            </p>
-          )}
-        </div>
+            </div>
 
-        {(meterConnected ||
-          meter.connectionState === 'disconnected-with-reconnect' ||
-          meter.deviceName !== null) && (
-          <div className="power-alignment" data-status={meter.powerStatus}>
-            <p className="alignment-row">
-              <span className="alignment-label">Meter</span>
-              <span className="alignment-watts">
-                {meterPowerLabel(meter)}
+            <div className="live-metric-primary">
+              <p className="power-hint">{powerHint(snapshot)}</p>
+              <p className="power-value" data-status={snapshot.powerStatus}>
+                {powerLabel(snapshot)}
                 <span className="power-unit">W</span>
-              </span>
-              <span className="alignment-delta" title="Meter − Trainer">
-                Δ {formatAlignmentDelta(alignmentDelta)}
-              </span>
-            </p>
-            <p className="alignment-hint muted">
-              Power Alignment · 5s avg · comparison only (trainer stays primary)
-            </p>
-          </div>
-        )}
+              </p>
+              {(meterConnected ||
+                meter.connectionState === 'disconnected-with-reconnect' ||
+                meter.deviceName !== null) && (
+                <p
+                  className="alignment-row alignment-row-compact"
+                  data-status={meter.powerStatus}
+                  title="Power Alignment · 5s avg · Meter − Trainer"
+                >
+                  <span className="alignment-label">Meter</span>
+                  <span className="alignment-watts">
+                    {meterPowerLabel(meter)}
+                    <span className="power-unit">W</span>
+                  </span>
+                  <span className="alignment-delta">
+                    Δ {formatAlignmentDelta(alignmentDelta)}
+                  </span>
+                </p>
+              )}
+            </div>
 
-        {inWorkout && (
-          <div className="workout-live">
-            {isFreeRide || runner.stepCount === 0 ? (
-              <>
-                <p className="workout-live-title">Free Ride</p>
-                <p className="workout-live-targets">
-                  <span>
-                    Elapsed <strong>{formatClock(runner.elapsedSec)}</strong>
+            <div className="live-metric-rail live-metric-rail-session">
+              {inWorkout &&
+                !(isFreeRide || runner.stepCount === 0) && (
+                  <>
+                    <div className="live-metric-tile">
+                      <span className="live-metric-label">Target</span>
+                      <span className="live-metric-value">
+                        {runner.stepTargetWatts === null
+                          ? '—'
+                          : runner.stepTargetWatts}
+                      </span>
+                      <span className="live-metric-unit">W</span>
+                    </div>
+                    <div className="live-metric-tile">
+                      <span className="live-metric-label">Left</span>
+                      <span className="live-metric-value">
+                        {formatClock(runner.stepRemainingSec)}
+                      </span>
+                    </div>
+                  </>
+                )}
+              {inWorkout && (
+                <div className="live-metric-tile">
+                  <span className="live-metric-label">Elapsed</span>
+                  <span className="live-metric-value">
+                    {formatClock(runner.elapsedSec)}
                   </span>
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="workout-live-title">
-                  {runner.workoutName ?? 'Workout'} · step{' '}
-                  {runner.stepIndex + 1}/{runner.stepCount}
-                  {runner.stepType ? ` · ${runner.stepType}` : ''}
-                </p>
-                <p className="workout-live-targets">
-                  <span>
-                    Target{' '}
-                    <strong>
-                      {runner.stepTargetWatts === null
-                        ? '—'
-                        : `${runner.stepTargetWatts} W`}
-                    </strong>
-                  </span>
-                  <span>
-                    Left <strong>{formatClock(runner.stepRemainingSec)}</strong>
-                  </span>
-                  <span>
-                    Elapsed <strong>{formatClock(runner.elapsedSec)}</strong>
-                  </span>
-                </p>
-                {!snapshot.ergControlAvailable && (
-                  <p className="muted">
-                    Display-only targets — trainer ERG not available on this
-                    connection.
+                </div>
+              )}
+              {inWorkout &&
+                !(isFreeRide || runner.stepCount === 0) &&
+                !snapshot.ergControlAvailable && (
+                  <p className="muted live-metric-note">
+                    Display-only targets — trainer ERG not available.
                   </p>
                 )}
-              </>
-            )}
-            {(runner.status === 'completed' || runner.status === 'stopped') && (
-              <p className="muted">
-                {isFreeRide ? 'Free Ride' : 'Workout'} {runner.status}. Activity
-                saved when companion is up.
-              </p>
-            )}
+            </div>
           </div>
+        ) : (
+          <>
+            <div className="live-metrics-row">
+              <div className="live-metric-primary">
+                <p className="power-hint">{powerHint(snapshot)}</p>
+                <p className="power-value" data-status={snapshot.powerStatus}>
+                  {powerLabel(snapshot)}
+                  <span className="power-unit">W</span>
+                </p>
+              </div>
+
+              {showSecondary && (
+                <p className="secondary-metrics">
+                  {(heartRate.bpm !== null || hrConnected) && (
+                    <span data-status={heartRate.status}>
+                      {heartRate.bpm === null ? '—' : heartRate.bpm} bpm
+                    </span>
+                  )}
+                  {(displayCadenceRpm !== null || cadenceConnected) && (
+                    <span
+                      data-status={
+                        cadenceConnected ? cadence.status : snapshot.powerStatus
+                      }
+                      title={
+                        displayCadenceSource === 'sensor'
+                          ? 'Cadence sensor'
+                          : 'Trainer cadence'
+                      }
+                    >
+                      {displayCadenceRpm === null
+                        ? '—'
+                        : `${displayCadenceRpm.toFixed(0)} rpm`}
+                    </span>
+                  )}
+                  {snapshot.speedKmh !== null && (
+                    <span>{snapshot.speedKmh.toFixed(1)} km/h</span>
+                  )}
+                </p>
+              )}
+            </div>
+
+            {(meterConnected ||
+              meter.connectionState === 'disconnected-with-reconnect' ||
+              meter.deviceName !== null) && (
+              <div className="power-alignment" data-status={meter.powerStatus}>
+                <p className="alignment-row">
+                  <span className="alignment-label">Meter</span>
+                  <span className="alignment-watts">
+                    {meterPowerLabel(meter)}
+                    <span className="power-unit">W</span>
+                  </span>
+                  <span className="alignment-delta" title="Meter − Trainer">
+                    Δ {formatAlignmentDelta(alignmentDelta)}
+                  </span>
+                </p>
+                <p className="alignment-hint muted">
+                  Power Alignment · 5s avg · comparison only (trainer stays
+                  primary)
+                </p>
+              </div>
+            )}
+
+            {inWorkout && (
+              <div className="workout-live">
+                {isFreeRide || runner.stepCount === 0 ? (
+                  <>
+                    <p className="workout-live-title">Free Ride</p>
+                    <p className="workout-live-targets">
+                      <span>
+                        Elapsed{' '}
+                        <strong>{formatClock(runner.elapsedSec)}</strong>
+                      </span>
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="workout-live-title">
+                      {runner.workoutName ?? 'Workout'} · step{' '}
+                      {runner.stepIndex + 1}/{runner.stepCount}
+                      {runner.stepType ? ` · ${runner.stepType}` : ''}
+                    </p>
+                    <p className="workout-live-targets">
+                      <span>
+                        Target{' '}
+                        <strong>
+                          {runner.stepTargetWatts === null
+                            ? '—'
+                            : `${runner.stepTargetWatts} W`}
+                        </strong>
+                      </span>
+                      <span>
+                        Left{' '}
+                        <strong>{formatClock(runner.stepRemainingSec)}</strong>
+                      </span>
+                      <span>
+                        Elapsed{' '}
+                        <strong>{formatClock(runner.elapsedSec)}</strong>
+                      </span>
+                    </p>
+                    {!snapshot.ergControlAvailable && (
+                      <p className="muted">
+                        Display-only targets — trainer ERG not available on this
+                        connection.
+                      </p>
+                    )}
+                  </>
+                )}
+                {(runner.status === 'completed' ||
+                  runner.status === 'stopped') && (
+                  <p className="muted">
+                    {isFreeRide ? 'Free Ride' : 'Workout'} {runner.status}.
+                    Activity saved when companion is up.
+                  </p>
+                )}
+              </div>
+            )}
+          </>
         )}
       </section>
 
