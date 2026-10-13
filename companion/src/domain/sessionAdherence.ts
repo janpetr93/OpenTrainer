@@ -14,6 +14,41 @@ export function isWithinTargetBand(achievedWatts: number, plannedWatts: number):
   return Math.abs(achievedWatts - plannedWatts) <= band
 }
 
+/**
+ * Expand sparse step-corner planned profiles (start/end pairs per step) to a
+ * 1 Hz step-hold series through the final tSec. Last write wins at duplicate
+ * timestamps (step transitions). Already-dense 1 Hz series pass through
+ * unchanged via the same hold rule.
+ */
+export function expandStepHoldWattSeries(
+  points: PowerProfilePoint[],
+): number[] {
+  if (points.length === 0) return []
+  const sorted = [...points].sort((a, b) => a.tSec - b.tSec)
+  const events: { tSec: number; watts: number }[] = []
+  for (const p of sorted) {
+    const last = events[events.length - 1]
+    if (last && last.tSec === p.tSec) {
+      last.watts = p.watts
+    } else {
+      events.push({ tSec: p.tSec, watts: p.watts })
+    }
+  }
+  const maxT = events[events.length - 1]!.tSec
+  if (maxT < 0) return []
+
+  const out: number[] = []
+  let ei = 0
+  for (let t = 0; t <= maxT; t++) {
+    while (ei + 1 < events.length && events[ei + 1]!.tSec <= t) {
+      ei += 1
+    }
+    if (events[ei]!.tSec > t) continue
+    out.push(events[ei]!.watts)
+  }
+  return out
+}
+
 export function computeSessionAdherence(
   achievedPowerProfile: PowerProfilePoint[],
   plannedPowerProfile: PowerProfilePoint[] | null,
@@ -22,7 +57,7 @@ export function computeSessionAdherence(
     return null
   }
 
-  const planned = flattenWattSeries(plannedPowerProfile)
+  const planned = expandStepHoldWattSeries(plannedPowerProfile)
   const achieved = flattenWattSeries(achievedPowerProfile)
   if (planned.length === 0) return null
 

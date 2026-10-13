@@ -144,6 +144,7 @@ export class StravaLinkService {
     activityId: string
     fitBase64: string
     name?: string
+    description?: string
     force?: boolean
   }): Promise<{
     uploadId: number
@@ -177,6 +178,7 @@ export class StravaLinkService {
       fitBytes,
       filename,
       name: input.name,
+      description: input.description,
     })
 
     const record: ActivityStravaUpload = {

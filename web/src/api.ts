@@ -356,6 +356,7 @@ export async function uploadActivityToStrava(input: {
   activityId: string
   fitBase64: string
   name?: string
+  description?: string
   force?: boolean
 }): Promise<{
   uploadId: number

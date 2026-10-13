@@ -143,6 +143,7 @@ export async function uploadActivityFit(
     fitBytes: Uint8Array
     filename: string
     name?: string
+    description?: string
   },
 ): Promise<StravaUploadResponse> {
   const form = new FormData()
@@ -157,6 +158,7 @@ export async function uploadActivityFit(
   form.append('sport_type', 'VirtualRide')
   form.append('trainer', '1')
   if (input.name) form.append('name', input.name)
+  if (input.description) form.append('description', input.description)
 
   const res = await fetchImpl('https://www.strava.com/api/v3/uploads', {
     method: 'POST',

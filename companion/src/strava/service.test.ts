@@ -112,9 +112,21 @@ describe('StravaLinkService', () => {
     const uploaded = await service.uploadActivity({
       activityId: activity.id,
       fitBase64,
+      name: 'OpenTrainer: Free Ride',
+      description: 'Raise lactate threshold\n\nNP 245 · IF 0.89 · TSS 78',
     })
     expect(uploaded.uploadId).toBe(99)
     expect(uploaded.activity?.stravaUpload?.uploadId).toBe(99)
+
+    const uploadCall = fetchImpl.mock.calls.find(([u]) =>
+      String(u).includes('/api/v3/uploads'),
+    )
+    expect(uploadCall).toBeTruthy()
+    const uploadBody = uploadCall![1]?.body as FormData
+    expect(uploadBody.get('name')).toBe('OpenTrainer: Free Ride')
+    expect(uploadBody.get('description')).toBe(
+      'Raise lactate threshold\n\nNP 245 · IF 0.89 · TSS 78',
+    )
 
     await expect(
       service.uploadActivity({ activityId: activity.id, fitBase64 }),

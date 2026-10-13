@@ -1528,7 +1528,7 @@ button.linkish:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--code-bg);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .connectors-sensors-title {
@@ -1654,6 +1654,7 @@ button.known-device:disabled {
 }
 
 .find-new summary {
+  display: inline-block;
   cursor: pointer;
   list-style: none;
   border: 1px solid var(--border);
@@ -1670,6 +1671,16 @@ button.known-device:disabled {
   background: transparent;
 }
 
+.find-new-compact {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.connector-role-compact:has(details[open]) .connector-role-actions {
+  align-items: flex-start;
+}
+
 .find-new summary::-webkit-details-marker {
   display: none;
 }
@@ -1681,11 +1692,14 @@ button.known-device:disabled {
   margin-top: 0.4rem;
 }
 
+.find-new-compact[open] {
+  z-index: 3;
+}
+
 .find-new-compact[open] .find-new-actions,
 .find-new-compact[open] .known-devices-popover {
-  position: absolute;
-  right: 0;
-  z-index: 2;
+  position: relative;
+  z-index: 3;
   margin-top: 0.3rem;
   padding: 0.4rem;
   border: 1px solid var(--border);

@@ -46,4 +46,26 @@ describe('computeSessionAdherence', () => {
     const a = computeSessionAdherence(profile(65, 40), profile(50, 40))
     expect(a!.targetAdherence).toBe(1)
   })
+
+  it('expands sparse planned step corners to 1 Hz before scoring', () => {
+    // Same shape as buildPlannedPowerProfile: start/end pairs per step.
+    const planned: PowerProfilePoint[] = [
+      { tSec: 0, watts: 100 },
+      { tSec: 10, watts: 100 },
+      { tSec: 10, watts: 148 },
+      { tSec: 30, watts: 148 },
+      { tSec: 30, watts: 90 },
+      { tSec: 40, watts: 90 },
+    ]
+    const achieved = [
+      ...Array.from({ length: 10 }, (_, tSec) => ({ tSec, watts: 100 })),
+      ...Array.from({ length: 20 }, (_, i) => ({ tSec: 10 + i, watts: 148 })),
+      ...Array.from({ length: 11 }, (_, i) => ({ tSec: 30 + i, watts: 90 })),
+    ]
+    const a = computeSessionAdherence(achieved, planned)
+    expect(a).toEqual({
+      completionRatio: 1,
+      targetAdherence: 1,
+    })
+  })
 })

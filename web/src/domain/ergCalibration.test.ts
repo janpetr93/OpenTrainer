@@ -44,6 +44,30 @@ describe('resolveErgSetpoint', () => {
     ).toBe(181)
   })
 
+  it('default trim closes a ~20 W meter shortfall under identity calibration', () => {
+    // open-loop 200; meter 180 → error +20 → trim +14 (0.7×20), setpoint 214
+    expect(
+      resolveErgSetpoint({
+        meterTargetWatts: 200,
+        calibration: DEFAULT_ERG_CALIBRATION,
+        meterWatts: 180,
+        meterFresh: true,
+      }),
+    ).toBe(214)
+  })
+
+  it('default trim caps at ±25 W for large Assioma shortfalls', () => {
+    // error +60 → 0.7×60 = 42 → clamp to +25
+    expect(
+      resolveErgSetpoint({
+        meterTargetWatts: 200,
+        calibration: DEFAULT_ERG_CALIBRATION,
+        meterWatts: 140,
+        meterFresh: true,
+      }),
+    ).toBe(225)
+  })
+
   it('does not trim when meter is stale even if a last value exists', () => {
     expect(
       resolveErgSetpoint({
@@ -89,5 +113,14 @@ describe('adaptErgCalibration', () => {
     )
     expect(next.scale).toBeCloseTo(120 / 145, 5)
     expect(next.offsetWatts).toBe(0)
+  })
+
+  it('learns from easy warmup-range meter watts (below 100 W)', () => {
+    const next = adaptErgCalibration(
+      { scale: 1, offsetWatts: 0 },
+      { meterWatts: 90, trainerWatts: 107 },
+      { alpha: 1 },
+    )
+    expect(next.scale).toBeCloseTo(90 / 107, 5)
   })
 })

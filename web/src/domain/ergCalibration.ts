@@ -9,7 +9,8 @@ export const DEFAULT_ERG_CALIBRATION: ErgCalibration = {
   offsetWatts: 0,
 }
 
-const STEADY_METER_MIN = 100
+/** Include easy warmup targets (~90 W); ignore very low spin-up noise. */
+const STEADY_METER_MIN = 70
 const STEADY_METER_MAX = 180
 const SCALE_MIN = 0.5
 const SCALE_MAX = 1.5
@@ -23,13 +24,17 @@ export type ResolveErgSetpointInput = {
   calibration: ErgCalibration
   meterWatts: number | null
   meterFresh: boolean
-  /** Fraction of Assioma error applied as trim (default 0.35). */
+  /** Fraction of Assioma error applied as trim (default 0.7). */
   trimGain?: number
-  /** Max |trim| watts (default 10). */
+  /** Max |trim| watts (default 25). */
   maxTrimWatts?: number
 }
 
-/** Hybrid ERG: calibration open-loop + light Assioma trim when meter fresh. */
+/** Default closed-loop trim: strong enough to close ~20 W Assioma shortfalls. */
+export const DEFAULT_ERG_TRIM_GAIN = 0.7
+export const DEFAULT_ERG_MAX_TRIM_WATTS = 25
+
+/** Hybrid ERG: calibration open-loop + Assioma trim when meter fresh. */
 export function resolveErgSetpoint(input: ResolveErgSetpointInput): number {
   const scale =
     Number.isFinite(input.calibration.scale) && input.calibration.scale > 0
@@ -40,8 +45,8 @@ export function resolveErgSetpoint(input: ResolveErgSetpointInput): number {
     : 0
   const openLoop = input.meterTargetWatts / scale + offset
 
-  const trimGain = input.trimGain ?? 0.35
-  const maxTrim = input.maxTrimWatts ?? 10
+  const trimGain = input.trimGain ?? DEFAULT_ERG_TRIM_GAIN
+  const maxTrim = input.maxTrimWatts ?? DEFAULT_ERG_MAX_TRIM_WATTS
   let trim = 0
   if (
     input.meterFresh &&

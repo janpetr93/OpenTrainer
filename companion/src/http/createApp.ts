@@ -316,11 +316,19 @@ export function createRequestHandler(
         if (name !== undefined && typeof name !== 'string') {
           throw new Error('name must be a string')
         }
+        const description =
+          record.description === undefined || record.description === null
+            ? undefined
+            : record.description
+        if (description !== undefined && typeof description !== 'string') {
+          throw new Error('description must be a string')
+        }
         const force = record.force === true
         const result = await strava.uploadActivity({
           activityId: record.activityId,
           fitBase64: record.fitBase64,
           name,
+          description,
           force,
         })
         sendJson(res, 201, result)

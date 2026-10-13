@@ -4,6 +4,7 @@ import {
   type Activity,
 } from '../api'
 import { encodeActivityFit } from './encodeActivityFit'
+import { stravaActivityDescription } from './stravaActivityDescription'
 import { stravaActivityName } from './stravaActivityName'
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -25,6 +26,7 @@ export async function uploadActivityFitToStrava(
     activityId: activity.id,
     fitBase64: bytesToBase64(bytes),
     name: stravaActivityName(activity, workouts),
+    description: stravaActivityDescription(activity),
     force: options.force,
   })
   return result.activity

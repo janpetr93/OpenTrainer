@@ -65,6 +65,8 @@ function App() {
   const powerSourceModeRef = useRef<PowerSourceMode>('trainer')
   const ergCalRef = useRef(DEFAULT_ERG_CALIBRATION)
   const lastErgPushSecRef = useRef(-1)
+  /** ERG Calibration EMA must run once per elapsed second, not every 250ms tick. */
+  const lastErgAdaptSecRef = useRef(-1)
 
   const [snapshot, setSnapshot] = useState<TrainerSnapshot>(() =>
     connection.getSnapshot(),
@@ -207,6 +209,7 @@ function App() {
       powerSourceModeRef.current = 'trainer'
       setPowerSourceMode('trainer')
       lastErgPushSecRef.current = -1
+      lastErgAdaptSecRef.current = -1
       refreshRunner()
     }
   }, [
@@ -343,11 +346,14 @@ function App() {
           hr.status === 'fresh' && hr.bpm !== null ? hr.bpm : null,
         cadenceRpm,
       })
+      const elapsedFloor = Math.floor(snap.elapsedSec)
       if (
         mode === 'meter' &&
         power.watts !== null &&
-        power.trainerWatts !== null
+        power.trainerWatts !== null &&
+        elapsedFloor !== lastErgAdaptSecRef.current
       ) {
+        lastErgAdaptSecRef.current = elapsedFloor
         ergCalRef.current = adaptErgCalibration(ergCalRef.current, {
           meterWatts: power.watts,
           trainerWatts: power.trainerWatts,
@@ -383,6 +389,7 @@ function App() {
     savingRef.current = false
     startedAtRef.current = new Date().toISOString()
     lastErgPushSecRef.current = -1
+    lastErgAdaptSecRef.current = -1
 
     const meterSnap = meterConnection.getSnapshot()
     const mode = resolvePowerSourceMode({
