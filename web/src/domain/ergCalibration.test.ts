@@ -3,6 +3,7 @@ import {
   DEFAULT_ERG_CALIBRATION,
   adaptErgCalibration,
   resolveErgSetpoint,
+  type ErgAdaptMemory,
   type ErgCalibration,
 } from './ergCalibration'
 
@@ -95,32 +96,72 @@ describe('resolveErgSetpoint', () => {
 })
 
 describe('adaptErgCalibration', () => {
-  it('ignores non-steady samples', () => {
-    const cal = { scale: 1, offsetWatts: 0 }
+  it('learns a watt offset so the same gap fits 90 W and 185 W', () => {
+    const next = adaptErgCalibration(
+      { scale: 0.82, offsetWatts: 0 },
+      { meterWatts: 90, trainerWatts: 112 },
+      { alpha: 1 },
+    )
+    expect(next.scale).toBe(1)
+    expect(next.offsetWatts).toBe(22)
     expect(
-      adaptErgCalibration(cal, { meterWatts: 50, trainerWatts: 80 }),
-    ).toEqual(cal)
+      resolveErgSetpoint({
+        meterTargetWatts: 90,
+        calibration: next,
+        meterWatts: null,
+        meterFresh: false,
+      }),
+    ).toBe(112)
     expect(
-      adaptErgCalibration(cal, { meterWatts: 300, trainerWatts: 350 }),
+      resolveErgSetpoint({
+        meterTargetWatts: 185,
+        calibration: next,
+        meterWatts: null,
+        meterFresh: false,
+      }),
+    ).toBe(207)
+  })
+
+  it('learns the gap from interval-power samples above 180 W', () => {
+    const next = adaptErgCalibration(
+      { scale: 1, offsetWatts: 0 },
+      { meterWatts: 203, trainerWatts: 226 },
+      { alpha: 1 },
+    )
+    expect(next.scale).toBe(1)
+    expect(next.offsetWatts).toBe(23)
+  })
+
+  it('ignores spin-up below 70 W', () => {
+    const cal = { scale: 1, offsetWatts: 22 }
+    expect(
+      adaptErgCalibration(cal, { meterWatts: 50, trainerWatts: 80 }, { alpha: 1 }),
     ).toEqual(cal)
   })
 
-  it('EMA-updates scale toward Meter/Trainer in the steady band', () => {
+  it('ignores a one-second dip so it cannot rewrite the gap', () => {
+    const cal = { scale: 1, offsetWatts: 22 }
+    const memory: ErgAdaptMemory = {
+      previous: { meterWatts: 203, trainerWatts: 225 },
+    }
     const next = adaptErgCalibration(
-      { scale: 1, offsetWatts: 0 },
-      { meterWatts: 120, trainerWatts: 145 },
-      { alpha: 1 },
+      cal,
+      { meterWatts: 160, trainerWatts: 225 },
+      { alpha: 1, memory },
     )
-    expect(next.scale).toBeCloseTo(120 / 145, 5)
-    expect(next.offsetWatts).toBe(0)
+    expect(next).toEqual(cal)
   })
 
-  it('learns from easy warmup-range meter watts (below 100 W)', () => {
+  it('updates the gap from a settled follow-up sample', () => {
+    const memory: ErgAdaptMemory = {
+      previous: { meterWatts: 200, trainerWatts: 222 },
+    }
     const next = adaptErgCalibration(
-      { scale: 1, offsetWatts: 0 },
-      { meterWatts: 90, trainerWatts: 107 },
-      { alpha: 1 },
+      { scale: 1, offsetWatts: 20 },
+      { meterWatts: 203, trainerWatts: 226 },
+      { alpha: 1, memory },
     )
-    expect(next.scale).toBeCloseTo(90 / 107, 5)
+    expect(next.offsetWatts).toBe(23)
+    expect(memory.previous).toEqual({ meterWatts: 203, trainerWatts: 226 })
   })
 })

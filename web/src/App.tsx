@@ -16,6 +16,7 @@ import { scheduledRidesForLocalDay } from './calendar/todaysScheduledRides'
 import {
   DEFAULT_ERG_CALIBRATION,
   adaptErgCalibration,
+  type ErgAdaptMemory,
   resolveErgSetpoint,
 } from './domain/ergCalibration'
 import { buildPlannedPowerProfile } from './domain/plannedPowerProfile'
@@ -67,6 +68,7 @@ function App() {
   const lastErgPushSecRef = useRef(-1)
   /** ERG Calibration EMA must run once per elapsed second, not every 250ms tick. */
   const lastErgAdaptSecRef = useRef(-1)
+  const ergAdaptMemoryRef = useRef<ErgAdaptMemory>({ previous: null })
 
   const [snapshot, setSnapshot] = useState<TrainerSnapshot>(() =>
     connection.getSnapshot(),
@@ -210,6 +212,7 @@ function App() {
       setPowerSourceMode('trainer')
       lastErgPushSecRef.current = -1
       lastErgAdaptSecRef.current = -1
+      ergAdaptMemoryRef.current = { previous: null }
       refreshRunner()
     }
   }, [
@@ -354,10 +357,14 @@ function App() {
         elapsedFloor !== lastErgAdaptSecRef.current
       ) {
         lastErgAdaptSecRef.current = elapsedFloor
-        ergCalRef.current = adaptErgCalibration(ergCalRef.current, {
-          meterWatts: power.watts,
-          trainerWatts: power.trainerWatts,
-        })
+        ergCalRef.current = adaptErgCalibration(
+          ergCalRef.current,
+          {
+            meterWatts: power.watts,
+            trainerWatts: power.trainerWatts,
+          },
+          { memory: ergAdaptMemoryRef.current },
+        )
       }
       setRunnerSnap(snap)
       setAchievedProfile(sampler.getProfile())
@@ -390,6 +397,7 @@ function App() {
     startedAtRef.current = new Date().toISOString()
     lastErgPushSecRef.current = -1
     lastErgAdaptSecRef.current = -1
+    ergAdaptMemoryRef.current = { previous: null }
 
     const meterSnap = meterConnection.getSnapshot()
     const mode = resolvePowerSourceMode({

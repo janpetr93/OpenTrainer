@@ -1,5 +1,8 @@
 export type ErgCalibration = {
-  /** Typical Meter/Trainer ratio (e.g. 0.85). Open-loop ERG = target / scale + offset. */
+  /**
+   * Kept at 1. Open-loop ERG is target / scale + offset, and the learned
+   * correction is the watt offset (trainer − meter), not a ratio.
+   */
   scale: number
   offsetWatts: number
 }
@@ -9,11 +12,13 @@ export const DEFAULT_ERG_CALIBRATION: ErgCalibration = {
   offsetWatts: 0,
 }
 
-/** Include easy warmup targets (~90 W); ignore very low spin-up noise. */
+/** Include warmup through interval targets; ignore spin-up and spike noise. */
 const STEADY_METER_MIN = 70
-const STEADY_METER_MAX = 180
-const SCALE_MIN = 0.5
-const SCALE_MAX = 1.5
+const STEADY_METER_MAX = 450
+/** Second-to-second move larger than this is an unsettled dip, not a new gap. */
+const SETTLE_WATTS = 30
+const OFFSET_MIN = -100
+const OFFSET_MAX = 100
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n))
@@ -60,36 +65,66 @@ export function resolveErgSetpoint(input: ResolveErgSetpointInput): number {
   return Math.round(clamp(openLoop + trim, 0, 2500))
 }
 
-export type AdaptErgCalibrationOptions = {
-  alpha?: number
+export type ErgAdaptSample = {
+  meterWatts: number
+  trainerWatts: number
 }
 
-/** Slow-adapt scale from a steady paired sample (Meter/Trainer). */
+/** Previous paired sample so a one-second dip is not treated as a new gap. */
+export type ErgAdaptMemory = {
+  previous: ErgAdaptSample | null
+}
+
+export type AdaptErgCalibrationOptions = {
+  alpha?: number
+  memory?: ErgAdaptMemory
+}
+
+function inSteadyBand(sample: ErgAdaptSample): boolean {
+  return (
+    Number.isFinite(sample.meterWatts) &&
+    Number.isFinite(sample.trainerWatts) &&
+    sample.meterWatts >= STEADY_METER_MIN &&
+    sample.meterWatts <= STEADY_METER_MAX &&
+    sample.trainerWatts > 0
+  )
+}
+
+function isSettled(memory: ErgAdaptMemory, sample: ErgAdaptSample): boolean {
+  const previous = memory.previous
+  if (!previous) return false
+  return (
+    Math.abs(sample.meterWatts - previous.meterWatts) <= SETTLE_WATTS &&
+    Math.abs(sample.trainerWatts - previous.trainerWatts) <= SETTLE_WATTS
+  )
+}
+
+/**
+ * Learn the trainer−meter watt gap. Scale stays 1 so a 22 W gap at 90 W
+ * is still 22 W at 185 W. A stored ratio (scale ≠ 1, offset 0) converts
+ * on the first steady sample.
+ */
 export function adaptErgCalibration(
   current: ErgCalibration,
-  sample: { meterWatts: number; trainerWatts: number },
+  sample: ErgAdaptSample,
   options: AdaptErgCalibrationOptions = {},
 ): ErgCalibration {
-  const { meterWatts, trainerWatts } = sample
-  if (
-    !Number.isFinite(meterWatts) ||
-    !Number.isFinite(trainerWatts) ||
-    meterWatts < STEADY_METER_MIN ||
-    meterWatts > STEADY_METER_MAX ||
-    trainerWatts <= 0
-  ) {
+  const memory = options.memory
+  if (memory) {
+    const settled = inSteadyBand(sample) && isSettled(memory, sample)
+    memory.previous = sample
+    if (!settled) return current
+  } else if (!inSteadyBand(sample)) {
     return current
   }
 
-  const alpha = options.alpha ?? 0.02
-  const observed = clamp(meterWatts / trainerWatts, SCALE_MIN, SCALE_MAX)
-  const scale = clamp(
-    (1 - alpha) * current.scale + alpha * observed,
-    SCALE_MIN,
-    SCALE_MAX,
+  const convertingRatio = current.scale !== 1 && current.offsetWatts === 0
+  const alpha = convertingRatio ? 1 : (options.alpha ?? 0.02)
+  const observed = sample.trainerWatts - sample.meterWatts
+  const offsetWatts = clamp(
+    (1 - alpha) * current.offsetWatts + alpha * observed,
+    OFFSET_MIN,
+    OFFSET_MAX,
   )
-  return {
-    scale,
-    offsetWatts: current.offsetWatts,
-  }
+  return { scale: 1, offsetWatts }
 }

@@ -3,6 +3,8 @@ date: 2026-10-13
 status: active
 ---
 
+> The scale-EMA / 70–180 W band is superseded by [2026-10-19-erg-offset-instead-of-ratio](./2026-10-19-erg-offset-instead-of-ratio.md). Adherence scoring below still stands.
+
 # Ride review fixes: adherence expand + ERG adapt rate/band
 
 ## Context

@@ -205,7 +205,7 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - A **Connection** is to exactly one **Trainer** at a time; **Power Meter**, **Heart Rate Monitor**, and **Cadence Sensor** links are independent optional Web Bluetooth connections.
 - Live HR/cadence from dedicated sensors are recorded onto achieved **Power Profile** samples when fresh, then available via Local Store / MCP / FIT.
 - **Power Source Mode** is fixed at **Start** from whether a **Power Meter** is connected and fresh; trainer-only riders stay **trainer-primary**.
-- In **meter-primary**, **Live Power** / achieved `watts` / FIT follow **Meter Power**; **Trainer** ERG uses **ERG Calibration** (hybrid open-loop + Assioma trim, default gain 0.7 / max ±25 W; scale EMA once per elapsed second from meter 70–180 W paired samples); secondary stream is `trainerWatts`.
+- In **meter-primary**, **Live Power** / achieved `watts` / FIT follow **Meter Power**; **Trainer** ERG uses **ERG Calibration** (hybrid open-loop + Assioma trim, default gain 0.7 / max ±25 W; watt offset EMA once per elapsed second from settled meter 70–450 W paired samples, scale held at 1); secondary stream is `trainerWatts`.
 - **Session Adherence** expands sparse planned step-corner **Power Profile**s to 1 Hz step-hold before scoring against achieved.
 - If **Meter Power** goes stale mid-ride, ERG holds the calibration map (no trim) and primary does not flip to the **Trainer** for that session.
 - **Live Power** is stale when the active primary source stops notifying within the freshness window; **Trainer Power** / **Meter Power** each have their own freshness for alignment and trim.
