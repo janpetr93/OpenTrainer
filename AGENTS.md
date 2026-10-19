@@ -28,4 +28,5 @@
 - Local Store: `companion/data/` (gitignored except sample workouts).
 - Override with the `D100_DATA_DIR` env var.
 - FTP must be set (via the `set_ftp` MCP tool) before %FTP / zone targets resolve.
+- Calendar Mirror (optional): `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in `companion/.env`; connect on the Profile tab. Scheduled Ride writes mirror while the companion or MCP process is running. See `companion/README.md`.
 - Mean Maximal Power: Profile tab Recompute (`POST /api/mmp/recompute`); MCP `get_mmp` is read-only.

@@ -173,7 +173,7 @@ _Avoid_: Invented HR/cadence
 An **Activity** recorded without starting from a **Workout** or **Scheduled Ride** — achieved **Power Profile** only, no planned overlay.
 
 **Training Calendar**:
-The app-local calendar view of upcoming **Scheduled Ride**s and past **Activity**s (no external calendar sync in v1).
+The app-local calendar view of upcoming **Scheduled Ride**s and past **Activity**s. Google Calendar is not this view.
 _Avoid_: Google Calendar, schedule (noun for the whole product)
 
 ### Rider prescription
@@ -200,6 +200,10 @@ _Avoid_: Phase (derived from **Activity** history unless noted), availability (a
 Optional OAuth authorization between this laptop’s **Local Companion** and the rider’s Strava athlete account, used only to upload **Activity** FIT files; not app login and not a Bluetooth **Connection**.
 _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 
+**Calendar Mirror**:
+A one-way outbound copy of **Scheduled Ride**s onto a dedicated OpenTrainer calendar in the rider’s Google account; the **Local Companion** owns the Google authorization, OpenTrainer stays the source of truth, and **Activity**s are not copied.
+_Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar), iCal feed
+
 ## Relationships
 
 - A **Connection** is to exactly one **Trainer** at a time; **Power Meter**, **Heart Rate Monitor**, and **Cadence Sensor** links are independent optional Web Bluetooth connections.
@@ -222,6 +226,8 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - A **Scheduled Ride** on the **Training Calendar** day detail and Ride panel shows that **Workout**’s duration and planned **Power Profile** (current **FTP**; `%FTP`/zone plans need FTP set to preview).
 - A **Free Ride** is an **Activity** with no planned **Power Profile**.
 - The **Training Calendar** shows **Scheduled Ride**s (future) and **Activity**s (past).
+- A **Calendar Mirror** copies **Scheduled Ride**s onto a dedicated OpenTrainer Google calendar and leaves them there when the companion is stopped. Reschedule moves the event; skip, delete, and clear remove it; complete leaves it. First connect copies planned rides from the start of today onward. Unlink forgets the authorization and leaves the Google calendar in place. Edits made in Google are not imported; the next reconcile restores the OpenTrainer time. It does not copy **Activity**s.
+- The **Local Companion** owns the **Calendar Mirror** (tokens and Google event ids). Profile connects it. **Scheduled Ride** writes from the UI and from MCP reconcile while that process is running. The browser never holds the Google client secret.
 - The **Local Companion** owns the **Local Store**; the browser UI and MCP both read through it; **FTP** / **Training Intent** writes are MCP-only (UI remains read-only for those fields).
 - **Connection** / Web Bluetooth stay in the browser, not in the **Local Companion**.
 - **Power Zones** are derived from **FTP** on the **Rider Profile** (Coggan 7-zone defaults).
@@ -291,10 +297,11 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 | **Live Power** / **Stale Power** | `web/src/ftms/livePowerFreshness.ts` |
 | **Activity** export | `web/src/export/encodeActivityFit.ts` — indoor FIT (manual download + Strava upload payload) |
 | **Strava Link** | `companion/src/strava/`; routes `/api/strava/*`; UI Profile tab (`ProfilePanel`) + `ActivityActions`; upload name/description via `web/src/export/stravaActivityName.ts` + `stravaActivityDescription.ts` |
+| **Calendar Mirror** | `companion/src/googleCalendar/`; routes `/api/google-calendar/*`; UI Profile tab; event index `google-calendar-events.json`; see `docs/decisions/2026-10-19-google-calendar-one-way-mirror.md` |
 | **Workout** | `companion/src/store/localStore.ts`; started via **Scheduled Ride** / Schedule again (not a UI catalog) |
 | **Devices** (tab) | `web/src/DevicesPanel.tsx` — connectors, **Known Devices**, **Connect All Known** / **Disconnect All**, FTMS debug; nav `APP_TAB_ORDER` in `web/src/appTab.ts` |
 | **History** (tab) | `web/src/WorkoutsPanel.tsx` — **Activity** history + Schedule again |
-| **Profile** (tab) | `web/src/ProfilePanel.tsx` — read-only **Rider Profile** (FTP / zones / Intent) + **MMP** + **Strava Link** |
+| **Profile** (tab) | `web/src/ProfilePanel.tsx` — read-only **Rider Profile** (FTP / zones / Intent) + **MMP** + **Strava Link** + **Calendar Mirror** |
 | **Mean Maximal Power** | `companion/src/domain/meanMaximalPower.ts`; cache `companion/data/mmp.json`; GET/POST `/api/mmp`; MCP `get_mmp`; UI Profile tab |
 | **Estimated FTP** | Derived in MMP enrich (20min × 0.95) vs set FTP on Profile / `get_mmp` |
 | **Schedule again** | `web/src/ScheduleAgain.tsx` via `ActivityActions` |
@@ -317,7 +324,7 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - "Session" — resolved: do not use; say **Workout**, **Scheduled Ride**, or **Activity**.
 - "Power curve" — session chart is **Power Profile**; lifetime bests are **Mean Maximal Power** (Profile).
 - **Free Ride** — resolved: allowed; planned **Power Profile** omitted.
-- **Training Calendar** — resolved: app-local; future Scheduled Rides + past Activities.
+- **Training Calendar** — resolved: app-local view; future Scheduled Rides + past Activities. Outbound **Calendar Mirror** is separate (see `docs/decisions/2026-10-19-google-calendar-one-way-mirror.md`).
 - Build order — resolved: slice1 Bluetooth proof → slice2 local store+MCP → slice3 runner/recording → slice4 export/Power Profile UI → slice5 Training Calendar.
 - **Local Companion** + JSON **Local Store** — resolved in [ADR 0001](docs/adr/0001-local-companion-json-store.md).
 - Export format — resolved: FIT first.
@@ -328,6 +335,7 @@ _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 - Long-term plan / **Training Intent** — resolved: Local Store goal + optional horizon/note; not chat-only; no stored phase or availability (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`).
 - **Rider Profile** writes — resolved: MCP-only for FTP/Intent; Profile tab read-only; no HTTP PUTs (see `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`).
 - Strava — resolved: keep manual FIT; add optional **Strava Link** + one-click upload (see `docs/decisions/2026-10-09-strava-link-and-upload.md`).
+- **Calendar Mirror** — resolved: one-way Google Calendar copy of **Scheduled Ride**s (see `docs/decisions/2026-10-19-google-calendar-one-way-mirror.md`).
 - **Power Meter** / **Power Source Mode** — resolved: [ADR 0002](docs/adr/0002-meter-primary-hybrid-erg.md) + `docs/decisions/2026-10-11-meter-primary-hybrid-erg.md` (supersedes trainer-always-primary in `2026-10-09-power-meter-comparison-only.md`; Δ still `2026-10-10-average-alignment-delta-on-activity.md`).
 - **Heart Rate Monitor** / **Cadence Sensor** — resolved: live connectors + optional fields on achieved **Power Profile** (see `docs/decisions/2026-10-09-hrm-and-cadence-connectors.md`).
 - Friendlier connectors — resolved: in-page **Known Devices**, explicit **Connect All Known** / **Disconnect All**, collapsed **Find New Device** (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`).

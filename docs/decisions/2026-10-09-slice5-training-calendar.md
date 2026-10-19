@@ -3,6 +3,9 @@ date: 2026-10-09
 status: active
 ---
 
+> “External calendar sync — out of scope” is narrowed by [2026-10-19-google-calendar-one-way-mirror](2026-10-19-google-calendar-one-way-mirror.md).
+
+
 # Slice 5: Training Calendar shipped
 
 ## Context

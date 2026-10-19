@@ -98,6 +98,25 @@ export type Activity = {
   stravaUpload?: ActivityStravaUpload | null
 }
 
+/** OAuth tokens for the Calendar Mirror (Local Store). Tokens may be cleared on unlink while calendarId remains. */
+export type GoogleCalendarLink = {
+  schemaVersion: typeof STORE_SCHEMA_VERSION
+  calendarId: string | null
+  accessToken: string | null
+  refreshToken: string | null
+  /** Access token expiry as Unix seconds. Null when unlinked. */
+  expiresAt: number | null
+  scope: string | null
+  updatedAt: string
+  lastError: string | null
+}
+
+/** Scheduled Ride id → Google event id for the Calendar Mirror. */
+export type GoogleCalendarEventIndex = {
+  schemaVersion: typeof STORE_SCHEMA_VERSION
+  byRideId: Record<string, string>
+}
+
 /** OAuth tokens for the rider's Strava Link (Local Store). */
 export type StravaLink = {
   schemaVersion: typeof STORE_SCHEMA_VERSION

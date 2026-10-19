@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  beginCalendarMirrorAuthorize,
   beginStravaAuthorize,
   companionHealthy,
+  disconnectCalendarMirror,
   disconnectStrava,
+  getCalendarMirrorStatus,
   getMmp,
   getRiderProfile,
   getStravaStatus,
   recomputeMmp,
+  type CalendarMirrorStatus,
   type MmpView,
   type RiderProfile,
   type StravaLinkStatus,
@@ -38,15 +42,39 @@ function clearStravaQuery(): void {
   window.history.replaceState({}, '', url.pathname + url.search + url.hash)
 }
 
+function readCalendarQueryMessage(): string | null {
+  const params = new URLSearchParams(window.location.search)
+  const flag = params.get('googleCalendar')
+  if (!flag) return null
+  if (flag === 'linked') return 'Google Calendar connected.'
+  if (flag === 'error') {
+    return params.get('message') ?? 'Google Calendar authorization failed.'
+  }
+  return null
+}
+
+function clearCalendarQuery(): void {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has('googleCalendar')) return
+  url.searchParams.delete('googleCalendar')
+  url.searchParams.delete('message')
+  window.history.replaceState({}, '', url.pathname + url.search + url.hash)
+}
+
 /** Profile tab — read-only Rider Profile (FTP / zones / Training Intent) + MMP + Strava Link. */
 export function ProfilePanel({ onProfileChange }: Props) {
   const [healthy, setHealthy] = useState<boolean | null>(null)
   const [profile, setProfile] = useState<RiderProfile | null>(null)
   const [mmp, setMmp] = useState<MmpView | null>(null)
   const [strava, setStrava] = useState<StravaLinkStatus | null>(null)
+  const [calendarMirror, setCalendarMirror] =
+    useState<CalendarMirrorStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stravaMessage, setStravaMessage] = useState<string | null>(() =>
     readStravaQueryMessage(),
+  )
+  const [calendarMessage, setCalendarMessage] = useState<string | null>(() =>
+    readCalendarQueryMessage(),
   )
   const [busy, setBusy] = useState(false)
 
@@ -66,20 +94,23 @@ export function ProfilePanel({ onProfileChange }: Props) {
       return
     }
     setError(null)
-    const [next, link, nextMmp] = await Promise.all([
+    const [next, link, nextMmp, mirror] = await Promise.all([
       getRiderProfile(),
       getStravaStatus(),
       getMmp(),
+      getCalendarMirrorStatus(),
     ])
     applyProfile(next)
     setStrava(link)
     setMmp(nextMmp)
+    setCalendarMirror(mirror)
   }, [applyProfile])
 
   useEffect(() => {
     if (stravaMessage) clearStravaQuery()
+    if (calendarMessage) clearCalendarQuery()
     void refresh()
-  }, [refresh, stravaMessage])
+  }, [refresh, stravaMessage, calendarMessage])
 
   async function onDisconnectStrava(): Promise<void> {
     setBusy(true)
@@ -88,6 +119,22 @@ export function ProfilePanel({ onProfileChange }: Props) {
       await disconnectStrava()
       setStrava(await getStravaStatus())
       setStravaMessage('Strava Link disconnected.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onDisconnectCalendar(): Promise<void> {
+    setBusy(true)
+    setCalendarMessage(null)
+    try {
+      await disconnectCalendarMirror()
+      setCalendarMirror(await getCalendarMirrorStatus())
+      setCalendarMessage(
+        'Disconnected. The OpenTrainer calendar stays in Google and stops updating.',
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -117,7 +164,7 @@ export function ProfilePanel({ onProfileChange }: Props) {
             {healthy === null ? 'checking…' : healthy ? 'online' : 'offline'}
           </p>
         }
-        blurb="FTP, power curve, training intent, and optional Strava link for this Local Store."
+        blurb="FTP, power curve, training intent, and optional Strava and Google Calendar links for this Local Store."
       />
 
       {error && <p className="banner error">{error}</p>}
@@ -305,6 +352,56 @@ export function ProfilePanel({ onProfileChange }: Props) {
             </p>
           )
         )}
+      </section>
+
+      <section className="panel-block">
+        <h2>Google Calendar</h2>
+        <p className="muted">
+          Copies Scheduled Rides onto an OpenTrainer calendar in your Google
+          account. The rides stay there after you quit. Activities are not
+          copied. Connect needs a Google Cloud OAuth client in{' '}
+          <code>companion/.env</code>.
+        </p>
+        {calendarMessage && <p className="banner">{calendarMessage}</p>}
+        {calendarMirror?.lastError && (
+          <p className="banner error">{calendarMirror.lastError}</p>
+        )}
+        {calendarMirror && !calendarMirror.configured && (
+          <p className="muted">
+            Not configured — add <code>GOOGLE_CLIENT_ID</code> and{' '}
+            <code>GOOGLE_CLIENT_SECRET</code>, then restart the companion.
+          </p>
+        )}
+        {calendarMirror?.configured && calendarMirror.linked && (
+          <p>Connected. Planned rides mirror to the OpenTrainer calendar.</p>
+        )}
+        {calendarMirror?.configured &&
+          !calendarMirror.linked &&
+          calendarMirror.calendarId && (
+            <p className="muted">
+              Disconnected. The OpenTrainer calendar is still in Google and is
+              not receiving updates.
+            </p>
+          )}
+        <div className="form-row">
+          <button
+            type="button"
+            className="primary"
+            disabled={busy || healthy === false || !calendarMirror?.configured}
+            onClick={() => beginCalendarMirrorAuthorize()}
+          >
+            {calendarMirror?.linked
+              ? 'Reconnect Google Calendar'
+              : 'Connect Google Calendar'}
+          </button>
+          <button
+            type="button"
+            disabled={busy || healthy === false || !calendarMirror?.linked}
+            onClick={() => void onDisconnectCalendar()}
+          >
+            Disconnect
+          </button>
+        </div>
       </section>
 
       <section className="panel-block">

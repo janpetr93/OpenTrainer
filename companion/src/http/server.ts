@@ -3,6 +3,8 @@ import { LocalStore } from '../store/localStore.js'
 import { resolveDataDir } from '../paths.js'
 import { loadCompanionEnv } from '../env.js'
 import { readStravaConfigFromEnv } from '../strava/config.js'
+import { readGoogleCalendarConfigFromEnv } from '../googleCalendar/config.js'
+import { CalendarMirror } from '../googleCalendar/service.js'
 import { createRequestHandler } from './createApp.js'
 
 loadCompanionEnv()
@@ -19,8 +21,17 @@ async function main(): Promise<void> {
   await store.backfillActivityMetrics()
 
   const stravaConfig = readStravaConfigFromEnv()
+  const googleCalendarConfig = readGoogleCalendarConfigFromEnv()
+  const calendarMirror = new CalendarMirror({
+    store,
+    config: googleCalendarConfig,
+    companionOrigin,
+    webOrigin,
+  })
+  await calendarMirror.reconcile()
   const handler = createRequestHandler(store, {
     stravaConfig,
+    googleCalendarConfig,
     companionOrigin,
     webOrigin,
   })
@@ -36,6 +47,13 @@ async function main(): Promise<void> {
     } else {
       console.error(
         'Strava: not configured (set STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET in companion/.env)',
+      )
+    }
+    if (googleCalendarConfig) {
+      console.error('Google Calendar: configured (client id present)')
+    } else {
+      console.error(
+        'Google Calendar: not configured (set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET in companion/.env)',
       )
     }
   })

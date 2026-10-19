@@ -24,6 +24,8 @@ import {
   type CreateScheduledRideInput,
   type CreateWorkoutInput,
   type ErgCalibration,
+  type GoogleCalendarEventIndex,
+  type GoogleCalendarLink,
   type ListActivitiesQuery,
   type ListScheduledRidesQuery,
   type MmpCache,
@@ -41,6 +43,8 @@ import {
 const STEP_TYPES: WorkoutStepType[] = ['warmup', 'steady', 'recovery', 'cooldown']
 const PROFILE_FILE = 'profile.json'
 const STRAVA_LINK_FILE = 'strava-link.json'
+const GOOGLE_CALENDAR_LINK_FILE = 'google-calendar-link.json'
+const GOOGLE_CALENDAR_EVENTS_FILE = 'google-calendar-events.json'
 const MMP_FILE = 'mmp.json'
 const ERG_CALIBRATION_FILE = 'erg-calibration.json'
 
@@ -143,6 +147,8 @@ export class LocalStore {
   private readonly scheduledDir: string
   private readonly profilePath: string
   private readonly stravaLinkPath: string
+  private readonly googleCalendarLinkPath: string
+  private readonly googleCalendarEventsPath: string
   private readonly mmpPath: string
   private readonly ergCalibrationPath: string
 
@@ -152,6 +158,8 @@ export class LocalStore {
     this.scheduledDir = join(rootDir, 'scheduled')
     this.profilePath = join(rootDir, PROFILE_FILE)
     this.stravaLinkPath = join(rootDir, STRAVA_LINK_FILE)
+    this.googleCalendarLinkPath = join(rootDir, GOOGLE_CALENDAR_LINK_FILE)
+    this.googleCalendarEventsPath = join(rootDir, GOOGLE_CALENDAR_EVENTS_FILE)
     this.mmpPath = join(rootDir, MMP_FILE)
     this.ergCalibrationPath = join(rootDir, ERG_CALIBRATION_FILE)
   }
@@ -538,6 +546,59 @@ export class LocalStore {
     } catch {
       // already absent
     }
+  }
+
+  async getGoogleCalendarLink(): Promise<GoogleCalendarLink | null> {
+    try {
+      const raw = await this.readJson<Partial<GoogleCalendarLink>>(
+        this.googleCalendarLinkPath,
+      )
+      return {
+        schemaVersion: STORE_SCHEMA_VERSION,
+        calendarId: raw.calendarId ?? null,
+        accessToken: raw.accessToken ?? null,
+        refreshToken: raw.refreshToken ?? null,
+        expiresAt: raw.expiresAt ?? null,
+        scope: raw.scope ?? null,
+        updatedAt: raw.updatedAt ?? new Date(0).toISOString(),
+        lastError: raw.lastError ?? null,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  async saveGoogleCalendarLink(
+    link: GoogleCalendarLink,
+  ): Promise<GoogleCalendarLink> {
+    await this.writeJson(this.googleCalendarLinkPath, link)
+    return link
+  }
+
+  async getGoogleCalendarEventIndex(): Promise<GoogleCalendarEventIndex> {
+    try {
+      const raw = await this.readJson<Partial<GoogleCalendarEventIndex>>(
+        this.googleCalendarEventsPath,
+      )
+      const byRideId: Record<string, string> = {}
+      if (raw.byRideId && typeof raw.byRideId === 'object') {
+        for (const [rideId, eventId] of Object.entries(raw.byRideId)) {
+          if (typeof eventId === 'string' && eventId.trim()) {
+            byRideId[rideId] = eventId
+          }
+        }
+      }
+      return { schemaVersion: STORE_SCHEMA_VERSION, byRideId }
+    } catch {
+      return { schemaVersion: STORE_SCHEMA_VERSION, byRideId: {} }
+    }
+  }
+
+  async saveGoogleCalendarEventIndex(
+    index: GoogleCalendarEventIndex,
+  ): Promise<GoogleCalendarEventIndex> {
+    await this.writeJson(this.googleCalendarEventsPath, index)
+    return index
   }
 
   async getMmpCache(): Promise<MmpCache | null> {

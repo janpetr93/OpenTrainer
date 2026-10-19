@@ -14,9 +14,11 @@ describe('APP_TAB_ORDER', () => {
 })
 
 describe('initialAppTab', () => {
-  it('opens Profile when Strava OAuth returns a query flag', () => {
+  it('opens Profile when Strava or Google Calendar OAuth returns a query flag', () => {
     expect(initialAppTab('?strava=linked')).toBe('profile')
     expect(initialAppTab('?strava=error&message=nope')).toBe('profile')
+    expect(initialAppTab('?googleCalendar=linked')).toBe('profile')
+    expect(initialAppTab('?googleCalendar=error&message=nope')).toBe('profile')
   })
 
   it('defaults to Ride when there is no Strava return', () => {

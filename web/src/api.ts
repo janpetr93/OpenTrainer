@@ -103,6 +103,13 @@ export type Activity = {
   stravaUpload?: ActivityStravaUpload | null
 }
 
+export type CalendarMirrorStatus = {
+  configured: boolean
+  linked: boolean
+  calendarId: string | null
+  lastError: string | null
+}
+
 export type StravaLinkStatus = {
   configured: boolean
   linked: boolean
@@ -374,4 +381,19 @@ export async function uploadActivityToStrava(input: {
 /** Start Strava OAuth (full navigation; companion redirects to Strava). */
 export function beginStravaAuthorize(): void {
   window.location.href = '/api/strava/authorize'
+}
+
+export async function getCalendarMirrorStatus(): Promise<CalendarMirrorStatus> {
+  const res = await fetch('/api/google-calendar/status')
+  return parseJson<CalendarMirrorStatus>(res)
+}
+
+export async function disconnectCalendarMirror(): Promise<void> {
+  const res = await fetch('/api/google-calendar/disconnect', { method: 'POST' })
+  await parseJson<{ ok: boolean }>(res)
+}
+
+/** Start Google Calendar OAuth (full navigation; companion redirects to Google). */
+export function beginCalendarMirrorAuthorize(): void {
+  window.location.href = '/api/google-calendar/authorize'
 }

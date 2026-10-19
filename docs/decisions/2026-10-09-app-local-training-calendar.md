@@ -3,6 +3,9 @@ date: 2026-10-09
 status: active
 ---
 
+> The “no Google/Apple Calendar sync” line is narrowed by [2026-10-19-google-calendar-one-way-mirror](2026-10-19-google-calendar-one-way-mirror.md): a one-way **Calendar Mirror** of **Scheduled Ride**s onto Google Calendar. The Training Calendar stays the source of truth.
+
+
 # App-local calendar: Scheduled Rides + Activities
 
 ## Context

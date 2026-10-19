@@ -32,6 +32,10 @@ Listens on `http://127.0.0.1:8787`. Data dir: `companion/data/` (override with `
 | GET | `/api/strava/callback` | OAuth callback (302 → web UI) |
 | POST | `/api/strava/disconnect` | Clear stored Strava tokens |
 | POST | `/api/strava/upload` | Upload FIT `{ activityId, fitBase64, force? }` |
+| GET | `/api/google-calendar/status` | **Calendar Mirror** status (`configured`, `linked`, `calendarId`, `lastError`) |
+| GET | `/api/google-calendar/authorize` | Start Google OAuth (302 → Google) |
+| GET | `/api/google-calendar/callback` | OAuth callback (302 → web UI) |
+| POST | `/api/google-calendar/disconnect` | Clear stored Google tokens; leave the OpenTrainer calendar in Google |
 
 ## Strava Link
 
@@ -43,6 +47,19 @@ Optional one-click **Activity** upload. Manual **Export FIT** still works withou
 4. Restart the companion, open Workouts → **Connect Strava**, then use **Upload to Strava** on an Activity.
 
 OAuth callback URL used by the companion: `http://127.0.0.1:8787/api/strava/callback`.
+
+## Calendar Mirror
+
+Optional one-way copy of **Scheduled Ride**s onto a dedicated OpenTrainer calendar in Google Calendar. **Activity**s are not copied. Events stay in Google after the companion stops. Connect and disconnect live on the Profile tab.
+
+1. In Google Cloud Console, create an OAuth client (Web application) with redirect URI `http://127.0.0.1:8787/api/google-calendar/callback`.
+2. On the consent screen, add the scope `https://www.googleapis.com/auth/calendar.app.created` and add your Google account as a test user. Testing mode is enough; the app does not need to be published.
+3. Copy `companion/.env.example` → `companion/.env` and fill `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+4. Restart the companion, open Profile → **Connect Google Calendar**.
+
+Planned rides from the start of today are copied on connect. Later creates, reschedules, skips, deletes, and clears update Google while the companion or MCP process is running. Starting either one catches up. Disconnect stops updates and leaves the calendar in Google. Reminders are off.
+
+OAuth callback URL: `http://127.0.0.1:8787/api/google-calendar/callback`.
 
 ## MCP
 

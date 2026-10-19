@@ -9,8 +9,9 @@ import { createRequestHandler } from './createApp.js'
 async function withServer(
   store: LocalStore,
   run: (baseUrl: string) => Promise<void>,
+  options?: Parameters<typeof createRequestHandler>[1],
 ): Promise<void> {
-  const handler = createRequestHandler(store)
+  const handler = createRequestHandler(store, options)
   const server = createServer((req, res) => {
     void handler(req, res)
   })
@@ -229,6 +230,78 @@ describe('HTTP API', () => {
       expect(body.scheduledRide.workoutId).toBe(workout.id)
       expect(body.scheduledRide.purpose).toBe('Raise lactate threshold')
     })
+  })
+
+  it('POST /api/scheduled-rides mirrors a planned ride when Google Calendar is linked', async () => {
+    const calls: string[] = []
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      calls.push(`${method} ${url}`)
+      if (method === 'GET' && url.includes('/calendars/cal-1')) {
+        return new Response(JSON.stringify({ id: 'cal-1' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      if (method === 'POST' && url.includes('/events')) {
+        return new Response(JSON.stringify({ id: 'evt-1' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response(`unexpected ${method} ${url}`, { status: 500 })
+    }) as typeof fetch
+
+    await store.saveGoogleCalendarLink({
+      schemaVersion: 1,
+      calendarId: 'cal-1',
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      expiresAt: Math.floor(Date.now() / 1000) + 3600,
+      scope: 'https://www.googleapis.com/auth/calendar.app.created',
+      updatedAt: new Date().toISOString(),
+      lastError: null,
+    })
+    const workout = await store.createWorkout({
+      name: 'Easy spin',
+      steps: [
+        {
+          type: 'steady',
+          durationSec: 600,
+          targetWatts: 120,
+          percentFtp: null,
+          zone: null,
+        },
+      ],
+    })
+
+    await withServer(
+      store,
+      async (baseUrl) => {
+        const res = await fetch(`${baseUrl}/api/scheduled-rides`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workoutId: workout.id,
+            startsAt: new Date().toISOString(),
+            purpose: 'spin easy',
+          }),
+        })
+        expect(res.status).toBe(201)
+        expect(calls.some((call) => call.startsWith('POST') && call.includes('/events'))).toBe(
+          true,
+        )
+        const status = await fetch(`${baseUrl}/api/google-calendar/status`)
+        const body = (await status.json()) as { linked: boolean; lastError: string | null }
+        expect(body.linked).toBe(true)
+        expect(body.lastError).toBeNull()
+      },
+      {
+        googleCalendarConfig: { clientId: 'cid', clientSecret: 'secret' },
+        fetchImpl,
+      },
+    )
   })
 
   it('GET /api/strava/status reports unconfigured by default', async () => {

@@ -3,6 +3,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import * as z from 'zod/v4'
 import { loadMmpView } from '../domain/mmpView.js'
+import { loadCompanionEnv } from '../env.js'
+import { readGoogleCalendarConfigFromEnv } from '../googleCalendar/config.js'
+import { CalendarMirror } from '../googleCalendar/service.js'
 import { LocalStore } from '../store/localStore.js'
 import { resolveDataDir } from '../paths.js'
 
@@ -21,10 +24,20 @@ function jsonResult(value: unknown) {
 }
 
 async function main(): Promise<void> {
+  loadCompanionEnv()
   const dataDir = resolveDataDir()
   const store = new LocalStore(dataDir)
   await store.ensureReady()
   await store.backfillActivityMetrics()
+  const port = Number(process.env.D100_COMPANION_PORT ?? 8787)
+  const calendarMirror = new CalendarMirror({
+    store,
+    config: readGoogleCalendarConfigFromEnv(),
+    companionOrigin:
+      process.env.D100_COMPANION_ORIGIN ?? `http://127.0.0.1:${port}`,
+    webOrigin: process.env.D100_WEB_ORIGIN ?? 'http://127.0.0.1:5173',
+  })
+  await calendarMirror.reconcile()
 
   const server = new McpServer({
     name: 'open-trainer',
@@ -300,14 +313,15 @@ async function main(): Promise<void> {
           ),
       },
     },
-    async ({ workoutId, startsAt, purpose }) =>
-      jsonResult(
-        await store.createScheduledRide({
-          workoutId,
-          startsAt,
-          purpose: purpose ?? null,
-        }),
-      ),
+    async ({ workoutId, startsAt, purpose }) => {
+      const scheduledRide = await store.createScheduledRide({
+        workoutId,
+        startsAt,
+        purpose: purpose ?? null,
+      })
+      await calendarMirror.reconcile()
+      return jsonResult(scheduledRide)
+    },
   )
 
   server.registerTool(
@@ -319,6 +333,7 @@ async function main(): Promise<void> {
     async ({ id }) => {
       const ok = await store.deleteScheduledRide(id)
       if (!ok) throw new Error(`Scheduled Ride not found: ${id}`)
+      await calendarMirror.reconcile()
       return jsonResult({ ok: true, id })
     },
   )
@@ -337,8 +352,11 @@ async function main(): Promise<void> {
           .describe('Optional skip reason, e.g. travel / illness'),
       },
     },
-    async ({ id, reason }) =>
-      jsonResult(await store.skipScheduledRide(id, reason ?? null)),
+    async ({ id, reason }) => {
+      const scheduledRide = await store.skipScheduledRide(id, reason ?? null)
+      await calendarMirror.reconcile()
+      return jsonResult(scheduledRide)
+    },
   )
 
   server.registerTool(
@@ -351,8 +369,11 @@ async function main(): Promise<void> {
         startsAt: z.string().min(1).describe('New ISO datetime'),
       },
     },
-    async ({ id, startsAt }) =>
-      jsonResult(await store.rescheduleScheduledRide(id, startsAt)),
+    async ({ id, startsAt }) => {
+      const scheduledRide = await store.rescheduleScheduledRide(id, startsAt)
+      await calendarMirror.reconcile()
+      return jsonResult(scheduledRide)
+    },
   )
 
   server.registerTool(
@@ -367,6 +388,7 @@ async function main(): Promise<void> {
     },
     async ({ since, until }) => {
       const deleted = await store.clearScheduledRides({ since, until })
+      await calendarMirror.reconcile()
       return jsonResult({ deleted, since, until })
     },
   )

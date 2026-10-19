@@ -11,9 +11,12 @@ import type {
 import type { StravaConfig } from '../strava/config.js'
 import type { StravaFetch } from '../strava/client.js'
 import { StravaLinkService } from '../strava/service.js'
+import type { GoogleCalendarConfig } from '../googleCalendar/config.js'
+import { CalendarMirror } from '../googleCalendar/service.js'
 
 export type CreateAppOptions = {
   stravaConfig?: StravaConfig | null
+  googleCalendarConfig?: GoogleCalendarConfig | null
   companionOrigin?: string
   webOrigin?: string
   fetchImpl?: StravaFetch
@@ -248,6 +251,17 @@ export function createRequestHandler(
     webOrigin,
     fetchImpl: options.fetchImpl,
   })
+  const googleCalendarConfig =
+    options.googleCalendarConfig === undefined
+      ? null
+      : options.googleCalendarConfig
+  const calendarMirror = new CalendarMirror({
+    store,
+    config: googleCalendarConfig,
+    companionOrigin,
+    webOrigin,
+    fetchImpl: options.fetchImpl,
+  })
 
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const method = req.method ?? 'GET'
@@ -293,6 +307,34 @@ export function createRequestHandler(
 
       if (method === 'POST' && url.pathname === '/api/strava/disconnect') {
         await strava.disconnect()
+        sendJson(res, 200, { ok: true })
+        return
+      }
+
+      if (method === 'GET' && url.pathname === '/api/google-calendar/status') {
+        sendJson(res, 200, await calendarMirror.getStatus())
+        return
+      }
+
+      if (method === 'GET' && url.pathname === '/api/google-calendar/authorize') {
+        const { url: authorizeUrl } = calendarMirror.beginAuthorize()
+        sendRedirect(res, authorizeUrl)
+        return
+      }
+
+      if (method === 'GET' && url.pathname === '/api/google-calendar/callback') {
+        const location = await calendarMirror.completeOAuth({
+          code: url.searchParams.get('code'),
+          state: url.searchParams.get('state'),
+          scope: url.searchParams.get('scope'),
+          error: url.searchParams.get('error'),
+        })
+        sendRedirect(res, location)
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/google-calendar/disconnect') {
+        await calendarMirror.disconnect()
         sendJson(res, 200, { ok: true })
         return
       }
@@ -429,6 +471,7 @@ export function createRequestHandler(
         const body = await readJsonBody(req)
         const input = parseCreateScheduledRide(body)
         const scheduledRide = await store.createScheduledRide(input)
+        await calendarMirror.reconcile()
         sendJson(res, 201, { scheduledRide })
         return
       }
@@ -446,6 +489,7 @@ export function createRequestHandler(
           since: record.since,
           until: record.until,
         })
+        await calendarMirror.reconcile()
         sendJson(res, 200, { deleted })
         return
       }
@@ -461,6 +505,7 @@ export function createRequestHandler(
             ? parseOptionalPurpose((body as Record<string, unknown>).reason)
             : null
         const scheduledRide = await store.skipScheduledRide(id, reason)
+        await calendarMirror.reconcile()
         sendJson(res, 200, { scheduledRide })
         return
       }
@@ -479,6 +524,7 @@ export function createRequestHandler(
           throw new Error('startsAt must be an ISO string')
         }
         const scheduledRide = await store.rescheduleScheduledRide(id, startsAt)
+        await calendarMirror.reconcile()
         sendJson(res, 200, { scheduledRide })
         return
       }
@@ -493,6 +539,7 @@ export function createRequestHandler(
           sendJson(res, 404, { error: 'Scheduled Ride not found' })
           return
         }
+        await calendarMirror.reconcile()
         sendJson(res, 200, { ok: true })
         return
       }
