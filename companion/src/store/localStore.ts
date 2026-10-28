@@ -67,6 +67,21 @@ export type SaveActivityInput = Omit<
   primaryPowerSource?: PowerSourceMode | null
 }
 
+/**
+ * Activity JSON on disk. Session metrics are absent on records written
+ * before those fields existed; backfill fills them in on read.
+ */
+type StoredActivity = Omit<
+  Activity,
+  'sessionLoad' | 'sessionAdherence' | 'averageAlignmentDeltaWatts'
+> &
+  Partial<
+    Pick<
+      Activity,
+      'sessionLoad' | 'sessionAdherence' | 'averageAlignmentDeltaWatts'
+    >
+  >
+
 export type RiderProfileView = RiderProfile & {
   zones: ReturnType<typeof zonesFromFtp> | null
 }
@@ -123,7 +138,7 @@ function withPurposeField<T extends { purpose?: string | null }>(
   return { ...record, purpose: normalizePurpose(record.purpose) }
 }
 
-function needsActivityMetricsBackfill(raw: Activity): boolean {
+function needsActivityMetricsBackfill(raw: StoredActivity): boolean {
   return !(
     'sessionLoad' in raw &&
     'sessionAdherence' in raw &&
@@ -448,7 +463,7 @@ export class LocalStore {
 
   async getActivity(id: string): Promise<Activity | null> {
     try {
-      const raw = await this.readJson<Activity>(
+      const raw = await this.readJson<StoredActivity>(
         join(this.activitiesDir, `${id}.json`),
       )
       const profile = await this.getRiderProfile()
@@ -467,7 +482,9 @@ export class LocalStore {
     const files = await this.listJsonFiles(this.activitiesDir)
     let updated = 0
     for (const file of files) {
-      const raw = await this.readJson<Activity>(join(this.activitiesDir, file))
+      const raw = await this.readJson<StoredActivity>(
+        join(this.activitiesDir, file),
+      )
       if (!needsActivityMetricsBackfill(raw)) continue
       await this.hydrateActivityMetrics(raw, profile.ftpWatts, true)
       updated += 1
@@ -476,7 +493,7 @@ export class LocalStore {
   }
 
   private async hydrateActivityMetrics(
-    raw: Activity,
+    raw: StoredActivity,
     ftpWatts: number | null,
     persist: boolean,
   ): Promise<Activity> {
@@ -655,7 +672,9 @@ export class LocalStore {
     const activities: Activity[] = []
 
     for (const file of files) {
-      const raw = await this.readJson<Activity>(join(this.activitiesDir, file))
+      const raw = await this.readJson<StoredActivity>(
+        join(this.activitiesDir, file),
+      )
       const started = Date.parse(raw.startedAt)
       if (Number.isNaN(started)) continue
       if (sinceMs !== null && started < sinceMs) continue

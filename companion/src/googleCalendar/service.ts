@@ -308,16 +308,17 @@ export class CalendarMirror {
       clientSecret: this.config.clientSecret,
       refreshToken: link.refreshToken,
     })
+    const accessToken = refreshed.access_token
     const next: GoogleCalendarLink = {
       ...link,
-      accessToken: refreshed.access_token,
+      accessToken,
       refreshToken: refreshed.refresh_token ?? link.refreshToken,
       expiresAt: nowSec + refreshed.expires_in,
       scope: refreshed.scope ?? link.scope,
       updatedAt: new Date(this.now()).toISOString(),
     }
     await this.store.saveGoogleCalendarLink(next)
-    return next.accessToken
+    return accessToken
   }
 
   private async setLastError(message: string | null): Promise<void> {
