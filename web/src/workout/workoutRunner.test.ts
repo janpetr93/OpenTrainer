@@ -127,4 +127,44 @@ describe('WorkoutRunner', () => {
     expect(runner.getSnapshot().status).toBe('stopped')
     expect(runner.getSnapshot().elapsedSec).toBe(15)
   })
+
+  it('plays a Workout Repeat as repeated steps', () => {
+    const runner = new WorkoutRunner()
+    runner.start(
+      {
+        id: 'w-rep',
+        name: '30/15',
+        steps: [
+          {
+            type: 'repeat',
+            count: 2,
+            steps: [
+              {
+                type: 'steady',
+                durationSec: 10,
+                targetWatts: 200,
+                percentFtp: null,
+                zone: null,
+              },
+              {
+                type: 'recovery',
+                durationSec: 5,
+                targetWatts: 100,
+                percentFtp: null,
+                zone: null,
+              },
+            ],
+          },
+        ],
+        plannedPowerProfile: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      0,
+      null,
+    )
+    const snap = runner.getSnapshot()
+    expect(snap.stepCount).toBe(4)
+    expect(snap.totalSec).toBe(30)
+    expect(snap.stepTargetWatts).toBe(200)
+  })
 })

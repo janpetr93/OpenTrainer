@@ -1,4 +1,5 @@
 import type { Workout, WorkoutStep, WorkoutStepType } from '../api'
+import { expandWorkoutItems } from '../domain/workoutItems'
 import { resolveStepWatts, workoutNeedsFtp } from '../domain/resolveTarget'
 
 export type RunnerStatus =
@@ -23,8 +24,10 @@ export type RunnerSnapshot = {
   targetChanged: boolean
 }
 
+type FlatWorkout = Omit<Workout, 'steps'> & { steps: WorkoutStep[] }
+
 type Internal = {
-  workout: Workout | null
+  workout: FlatWorkout | null
   /** Unstructured ride — no steps / ERG targets; stop ends the Activity. */
   freeRide: boolean
   ftpWatts: number | null
@@ -179,18 +182,20 @@ export class WorkoutRunner {
     nowMs: number,
     ftpWatts: number | null = null,
   ): void {
-    if (workout.steps.length === 0) {
+    const steps = expandWorkoutItems(workout.steps)
+    if (steps.length === 0) {
       throw new Error('Workout has no steps')
     }
-    if (workoutNeedsFtp(workout.steps) && (ftpWatts === null || ftpWatts <= 0)) {
+    const flat: FlatWorkout = { ...workout, steps }
+    if (workoutNeedsFtp(steps) && (ftpWatts === null || ftpWatts <= 0)) {
       throw new Error('Set FTP via MCP (set_ftp) before starting this Workout')
     }
     // Fail fast if any step cannot resolve.
-    for (const step of workout.steps) {
+    for (const step of steps) {
       resolveStepWatts(step, ftpWatts)
     }
     this.state = {
-      workout,
+      workout: flat,
       freeRide: false,
       ftpWatts,
       status: 'running',

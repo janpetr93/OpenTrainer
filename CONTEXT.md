@@ -119,8 +119,12 @@ _Avoid_: localStorage as source of truth, remote database
 ### Plans & history (later slices)
 
 **Workout**:
-An interval plan (warm-up, steady target-power, recovery, cool-down) with durations and targets as watts and/or `%FTP` / **Power Zone** — usually created for a specific week’s **Scheduled Ride**s, not maintained as a long-lived reusable library.
-_Avoid_: Session, activity, ride plan (ambiguous), workout catalog / template library (product framing)
+An interval plan (warm-up, steady target-power, recovery, cool-down) with durations and targets as watts and/or `%FTP` / **Power Zone**. A **Workout Repeat** plays a short list of steps `count` times (one level only) so a 30 s / 15 s set is not written out rep by rep. Usually created for a specific week’s **Scheduled Ride**s, not maintained as a long-lived reusable library.
+_Avoid_: Session, activity, ride plan (ambiguous), workout catalog / template library (product framing), nested repeats
+
+**Training Summary**:
+The planning read of recent **Activity**s: per ride, **Session Load**, **Session Adherence**, prescription kind (easy / moderate / hard), and compact **Workout** steps — no 1 Hz **Power Profile**. Includes a rollup (TSS, zone-time buckets, hard-session count, missed rides). Week planning uses this instead of listing full Activities.
+_Avoid_: list of raw samples, CTL/ATL
 
 **Target Prescription**:
 How a **Workout** step expresses load: absolute watts, percent of **FTP**, and/or a **Power Zone** — resolved to watts using the current **Rider Profile** when riding or charting.
@@ -235,8 +239,9 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - **ERG Calibration** is Local Store device state (not **Rider Profile** / MCP FTP writes).
 - **Estimated FTP** uses 20min **MMP** × 0.95 and is compared to set **FTP**; it does not update the **Rider Profile**.
 - **Session Load** and **Session Adherence** are computed when an **Activity** is saved (and backfilled for older Activities when FTP is known); MCP `list_activities` and the Session module UI read them.
-- **Training Intent** is product-owned context for MCP week planning alongside **Rider Profile** and **Activity** history; weekly availability is asked in chat, not stored; training phase is inferred from recent **Activity**s unless **Training Intent** **note** overrides.
-- An **Activity** can be exported as FIT for manual Strava upload and/or uploaded via API when a **Strava Link** exists.
+- **Training Intent** is product-owned context for MCP week planning alongside **Rider Profile** and **Activity** history; weekly availability is asked in chat, not stored; training phase is inferred from recent **Activity**s unless **Training Intent** **note** overrides. Updating Intent keeps omitted fields.
+- Week planning reads a **Training Summary** (no 1 Hz samples) and checks the written week with `check_training_week`. A **Workout Repeat** expands when the planned **Power Profile** is built and when the runner starts.
+- An **Activity** can be exported as FIT for manual Strava upload and/or uploaded via API when a **Strava Link** exists. The Strava description is Session Load plus the planned step watts (`10m - 100W, 20m - 150W`); **Session Purpose** stays in the app.
 - The **Local Companion** owns the **Strava Link** (tokens + upload); the browser never holds the Strava client secret.
 - MCP does not create or use a **Strava Link** (UI + companion HTTP only).
 
@@ -311,6 +316,8 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | Session module (Scheduled / Activity rows) | `web/src/SessionModule.tsx` + `web/src/session/sessionModuleHelpers.ts` (`activityMeta` / `scheduledMeta`); planned preview via `web/src/domain/scheduledWorkoutPreview.ts` (Ride, History, Calendar) |
 | **Activity** recording | `web/src/workout/` + `POST /api/activities`; runner on Ride tab |
 | **Session Load** / **Session Adherence** | `companion/src/domain/sessionLoad.ts`, `sessionAdherence.ts`; on **Activity** JSON; Session module via `web/src/session/sessionModuleHelpers.ts` |
+| **Training Summary** / week check | `companion/src/domain/trainingSummary.ts`; MCP `get_training_summary`, `check_training_week` |
+| **Workout Repeat** | `companion/src/domain/workoutItems.ts` and `web/src/domain/workoutItems.ts` — expanded for the planned **Power Profile** and the **Workout** runner |
 | **Workout** runner | `web/src/workout/workoutRunner.ts` — start/pause/resume/skip/stop + ERG targets |
 | MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`) |
 | **Rider Profile** | `companion/data/profile.json`; GET `/api/profile`; UI Profile tab (read-only); MCP `set_ftp` / `get_rider_profile`; resolve `web/src/domain/resolveTarget.ts` |

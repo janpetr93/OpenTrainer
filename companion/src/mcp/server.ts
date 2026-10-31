@@ -3,7 +3,19 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import * as z from 'zod/v4'
 import { loadMmpView } from '../domain/mmpView.js'
+import { mergeTrainingIntent, type TrainingIntentPatch } from '../domain/trainingIntentPatch.js'
+import { buildTrainingSummary, checkTrainingWeek } from '../domain/trainingSummary.js'
+import type { PowerZoneId } from '../domain/cogganZones.js'
+import type { WorkoutItem, WorkoutStep } from '../domain/types.js'
 import { loadCompanionEnv } from '../env.js'
+import {
+  createWorkoutToolDescription,
+  getMmpToolDescription,
+  planTrainingWeekPrompt,
+  reviewTrainingPrompt,
+  workoutStepPercentFtpDescription,
+  workoutStepZoneDescription,
+} from './trainingPrompts.js'
 import { readGoogleCalendarConfigFromEnv } from '../googleCalendar/config.js'
 import { CalendarMirror } from '../googleCalendar/service.js'
 import { LocalStore } from '../store/localStore.js'
@@ -13,13 +25,108 @@ const stepSchema = z.object({
   type: z.enum(['warmup', 'steady', 'recovery', 'cooldown']),
   durationSec: z.number().positive(),
   targetWatts: z.number().nonnegative().nullable().optional(),
-  percentFtp: z.number().min(0).max(300).nullable().optional(),
-  zone: z.number().int().min(1).max(7).nullable().optional(),
+  percentFtp: z
+    .number()
+    .min(0)
+    .max(300)
+    .nullable()
+    .optional()
+    .describe(workoutStepPercentFtpDescription),
+  zone: z
+    .number()
+    .int()
+    .min(1)
+    .max(7)
+    .nullable()
+    .optional()
+    .describe(workoutStepZoneDescription),
 })
+
+const repeatSchema = z.object({
+  type: z.literal('repeat'),
+  count: z
+    .number()
+    .int()
+    .min(2)
+    .max(40)
+    .describe('How many times to play steps. One level only; do not nest repeats.'),
+  steps: z.array(stepSchema).min(1).max(6),
+})
+
+const workoutItemSchema = z.union([repeatSchema, stepSchema])
+
+function mcpFlatStep(step: {
+  type: 'warmup' | 'steady' | 'recovery' | 'cooldown'
+  durationSec: number
+  targetWatts?: number | null
+  percentFtp?: number | null
+  zone?: number | null
+}): WorkoutStep {
+  return {
+    type: step.type,
+    durationSec: step.durationSec,
+    targetWatts: step.targetWatts ?? null,
+    percentFtp: step.percentFtp ?? null,
+    zone: (step.zone ?? null) as PowerZoneId | null,
+  }
+}
+
+function mcpWorkoutItem(item: {
+  type: 'repeat' | 'warmup' | 'steady' | 'recovery' | 'cooldown'
+  count?: number
+  steps?: Array<{
+    type: 'warmup' | 'steady' | 'recovery' | 'cooldown'
+    durationSec: number
+    targetWatts?: number | null
+    percentFtp?: number | null
+    zone?: number | null
+  }>
+  durationSec?: number
+  targetWatts?: number | null
+  percentFtp?: number | null
+  zone?: number | null
+}): WorkoutItem {
+  if (item.type === 'repeat') {
+    return {
+      type: 'repeat',
+      count: item.count ?? 0,
+      steps: (item.steps ?? []).map(mcpFlatStep),
+    }
+  }
+  return mcpFlatStep({
+    type: item.type,
+    durationSec: item.durationSec ?? 0,
+    targetWatts: item.targetWatts,
+    percentFtp: item.percentFtp,
+    zone: item.zone,
+  })
+}
 
 function jsonResult(value: unknown) {
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }],
+  }
+}
+
+function summaryBounds(
+  pastDays: number,
+  since?: string,
+  until?: string,
+): { since: string; until: string } {
+  if (!Number.isFinite(pastDays) || pastDays < 0) {
+    throw new Error('pastDays must be a non-negative number')
+  }
+  const untilMs = until ? Date.parse(until) : Date.now()
+  if (Number.isNaN(untilMs)) throw new Error('Invalid until timestamp')
+  let sinceMs = since ? Date.parse(since) : null
+  if (sinceMs !== null && Number.isNaN(sinceMs)) {
+    throw new Error('Invalid since timestamp')
+  }
+  const fromPast = Date.now() - pastDays * 24 * 60 * 60 * 1000
+  sinceMs = sinceMs === null ? fromPast : Math.max(sinceMs, fromPast)
+  return {
+    since: new Date(sinceMs).toISOString(),
+    until: new Date(untilMs).toISOString(),
   }
 }
 
@@ -49,7 +156,7 @@ async function main(): Promise<void> {
     {
       title: 'Plan training week',
       description:
-        'Workflow for planning a week: profile/FTP, activities, clear calendar range, create %FTP/zone workouts, schedule them.',
+        'Workflow for planning a week: profile, FTP, activities, intensity split, %FTP workouts, schedule them.',
     },
     async () => ({
       messages: [
@@ -57,18 +164,7 @@ async function main(): Promise<void> {
           role: 'user' as const,
           content: {
             type: 'text' as const,
-            text: [
-              'Plan my next training week using OpenTrainer MCP tools.',
-              '1) Call get_rider_profile. If FTP is null, ask me for FTP watts and call set_ftp.',
-              '2) If Training Intent (intent) is null, ask once for goal (optional horizon/note and optional constraints: maxHardDaysPerWeek, preferredLongRideWeekday 0=Sun–6=Sat, constraintsNote) and call set_training_intent — or continue without Intent if I decline. Never invent a goal.',
-              '3) Optionally call get_mmp for lifetime Mean Maximal Power / Estimated FTP context (cache refreshes when Activities are saved; empty until first Activity or manual Profile recompute).',
-              '4) Ask what days/time I have available this week (do not assume; availability is not stored). Honor Intent constraints when set (max hard days, preferred long-ride weekday, constraintsNote).',
-              '5) Call list_activities (pastDays 14) and list_scheduled_rides for the week window. Use Session Load / Session Adherence and ride outcomes (missed/skipped/completed) when present. Infer recent training emphasis from Activities (do not invent a stored phase).',
-              '6) Call clear_scheduled_rides for that week’s since/until before replacing the plan.',
-              '7) create_workout with Target Prescription: prefer percentFtp or zone (1–7 Coggan). Do not leave all targets null; absolute targetWatts only when I ask. Name the Workout by training content only (e.g. “Upper Z2 90 min with FTP bursts”) — never include a weekday or calendar date; the Scheduled Ride startsAt already carries when it runs.',
-              '8) create_scheduled_ride for each day (workoutId + startsAt ISO + purpose). Session Purpose is required in week planning: one short sentence on what the session is for (e.g. improve endurance, raise lactate threshold) — not Training Intent.',
-              '9) Summarize the week with dates, workout names, Session Purpose, and resolved intensity (%FTP/zone), tied to Intent constraints + recent emphasis.',
-            ].join('\n'),
+            text: planTrainingWeekPrompt,
           },
         },
       ],
@@ -80,7 +176,7 @@ async function main(): Promise<void> {
     {
       title: 'Review recent training',
       description:
-        'Workflow for reviewing recent rides: profile/MMP, Session Load/Adherence, calendar outcomes → summarize compliance and propose Intent note or next-week adjustments.',
+        'Workflow for reviewing recent rides: profile, MMP, time-in-zone, adherence, and calendar outcomes. Proposes an Intent note. Does not write the calendar.',
     },
     async () => ({
       messages: [
@@ -88,15 +184,7 @@ async function main(): Promise<void> {
           role: 'user' as const,
           content: {
             type: 'text' as const,
-            text: [
-              'Review my recent training using OpenTrainer MCP tools. Do not invent Activities.',
-              '1) Call get_rider_profile (FTP, zones, Training Intent).',
-              '2) Call get_mmp for Mean Maximal Power / Estimated FTP vs set FTP.',
-              '3) Call list_activities (pastDays 14). For each ride note Session Purpose, Session Load (NP/IF/TSS, time-in-zone), and Session Adherence when present (completion + on-target %). Flag Free Rides vs planned rides.',
-              '4) Call list_scheduled_rides for the same window (and a few days ahead). Note planned vs completed vs skipped; treat past planned-without-Activity as missed.',
-              '5) Summarize: total TSS (when available), hard/easy balance, adherence trends, missed/skipped sessions, and fitness signal from MMP/Estimated FTP.',
-              '6) Propose concrete next steps: optional set_training_intent note update, and/or what to change when planning the next week. Ask before writing Intent. Do not create Workouts or Scheduled Rides unless I ask.',
-            ].join('\n'),
+            text: reviewTrainingPrompt,
           },
         },
       ],
@@ -116,8 +204,7 @@ async function main(): Promise<void> {
   server.registerTool(
     'get_mmp',
     {
-      description:
-        'Get cached Mean Maximal Power (lifetime best averages for fixed durations), Estimated FTP (20min MMP × 0.95) vs set FTP, and stale flag. Cache refreshes automatically when an Activity is saved; Profile UI Recompute remains as a manual override. Empty when never computed.',
+      description: getMmpToolDescription,
       inputSchema: {},
     },
     async () => jsonResult(await loadMmpView(store)),
@@ -139,7 +226,7 @@ async function main(): Promise<void> {
     'set_training_intent',
     {
       description:
-        'Set or clear durable Training Intent on the Rider Profile (goal + optional horizon/note + optional planning constraints: maxHardDaysPerWeek, preferredLongRideWeekday 0=Sun–6=Sat, constraintsNote). Use when intent is null during week planning or the rider updates direction. Pass clear:true to remove Intent. Does not store weekly availability or training phase.',
+        'Set or clear durable Training Intent on the Rider Profile. Omitted fields keep their current values; pass null to clear horizon, note, maxHardDaysPerWeek, preferredLongRideWeekday, or constraintsNote. goal is required only when Intent is currently null. Pass clear:true to remove Intent entirely. Does not store weekly availability or training phase.',
       inputSchema: {
         clear: z
           .boolean()
@@ -199,18 +286,20 @@ async function main(): Promise<void> {
       if (clear) {
         return jsonResult(await store.setTrainingIntent(null))
       }
-      if (!goal || !goal.trim()) {
-        throw new Error('goal is required unless clear is true')
+      const profile = await store.getRiderProfile()
+      const patch: TrainingIntentPatch = {}
+      if (goal !== undefined) patch.goal = goal
+      if (horizon !== undefined) patch.horizon = horizon
+      if (note !== undefined) patch.note = note
+      if (maxHardDaysPerWeek !== undefined) {
+        patch.maxHardDaysPerWeek = maxHardDaysPerWeek
       }
+      if (preferredLongRideWeekday !== undefined) {
+        patch.preferredLongRideWeekday = preferredLongRideWeekday
+      }
+      if (constraintsNote !== undefined) patch.constraintsNote = constraintsNote
       return jsonResult(
-        await store.setTrainingIntent({
-          goal,
-          horizon: horizon ?? null,
-          note: note ?? null,
-          maxHardDaysPerWeek: maxHardDaysPerWeek ?? null,
-          preferredLongRideWeekday: preferredLongRideWeekday ?? null,
-          constraintsNote: constraintsNote ?? null,
-        }),
+        await store.setTrainingIntent(mergeTrainingIntent(profile.intent, patch)),
       )
     },
   )
@@ -230,8 +319,7 @@ async function main(): Promise<void> {
   server.registerTool(
     'create_workout',
     {
-      description:
-        'Create a reusable Workout template. Prefer percentFtp or zone (1–7 Coggan) for intensity; absolute targetWatts optional. Do not omit all targets. Name by training content only — never a weekday or calendar date (timing lives on the Scheduled Ride). After create, call create_scheduled_ride to place it on the Training Calendar.',
+      description: createWorkoutToolDescription,
       inputSchema: {
         name: z
           .string()
@@ -240,25 +328,69 @@ async function main(): Promise<void> {
             'Workout name by content only (e.g. “VO2 5×3 min”); do not include weekday or date',
           ),
         steps: z
-          .array(stepSchema)
+          .array(workoutItemSchema)
           .min(1)
           .describe(
-            'Ordered steps with durationSec; prescribe targetWatts, percentFtp, and/or zone',
+            'Ordered steps. Quality intensity is percentFtp. zone only for 1-2. Use type "repeat" for repeated inner steps.',
           ),
       },
     },
     async ({ name, steps }) => {
       const workout = await store.createWorkout({
         name,
-        steps: steps.map((s) => ({
-          type: s.type,
-          durationSec: s.durationSec,
-          targetWatts: s.targetWatts ?? null,
-          percentFtp: s.percentFtp ?? null,
-          zone: (s.zone ?? null) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | null,
-        })),
+        steps: steps.map((step) => mcpWorkoutItem(step)),
       })
       return jsonResult(workout)
+    },
+  )
+
+  server.registerTool(
+    'get_training_summary',
+    {
+      description:
+        'Planning read of recent Activities without 1 Hz Power Profiles. Each ride has kind (easy/moderate/hard from the planned Workout, or from Z4–Z7 time on a Free Ride), Session Load, adherence, and compact Workout steps. rollup has tssSum, easySec (zones 1+2), moderateSec (zone 3), thresholdSec (zone 4), aboveSec (zones 5–7), hardSessionCount, missedCount, and lastHard.targetAdherence. Use this instead of list_activities when planning or reviewing a week.',
+      inputSchema: {
+        pastDays: z.number().nonnegative().default(14),
+        since: z.string().optional().describe('ISO lower bound'),
+        until: z.string().optional().describe('ISO upper bound'),
+      },
+    },
+    async ({ pastDays, since, until }) => {
+      const bounds = summaryBounds(pastDays, since, until)
+      const profile = await store.getRiderProfile()
+      const activities = await store.listActivities({
+        since: bounds.since,
+        until: bounds.until,
+      })
+      const workouts = await store.listWorkouts()
+      const scheduledRides = await store.listScheduledRides(bounds)
+      const summary = buildTrainingSummary({
+        ftpWatts: profile.ftpWatts,
+        activities: activities.map((activity) => ({
+          id: activity.id,
+          startedAt: activity.startedAt,
+          durationSec: activity.durationSec,
+          purpose: activity.purpose,
+          averagePowerWatts: activity.averagePowerWatts,
+          workoutId: activity.workoutId,
+          sessionLoad: activity.sessionLoad,
+          sessionAdherence: activity.sessionAdherence,
+        })),
+        workouts: workouts.map((workout) => ({
+          id: workout.id,
+          name: workout.name,
+          steps: workout.steps,
+        })),
+        scheduledRides: scheduledRides.map((ride) => ({
+          id: ride.id,
+          startsAt: ride.startsAt,
+          status: ride.status,
+          missed: ride.missed,
+          purpose: ride.purpose,
+          workoutId: ride.workoutId,
+        })),
+      })
+      return jsonResult({ ...bounds, ftpWatts: profile.ftpWatts, ...summary })
     },
   )
 
@@ -266,7 +398,7 @@ async function main(): Promise<void> {
     'list_activities',
     {
       description:
-        'List Activity records (completed rides) including specs, Power Profiles, Session Load (NP/IF/TSS + time-in-zone when FTP known), Session Adherence (completion + target band when a plan was followed), optional Session Purpose, and optional per-sample hrBpm / cadenceRpm / meterWatts when sensors were connected.',
+        'List Activity records including 1 Hz Power Profiles. Prefer get_training_summary for week planning. Includes Session Load (NP/IF/TSS + time-in-zone when FTP known), Session Adherence, optional Session Purpose, and optional per-sample hrBpm / cadenceRpm / meterWatts.',
       inputSchema: {
         pastDays: z.number().nonnegative().default(14),
         since: z.string().optional(),
@@ -390,6 +522,41 @@ async function main(): Promise<void> {
       const deleted = await store.clearScheduledRides({ since, until })
       await calendarMirror.reconcile()
       return jsonResult({ deleted, since, until })
+    },
+  )
+
+  server.registerTool(
+    'check_training_week',
+    {
+      description:
+        'Check Scheduled Rides in [since, until] against the planning rules. Returns violations: hard sessions over the cap (maxHardDaysPerWeek, else 2), hard sessions with no easy day between them, more than two sessions with steady work at 76-94% FTP, zone 3–7 steps, and sprints ERG cannot hold. Skipped rides are ignored. Call after writing a week and fix violations before summarizing.',
+      inputSchema: {
+        since: z.string().describe('ISO lower bound inclusive'),
+        until: z.string().describe('ISO upper bound inclusive'),
+      },
+    },
+    async ({ since, until }) => {
+      const profile = await store.getRiderProfile()
+      const rides = await store.listScheduledRides({ since, until })
+      const workouts = await store.listWorkouts()
+      const byId = new Map(workouts.map((workout) => [workout.id, workout]))
+      return jsonResult(
+        checkTrainingWeek({
+          ftpWatts: profile.ftpWatts,
+          maxHardDaysPerWeek: profile.intent?.maxHardDaysPerWeek ?? null,
+          rides: rides.map((ride) => {
+            const workout = byId.get(ride.workoutId) ?? null
+            return {
+              id: ride.id,
+              startsAt: ride.startsAt,
+              status: ride.status,
+              workout: workout
+                ? { id: workout.id, name: workout.name, steps: workout.steps }
+                : null,
+            }
+          }),
+        }),
+      )
     },
   )
 

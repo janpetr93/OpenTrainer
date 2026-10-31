@@ -1,78 +1,85 @@
 import { describe, expect, it } from 'vitest'
 import { stravaActivityDescription } from './stravaActivityDescription'
 
+const load = {
+  ftpWattsAtSave: 250,
+  normalizedPowerWatts: 245,
+  intensityFactor: 0.89,
+  trainingStressScore: 78,
+  timeInZonesSec: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 },
+} as const
+
 describe('stravaActivityDescription', () => {
-  it('returns undefined when there is no purpose and no Session Load', () => {
+  it('returns undefined when there is no Session Load and no planned structure', () => {
     expect(
-      stravaActivityDescription({ purpose: null, sessionLoad: null }),
+      stravaActivityDescription({
+        sessionLoad: null,
+        plannedPowerProfile: null,
+      }),
     ).toBeUndefined()
   })
 
-  it('uses Session Purpose alone when Session Load is missing', () => {
+  it('formats Session Load as NP · IF · TSS', () => {
     expect(
       stravaActivityDescription({
-        purpose: 'Raise lactate threshold',
-        sessionLoad: null,
-      }),
-    ).toBe('Raise lactate threshold')
-  })
-
-  it('formats Session Load as NP · IF · TSS when purpose is absent', () => {
-    expect(
-      stravaActivityDescription({
-        purpose: null,
-        sessionLoad: {
-          ftpWattsAtSave: 250,
-          normalizedPowerWatts: 245,
-          intensityFactor: 0.89,
-          trainingStressScore: 78,
-          timeInZonesSec: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 },
-        },
+        sessionLoad: load,
+        plannedPowerProfile: null,
       }),
     ).toBe('NP 245 · IF 0.89 · TSS 78')
   })
 
-  it('joins purpose and Session Load with a blank line', () => {
+  it('omits Session Purpose and appends the planned step structure', () => {
+    const activity = {
+      purpose: 'Raise lactate threshold',
+      sessionLoad: load,
+      plannedPowerProfile: [
+        { tSec: 0, watts: 100 },
+        { tSec: 600, watts: 100 },
+        { tSec: 600, watts: 150 },
+        { tSec: 1800, watts: 150 },
+      ],
+    }
+    expect(stravaActivityDescription(activity)).toBe(
+      'NP 245 · IF 0.89 · TSS 78\n\n10m - 100W, 20m - 150W',
+    )
+  })
+
+  it('formats sub-minute and mixed durations', () => {
     expect(
       stravaActivityDescription({
-        purpose: 'Raise lactate threshold',
-        sessionLoad: {
-          ftpWattsAtSave: 250,
-          normalizedPowerWatts: 245,
-          intensityFactor: 0.89,
-          trainingStressScore: 78,
-          timeInZonesSec: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 },
-        },
+        sessionLoad: null,
+        plannedPowerProfile: [
+          { tSec: 0, watts: 240 },
+          { tSec: 30, watts: 240 },
+          { tSec: 30, watts: 100 },
+          { tSec: 120, watts: 100 },
+        ],
       }),
-    ).toBe('Raise lactate threshold\n\nNP 245 · IF 0.89 · TSS 78')
+    ).toBe('30s - 240W, 1m 30s - 100W')
   })
 
   it('omits null Session Load metrics', () => {
     expect(
       stravaActivityDescription({
-        purpose: null,
         sessionLoad: {
-          ftpWattsAtSave: 250,
+          ...load,
           normalizedPowerWatts: null,
           intensityFactor: null,
           trainingStressScore: 42,
-          timeInZonesSec: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 },
         },
+        plannedPowerProfile: null,
       }),
     ).toBe('TSS 42')
   })
 
-  it('returns undefined when Session Load has no NP/IF/TSS', () => {
+  it('omits a planned profile that never resolved above 0 W', () => {
     expect(
       stravaActivityDescription({
-        purpose: '  ',
-        sessionLoad: {
-          ftpWattsAtSave: 250,
-          normalizedPowerWatts: null,
-          intensityFactor: null,
-          trainingStressScore: null,
-          timeInZonesSec: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 },
-        },
+        sessionLoad: null,
+        plannedPowerProfile: [
+          { tSec: 0, watts: 0 },
+          { tSec: 600, watts: 0 },
+        ],
       }),
     ).toBeUndefined()
   })

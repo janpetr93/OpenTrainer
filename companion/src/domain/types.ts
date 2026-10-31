@@ -19,6 +19,16 @@ export type WorkoutStep = {
   zone: PowerZoneId | null
 }
 
+/** Plays `steps` `count` times. One level only — inner steps are not repeats. */
+export type WorkoutRepeat = {
+  type: 'repeat'
+  /** Integer from 2 to 40. */
+  count: number
+  steps: WorkoutStep[]
+}
+
+export type WorkoutItem = WorkoutStep | WorkoutRepeat
+
 /** Watts over elapsed time (Power Profile). Achieved rides may also carry sensors. */
 export type PowerProfilePoint = {
   tSec: number
@@ -48,7 +58,7 @@ export type Workout = {
   schemaVersion: typeof STORE_SCHEMA_VERSION
   id: string
   name: string
-  steps: WorkoutStep[]
+  steps: WorkoutItem[]
   /** Snapshot at create time (may be 0 for zone/%FTP until FTP known). */
   plannedPowerProfile: PowerProfilePoint[]
   createdAt: string
@@ -58,7 +68,7 @@ export type Workout = {
 /** Create payload (Workout Specs without id/timestamps/profile). */
 export type CreateWorkoutInput = {
   name: string
-  steps: WorkoutStep[]
+  steps: WorkoutItem[]
 }
 
 /** Record of a Strava Uploads API submission for an Activity. */

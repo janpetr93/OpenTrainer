@@ -10,6 +10,15 @@ export type WorkoutStep = {
   zone: PowerZoneId | null
 }
 
+/** Plays `steps` `count` times. One level only — inner steps are not repeats. */
+export type WorkoutRepeat = {
+  type: 'repeat'
+  count: number
+  steps: WorkoutStep[]
+}
+
+export type WorkoutItem = WorkoutStep | WorkoutRepeat
+
 export type RiderProfileZone = {
   zone: PowerZoneId
   name: string
@@ -55,7 +64,7 @@ export type PowerSourceMode = 'meter' | 'trainer'
 export type Workout = {
   id: string
   name: string
-  steps: WorkoutStep[]
+  steps: WorkoutItem[]
   plannedPowerProfile: PowerProfilePoint[]
   createdAt: string
 }
@@ -152,10 +161,21 @@ function normalizeStep(step: WorkoutStep): WorkoutStep {
   }
 }
 
+function normalizeItem(item: WorkoutItem): WorkoutItem {
+  if (item.type === 'repeat') {
+    return {
+      type: 'repeat',
+      count: item.count,
+      steps: item.steps.map(normalizeStep),
+    }
+  }
+  return normalizeStep(item)
+}
+
 function normalizeWorkout(workout: Workout): Workout {
   return {
     ...workout,
-    steps: workout.steps.map(normalizeStep),
+    steps: workout.steps.map(normalizeItem),
   }
 }
 
@@ -167,7 +187,7 @@ export async function listWorkouts(): Promise<Workout[]> {
 
 export async function createWorkout(input: {
   name: string
-  steps: WorkoutStep[]
+  steps: WorkoutItem[]
 }): Promise<Workout> {
   const res = await fetch('/api/workouts', {
     method: 'POST',

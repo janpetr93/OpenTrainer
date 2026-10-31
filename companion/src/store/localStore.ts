@@ -36,6 +36,7 @@ import {
   type StravaLink,
   type TrainingIntent,
   type Workout,
+  type WorkoutItem,
   type WorkoutStep,
   type WorkoutStepType,
 } from '../domain/types.js'
@@ -154,6 +155,17 @@ function normalizeStep(raw: WorkoutStep): WorkoutStep {
     percentFtp: raw.percentFtp ?? null,
     zone: (raw.zone ?? null) as PowerZoneId | null,
   }
+}
+
+function normalizeItem(raw: WorkoutItem): WorkoutItem {
+  if (raw.type === 'repeat') {
+    return {
+      type: 'repeat',
+      count: raw.count,
+      steps: raw.steps.map(normalizeStep),
+    }
+  }
+  return normalizeStep(raw)
 }
 
 export class LocalStore {
@@ -375,7 +387,7 @@ export class LocalStore {
 
   async createWorkout(input: CreateWorkoutInput): Promise<Workout> {
     this.assertWorkoutInput(input)
-    const steps = input.steps.map(normalizeStep)
+    const steps = input.steps.map(normalizeItem)
     const profile = await this.getRiderProfile()
     const now = new Date().toISOString()
     const workout: Workout = {
@@ -398,7 +410,7 @@ export class LocalStore {
       const raw = await this.readJson<Workout>(join(this.workoutsDir, file))
       workouts.push({
         ...raw,
-        steps: raw.steps.map(normalizeStep),
+        steps: raw.steps.map(normalizeItem),
       })
     }
     return workouts.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -407,7 +419,7 @@ export class LocalStore {
   async getWorkout(id: string): Promise<Workout | null> {
     try {
       const raw = await this.readJson<Workout>(join(this.workoutsDir, `${id}.json`))
-      return { ...raw, steps: raw.steps.map(normalizeStep) }
+      return { ...raw, steps: raw.steps.map(normalizeItem) }
     } catch {
       return null
     }
@@ -897,8 +909,27 @@ export class LocalStore {
       throw new Error('Workout must have at least one step')
     }
     for (const step of input.steps) {
-      this.assertStep(step)
+      this.assertItem(step)
     }
+  }
+
+  private assertItem(item: WorkoutItem): void {
+    if (item.type === 'repeat') {
+      if (!Number.isInteger(item.count) || item.count < 2 || item.count > 40) {
+        throw new Error('Workout Repeat count must be an integer from 2 to 40')
+      }
+      if (!Array.isArray(item.steps) || item.steps.length < 1 || item.steps.length > 6) {
+        throw new Error('Workout Repeat must contain 1 to 6 steps')
+      }
+      for (const step of item.steps) {
+        if ((step as WorkoutItem).type === 'repeat') {
+          throw new Error('Workout Repeats cannot be nested')
+        }
+        this.assertStep(step)
+      }
+      return
+    }
+    this.assertStep(item)
   }
 
   private assertStep(step: WorkoutStep): void {

@@ -1,9 +1,11 @@
 ---
 date: 2026-10-13
-status: active
+status: superseded
 ---
 
 # Strava upload description = Session Purpose + Session Load
+
+> Superseded by [2026-10-31-strava-description-stats-and-structure](./2026-10-31-strava-description-stats-and-structure.md). Session Purpose is no longer sent to Strava.
 
 ## Context
 

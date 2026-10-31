@@ -1,6 +1,7 @@
-import type { PowerProfilePoint, WorkoutStep } from '../api'
+import type { PowerProfilePoint, WorkoutItem } from '../api'
 import { buildPlannedPowerProfile } from './plannedPowerProfile'
 import { workoutNeedsFtp } from './resolveTarget'
+import { workoutDurationSec } from './workoutItems'
 
 export type ScheduledWorkoutPreview = {
   durationSec: number
@@ -17,10 +18,10 @@ function formatDurationLabel(sec: number): string {
 }
 
 export function buildScheduledWorkoutPreview(
-  workout: { steps: WorkoutStep[] },
+  workout: { steps: readonly WorkoutItem[] },
   ftpWatts: number | null,
 ): ScheduledWorkoutPreview {
-  const durationSec = workout.steps.reduce((sum, s) => sum + s.durationSec, 0)
+  const durationSec = workoutDurationSec(workout.steps)
   const needsFtpToPreview =
     workoutNeedsFtp(workout.steps) && (ftpWatts === null || ftpWatts <= 0)
   return {

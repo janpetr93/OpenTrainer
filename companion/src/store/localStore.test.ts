@@ -40,6 +40,31 @@ describe('LocalStore', () => {
     expect(listed[0]?.id).toBe(workout.id)
   })
 
+  it('stores a Workout Repeat compactly and expands it on the planned Power Profile', async () => {
+    await store.setFtp(200)
+    const workout = await store.createWorkout({
+      name: '30/15',
+      steps: [
+        { type: 'warmup', durationSec: 60, targetWatts: null, percentFtp: 50, zone: null },
+        {
+          type: 'repeat',
+          count: 3,
+          steps: [
+            { type: 'steady', durationSec: 30, targetWatts: null, percentFtp: 120, zone: null },
+            { type: 'recovery', durationSec: 15, targetWatts: null, percentFtp: 60, zone: null },
+          ],
+        },
+      ],
+    })
+
+    expect(workout.steps).toHaveLength(2)
+    expect(workout.steps[1]).toMatchObject({ type: 'repeat', count: 3 })
+    const end = workout.plannedPowerProfile.at(-1)
+    expect(end?.tSec).toBe(60 + 3 * 45)
+    const loaded = await store.getWorkout(workout.id)
+    expect(loaded?.steps[1]).toMatchObject({ type: 'repeat', count: 3 })
+  })
+
   it('listActivities returns empty when none exist', async () => {
     const activities = await store.listActivities({ pastDays: 14 })
     expect(activities).toEqual([])

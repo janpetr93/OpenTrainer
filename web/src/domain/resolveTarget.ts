@@ -1,5 +1,6 @@
-import type { WorkoutStep } from '../api'
+import type { WorkoutItem, WorkoutStep } from '../api'
 import { zonesFromFtp, type PowerZoneId } from './cogganZones'
+import { expandWorkoutItems } from './workoutItems'
 
 /** Resolve a step Target Prescription to watts using current FTP. */
 export function resolveStepWatts(
@@ -39,8 +40,8 @@ export function stepNeedsFtp(step: WorkoutStep): boolean {
   return hasPct || hasZone
 }
 
-export function workoutNeedsFtp(steps: WorkoutStep[]): boolean {
-  return steps.some(stepNeedsFtp)
+export function workoutNeedsFtp(steps: readonly WorkoutItem[]): boolean {
+  return expandWorkoutItems(steps).some(stepNeedsFtp)
 }
 
 export function assertStepPrescription(step: WorkoutStep): void {

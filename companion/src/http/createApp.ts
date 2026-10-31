@@ -6,6 +6,8 @@ import type {
   CreateScheduledRideInput,
   CreateWorkoutInput,
   PowerProfilePoint,
+  WorkoutItem,
+  WorkoutStep,
   WorkoutStepType,
 } from '../domain/types.js'
 import type { StravaConfig } from '../strava/config.js'
@@ -196,41 +198,72 @@ function parseCreateWorkout(body: unknown): CreateWorkoutInput {
 
   return {
     name,
-    steps: steps.map((step, index) => {
-      if (!step || typeof step !== 'object') {
-        throw new Error(`steps[${index}] must be an object`)
+    steps: steps.map((step, index) => parseWorkoutItem(step, index)),
+  }
+}
+
+function parseWorkoutStep(
+  step: unknown,
+  label: string,
+): WorkoutStep {
+  if (!step || typeof step !== 'object') {
+    throw new Error(`${label} must be an object`)
+  }
+  const s = step as Record<string, unknown>
+  const type = s.type
+  if (typeof type !== 'string' || !STEP_TYPES.has(type as WorkoutStepType)) {
+    throw new Error(`${label}.type is invalid`)
+  }
+  if (typeof s.durationSec !== 'number') {
+    throw new Error(`${label}.durationSec must be a number`)
+  }
+  const targetWatts =
+    s.targetWatts === undefined || s.targetWatts === null ? null : s.targetWatts
+  if (targetWatts !== null && typeof targetWatts !== 'number') {
+    throw new Error(`${label}.targetWatts must be a number or null`)
+  }
+  const percentFtp =
+    s.percentFtp === undefined || s.percentFtp === null ? null : s.percentFtp
+  if (percentFtp !== null && typeof percentFtp !== 'number') {
+    throw new Error(`${label}.percentFtp must be a number or null`)
+  }
+  const zone = s.zone === undefined || s.zone === null ? null : s.zone
+  if (zone !== null && typeof zone !== 'number') {
+    throw new Error(`${label}.zone must be 1–7 or null`)
+  }
+  return {
+    type: type as WorkoutStepType,
+    durationSec: s.durationSec,
+    targetWatts,
+    percentFtp,
+    zone: zone as PowerZoneId | null,
+  }
+}
+
+function parseWorkoutItem(step: unknown, index: number): WorkoutItem {
+  if (!step || typeof step !== 'object') {
+    throw new Error(`steps[${index}] must be an object`)
+  }
+  const s = step as Record<string, unknown>
+  if (s.type !== 'repeat') return parseWorkoutStep(step, `steps[${index}]`)
+  if (typeof s.count !== 'number' || !Number.isInteger(s.count)) {
+    throw new Error(`steps[${index}].count must be an integer`)
+  }
+  if (!Array.isArray(s.steps)) {
+    throw new Error(`steps[${index}].steps must be an array`)
+  }
+  return {
+    type: 'repeat',
+    count: s.count,
+    steps: s.steps.map((inner, innerIndex) => {
+      if (
+        inner &&
+        typeof inner === 'object' &&
+        (inner as Record<string, unknown>).type === 'repeat'
+      ) {
+        throw new Error(`steps[${index}] cannot nest a Workout Repeat`)
       }
-      const s = step as Record<string, unknown>
-      const type = s.type
-      if (typeof type !== 'string' || !STEP_TYPES.has(type as WorkoutStepType)) {
-        throw new Error(`steps[${index}].type is invalid`)
-      }
-      if (typeof s.durationSec !== 'number') {
-        throw new Error(`steps[${index}].durationSec must be a number`)
-      }
-      const targetWatts =
-        s.targetWatts === undefined || s.targetWatts === null
-          ? null
-          : s.targetWatts
-      if (targetWatts !== null && typeof targetWatts !== 'number') {
-        throw new Error(`steps[${index}].targetWatts must be a number or null`)
-      }
-      const percentFtp =
-        s.percentFtp === undefined || s.percentFtp === null ? null : s.percentFtp
-      if (percentFtp !== null && typeof percentFtp !== 'number') {
-        throw new Error(`steps[${index}].percentFtp must be a number or null`)
-      }
-      const zone = s.zone === undefined || s.zone === null ? null : s.zone
-      if (zone !== null && typeof zone !== 'number') {
-        throw new Error(`steps[${index}].zone must be 1–7 or null`)
-      }
-      return {
-        type: type as WorkoutStepType,
-        durationSec: s.durationSec,
-        targetWatts,
-        percentFtp,
-        zone: zone as PowerZoneId | null,
-      }
+      return parseWorkoutStep(inner, `steps[${index}].steps[${innerIndex}]`)
     }),
   }
 }

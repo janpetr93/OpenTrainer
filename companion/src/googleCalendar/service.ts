@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { workoutDurationSec } from '../domain/workoutItems.js'
 import type { LocalStore } from '../store/localStore.js'
 import type {
   GoogleCalendarLink,
@@ -347,10 +348,7 @@ export function startOfLocalDay(nowMs: number): number {
 
 function eventBody(ride: ScheduledRideView, workout: Workout): GoogleEventBody {
   const startMs = Date.parse(ride.startsAt)
-  const durationSec = workout.steps.reduce(
-    (sum, step) => sum + step.durationSec,
-    0,
-  )
+  const durationSec = workoutDurationSec(workout.steps)
   return {
     summary: workout.name,
     description: ride.purpose ?? '',
