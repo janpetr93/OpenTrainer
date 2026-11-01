@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTrainingSummary, checkTrainingWeek } from './trainingSummary.js'
+import { buildTrainingSummary, checkTrainingWeek, sessionKind } from './trainingSummary.js'
 
 const step = (
   type: 'warmup' | 'steady' | 'recovery' | 'cooldown',
@@ -89,6 +89,95 @@ describe('buildTrainingSummary', () => {
       lastHard: { id: 'a2', targetAdherence: 0.7 },
     })
     expect(summary.activities[1]?.workout?.steps).toHaveLength(3)
+  })
+
+  it('reports planned watts and the average held on the main efforts, ignoring warmup bursts', () => {
+    const workStart = 300 + 300 + 180 + 3 * (15 + 60)
+    const workEnd = workStart + 360
+    const achievedPowerProfile = []
+    for (let tSec = 0; tSec < workEnd; tSec++) {
+      const opener =
+        tSec >= 780 &&
+        [0, 1, 2].some((rep) => {
+          const start = 780 + rep * 75
+          return tSec >= start && tSec < start + 15
+        })
+      achievedPowerProfile.push({
+        tSec,
+        watts: tSec >= workStart ? 203 : opener ? 400 : 100,
+      })
+    }
+
+    const summary = buildTrainingSummary({
+      ftpWatts: 200,
+      workouts: [
+        {
+          id: 'w-thr',
+          name: 'Threshold 3x6 min',
+          steps: [
+            step('warmup', 300, 50),
+            step('warmup', 300, 65),
+            step('warmup', 180, 80),
+            {
+              type: 'repeat',
+              count: 3,
+              steps: [step('warmup', 15, 120), step('warmup', 60, 50)],
+            },
+            {
+              type: 'steady',
+              durationSec: 360,
+              targetWatts: 190,
+              percentFtp: null,
+              zone: null,
+            },
+          ],
+        },
+      ],
+      activities: [
+        {
+          id: 'a-thr',
+          startedAt: '2026-10-19T16:27:11.344Z',
+          durationSec: workEnd,
+          purpose: 'threshold',
+          averagePowerWatts: 150,
+          workoutId: 'w-thr',
+          sessionLoad: null,
+          sessionAdherence: { completionRatio: 1, targetAdherence: 0.754 },
+          achievedPowerProfile,
+        },
+      ],
+      scheduledRides: [],
+    })
+
+    expect(summary.activities[0]).not.toHaveProperty('achievedPowerProfile')
+    expect(summary.rollup.lastHard).toEqual({
+      id: 'a-thr',
+      startedAt: '2026-10-19T16:27:11.344Z',
+      targetAdherence: 0.754,
+      work: { plannedWatts: 190, averageWatts: 203 },
+    })
+  })
+})
+
+describe('sessionKind', () => {
+  it('keeps a Zone 2 ride easy when the 15s openers are warmup steps', () => {
+    expect(
+      sessionKind(
+        [
+          step('warmup', 300, 50),
+          step('warmup', 300, 65),
+          step('warmup', 180, 80),
+          {
+            type: 'repeat',
+            count: 3,
+            steps: [step('warmup', 15, 120), step('warmup', 60, 50)],
+          },
+          step('steady', 2400, null, 2),
+        ],
+        null,
+        200,
+      ),
+    ).toBe('easy')
   })
 })
 

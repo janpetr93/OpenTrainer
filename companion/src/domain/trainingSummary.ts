@@ -1,7 +1,11 @@
 import { COGGAN_ZONES, type PowerZoneId } from './cogganZones.js'
-import type { SessionAdherence } from './sessionAdherence.js'
+import {
+  expandStepHoldWattSeries,
+  type SessionAdherence,
+} from './sessionAdherence.js'
 import type { SessionLoad, TimeInZonesSec } from './sessionLoad.js'
 import type {
+  PowerProfilePoint,
   ScheduledRideStatus,
   WorkoutItem,
   WorkoutStep,
@@ -22,6 +26,14 @@ export type TrainingSummaryActivityInput = {
   workoutId: string | null
   sessionLoad: SessionLoad | null
   sessionAdherence: SessionAdherence | null
+  /** Used to average the hard efforts. Omitted from the summary output. */
+  achievedPowerProfile?: readonly PowerProfilePoint[] | null
+}
+
+export type HardWorkHeld = {
+  plannedWatts: number
+  /** Null when the Activity has no achieved samples for those steps. */
+  averageWatts: number | null
 }
 
 export type TrainingSummaryWorkout = {
@@ -74,6 +86,8 @@ export type TrainingSummaryRollup = {
     id: string
     startedAt: string
     targetAdherence: number | null
+    /** Main hard efforts. Null on a Free Ride. */
+    work: HardWorkHeld | null
   } | null
 }
 
@@ -110,6 +124,90 @@ export function stepPercentFtp(
     return (step.targetWatts / ftpWatts) * 100
   }
   return null
+}
+
+function stepPlannedWatts(step: WorkoutStep, ftpWatts: number | null): number | null {
+  if (step.targetWatts !== null && step.targetWatts !== undefined) {
+    return Math.round(step.targetWatts)
+  }
+  const pct = stepPercentFtp(step, ftpWatts)
+  if (pct === null || ftpWatts === null || ftpWatts <= 0) return null
+  return Math.round((pct / 100) * ftpWatts)
+}
+
+type WorkRange = { start: number; end: number; watts: number }
+
+function collectWorkRanges(
+  steps: readonly WorkoutStep[],
+  ftpWatts: number | null,
+  include: (step: WorkoutStep, pct: number) => boolean,
+): WorkRange[] {
+  const ranges: WorkRange[] = []
+  let t = 0
+  for (const step of steps) {
+    const start = t
+    t += step.durationSec
+    if (step.type !== 'steady') continue
+    const pct = stepPercentFtp(step, ftpWatts)
+    if (pct === null || !include(step, pct)) continue
+    const watts = stepPlannedWatts(step, ftpWatts)
+    if (watts === null) continue
+    ranges.push({ start, end: t, watts })
+  }
+  return ranges
+}
+
+/** Planned watts and average held for the main hard efforts. Warmup bursts are excluded. */
+export function hardWorkHeld(
+  items: readonly WorkoutItem[],
+  ftpWatts: number | null,
+  achieved: readonly PowerProfilePoint[] | null | undefined,
+): HardWorkHeld | null {
+  const steps = expandWorkoutItems(items)
+  let ranges = collectWorkRanges(
+    steps,
+    ftpWatts,
+    (step, pct) => pct >= 88 && step.durationSec > 45,
+  )
+  if (ranges.length === 0) {
+    ranges = collectWorkRanges(
+      steps,
+      ftpWatts,
+      (step, pct) => step.durationSec <= 45 && pct >= 110,
+    )
+    if (ranges.length < 6) return null
+  }
+
+  let bestWatts = ranges[0]!.watts
+  let bestSec = -1
+  const secondsByWatts = new Map<number, number>()
+  for (const range of ranges) {
+    const sec = range.end - range.start
+    const total = (secondsByWatts.get(range.watts) ?? 0) + sec
+    secondsByWatts.set(range.watts, total)
+    if (total > bestSec) {
+      bestSec = total
+      bestWatts = range.watts
+    }
+  }
+  const chosen = ranges.filter((range) => range.watts === bestWatts)
+  const series =
+    achieved && achieved.length > 0
+      ? expandStepHoldWattSeries([...achieved])
+      : []
+  let sum = 0
+  let count = 0
+  for (const range of chosen) {
+    const end = Math.min(range.end, series.length)
+    for (let t = range.start; t < end; t++) {
+      sum += series[t]!
+      count += 1
+    }
+  }
+  return {
+    plannedWatts: bestWatts,
+    averageWatts: count > 0 ? Math.round(sum / count) : null,
+  }
 }
 
 function leafSteps(items: readonly WorkoutItem[]): WorkoutStep[] {
@@ -323,10 +421,14 @@ export function buildTrainingSummary(input: {
         input.ftpWatts,
       )
       if (kind === 'hard') {
+        const ftpWatts = load?.ftpWattsAtSave ?? input.ftpWatts
         lastHard = {
           id: activity.id,
           startedAt: activity.startedAt,
           targetAdherence: activity.sessionAdherence?.targetAdherence ?? null,
+          work: workout
+            ? hardWorkHeld(workout.steps, ftpWatts, activity.achievedPowerProfile)
+            : null,
         }
       }
       return {

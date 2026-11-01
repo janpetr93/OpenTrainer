@@ -26,4 +26,4 @@ The intensity doctrine in `plan_training_week` asked the model to sum TSS and ti
 
 - Kind on a planned ride comes from steady steps (sweet spot and above, or a short-interval set), not from how the ride was actually ridden. Achieved zone time is still in the rollup. A **Free Ride** is hard when zones 4–7 total at least five minutes.
 - Warmup and cooldown steps are not counted as the 76–94% band, so a stepped warmup near 80% FTP does not make a HIT day “moderate”.
-- The ~6 hour split and the 0.85 adherence downshift stay in the prompt. The check enforces the structural caps, not the hours split.
+- The ~6 hour split stays in the prompt. The 0.85 percent downshift is replaced by [2026-11-01-hard-work-average-and-openers](./2026-11-01-hard-work-average-and-openers.md). The check enforces the structural caps, not the hours split.

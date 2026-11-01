@@ -74,13 +74,13 @@ Server name: `open-trainer`. Tools (v2 week planning):
 
 - `get_rider_profile` / `set_ftp` / `set_training_intent` — **FTP**, Coggan **Power Zones**, **Training Intent**
 - `get_mmp` — cached **Mean Maximal Power** + Estimated FTP (read-only; recompute in Profile UI)
-- `get_training_summary` — planning read of recent rides (load, adherence, kind, compact steps, rollup). No 1 Hz **Power Profile**s
+- `get_training_summary` — planning read of recent rides (load, adherence, kind, compact steps, rollup). `lastHard.work` is the planned watts of the main hard efforts and the average held. No 1 Hz **Power Profile**s
 - `check_training_week` — violations against the week-planning rules after the calendar is written
 - `list_workouts` / `create_workout` — templates; quality steps use `%FTP` (zone only for Z1–Z2); a **Workout Repeat** plays inner steps `count` times; names are content-only (no weekday/date)
 - `list_activities` — past rides + **Power Profile**s
 - `list_scheduled_rides` / `create_scheduled_ride` (optional **Session Purpose**) / `delete_scheduled_ride` — **Training Calendar**
 - `clear_scheduled_rides` — wipe a date range before writing a new week
-- Prompts: `plan_training_week` and `review_training` — tool order plus the intensity split (at most two hard sessions, other rides under 75% FTP)
+- Prompts: `plan_training_week` and `review_training` — tool order plus the intensity split (at most two hard sessions, other rides under 75% FTP). The same guidance is on the server `instructions` field, which ChatGPT reads at startup.
 
 Committed project configs: [`.mcp.json`](../.mcp.json) (Claude Code), [`.cursor/mcp.json`](../.cursor/mcp.json) (Cursor). Root [README.md](../README.md) covers those clients plus **Claude Desktop** and **ChatGPT**. Week-plan paste: [docs/mcp-chatgpt-week-planning.md](../docs/mcp-chatgpt-week-planning.md). Agent cheat sheet: [AGENTS.md](../AGENTS.md).
 

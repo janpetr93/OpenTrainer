@@ -13,6 +13,7 @@ import {
   getMmpToolDescription,
   planTrainingWeekPrompt,
   reviewTrainingPrompt,
+  serverInstructions,
   workoutStepPercentFtpDescription,
   workoutStepZoneDescription,
 } from './trainingPrompts.js'
@@ -146,10 +147,13 @@ async function main(): Promise<void> {
   })
   await calendarMirror.reconcile()
 
-  const server = new McpServer({
-    name: 'open-trainer',
-    version: '0.4.0',
-  })
+  const server = new McpServer(
+    {
+      name: 'open-trainer',
+      version: '0.4.0',
+    },
+    { instructions: serverInstructions },
+  )
 
   server.registerPrompt(
     'plan_training_week',
@@ -348,7 +352,7 @@ async function main(): Promise<void> {
     'get_training_summary',
     {
       description:
-        'Planning read of recent Activities without 1 Hz Power Profiles. Each ride has kind (easy/moderate/hard from the planned Workout, or from Z4–Z7 time on a Free Ride), Session Load, adherence, and compact Workout steps. rollup has tssSum, easySec (zones 1+2), moderateSec (zone 3), thresholdSec (zone 4), aboveSec (zones 5–7), hardSessionCount, missedCount, and lastHard.targetAdherence. Use this instead of list_activities when planning or reviewing a week.',
+        'Planning read of recent Activities without 1 Hz Power Profiles. Each ride has kind (easy/moderate/hard from the planned Workout, or from Z4–Z7 time on a Free Ride), Session Load, adherence, and compact Workout steps. rollup has tssSum, easySec (zones 1+2), moderateSec (zone 3), thresholdSec (zone 4), aboveSec (zones 5–7), hardSessionCount, missedCount, and lastHard.work (plannedWatts and averageWatts of the main hard efforts). When averageWatts is at or above plannedWatts, add a repeat or minutes at the same percent. When it is lower, keep the percent and do not add a repeat. Do not lower the percent because targetAdherence is low. Use this instead of list_activities when planning or reviewing a week.',
       inputSchema: {
         pastDays: z.number().nonnegative().default(14),
         since: z.string().optional().describe('ISO lower bound'),
@@ -375,6 +379,7 @@ async function main(): Promise<void> {
           workoutId: activity.workoutId,
           sessionLoad: activity.sessionLoad,
           sessionAdherence: activity.sessionAdherence,
+          achievedPowerProfile: activity.achievedPowerProfile,
         })),
         workouts: workouts.map((workout) => ({
           id: workout.id,

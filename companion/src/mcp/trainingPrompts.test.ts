@@ -3,6 +3,7 @@ import {
   createWorkoutToolDescription,
   planTrainingWeekPrompt,
   reviewTrainingPrompt,
+  serverInstructions,
   workoutStepZoneDescription,
 } from './trainingPrompts.js'
 
@@ -26,6 +27,15 @@ describe('plan_training_week prompt', () => {
     expect(planTrainingWeekPrompt).toMatch(/30 s on \/ 15 s off/i)
   })
 
+  it('progresses from watts held and opens a hard day with short bursts', () => {
+    expect(planTrainingWeekPrompt).toContain('averageWatts')
+    expect(planTrainingWeekPrompt).toContain('15 s at 120%')
+    expect(planTrainingWeekPrompt).not.toMatch(/0\.85/)
+    expect(planTrainingWeekPrompt).toMatch(/do not lower percentFtp because targetAdherence is low/i)
+    expect(serverInstructions.slice(0, 512)).toContain('15 s at 120%')
+    expect(serverInstructions.slice(0, 512)).toContain('averageWatts')
+  })
+
   it('treats Estimated FTP as a hint and does not apply an indoor discount', () => {
     expect(planTrainingWeekPrompt).toMatch(/do not call set_ftp from it/i)
     expect(planTrainingWeekPrompt).toMatch(/do not (lower|discount) FTP/i)
@@ -41,6 +51,8 @@ describe('review_training prompt', () => {
     expect(reviewTrainingPrompt).toMatch(/ask before/i)
     expect(reviewTrainingPrompt).toMatch(/do not create workouts/i)
     expect(reviewTrainingPrompt).toMatch(/do not call set_ftp/i)
+    expect(reviewTrainingPrompt).toContain('averageWatts')
+    expect(reviewTrainingPrompt).not.toMatch(/0\.85/)
   })
 })
 

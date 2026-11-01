@@ -123,7 +123,7 @@ An interval plan (warm-up, steady target-power, recovery, cool-down) with durati
 _Avoid_: Session, activity, ride plan (ambiguous), workout catalog / template library (product framing), nested repeats
 
 **Training Summary**:
-The planning read of recent **Activity**s: per ride, **Session Load**, **Session Adherence**, prescription kind (easy / moderate / hard), and compact **Workout** steps — no 1 Hz **Power Profile**. Includes a rollup (TSS, zone-time buckets, hard-session count, missed rides). Week planning uses this instead of listing full Activities.
+The planning read of recent **Activity**s: per ride, **Session Load**, **Session Adherence**, prescription kind (easy / moderate / hard), and compact **Workout** steps — no 1 Hz **Power Profile**. Includes a rollup (TSS, zone-time buckets, hard-session count, missed rides, and the last hard session’s planned watts plus the average held). Week planning uses this instead of listing full Activities.
 _Avoid_: list of raw samples, CTL/ATL
 
 **Target Prescription**:
@@ -240,7 +240,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - **Estimated FTP** uses 20min **MMP** × 0.95 and is compared to set **FTP**; it does not update the **Rider Profile**.
 - **Session Load** and **Session Adherence** are computed when an **Activity** is saved (and backfilled for older Activities when FTP is known); MCP `list_activities` and the Session module UI read them.
 - **Training Intent** is product-owned context for MCP week planning alongside **Rider Profile** and **Activity** history; weekly availability is asked in chat, not stored; training phase is inferred from recent **Activity**s unless **Training Intent** **note** overrides. Updating Intent keeps omitted fields.
-- Week planning reads a **Training Summary** (no 1 Hz samples) and checks the written week with `check_training_week`. A **Workout Repeat** expands when the planned **Power Profile** is built and when the runner starts.
+- Week planning reads a **Training Summary** (no 1 Hz samples) and checks the written week with `check_training_week`. `lastHard.work` is the planned watts of the last hard efforts and the average held there. A hard day starts with a stepped warmup and three 15-second openers at 120% FTP. A **Workout Repeat** expands when the planned **Power Profile** is built and when the runner starts.
 - An **Activity** can be exported as FIT for manual Strava upload and/or uploaded via API when a **Strava Link** exists. The Strava description is Session Load plus the planned step watts (`10m - 100W, 20m - 150W`); **Session Purpose** stays in the app.
 - The **Local Companion** owns the **Strava Link** (tokens + upload); the browser never holds the Strava client secret.
 - MCP does not create or use a **Strava Link** (UI + companion HTTP only).
