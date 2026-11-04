@@ -138,7 +138,7 @@ open -n desktop/node_modules/electron/dist/Electron.app --args "$PWD/desktop"
 How it fits together:
 
 - `src/main.ts`: Electron main process. Single-instance lock, settings file, first-run seeding, menu, window, navigation guard (other sites and the OAuth sign-in open in the system browser).
-- `src/server.ts`: one HTTP server on `127.0.0.1:8787`. `/api/*` goes to the companion's `createRequestHandler` (imported from `companion/src`, bundled by esbuild, so no `tsx` at runtime). Everything else serves `web/dist` with an `index.html` fallback, on the same origin, like the Vite proxy in development. `/desktop/oauth-return` is where the companion sends the browser after sign-in.
+- `src/server.ts`: one HTTP server on `127.0.0.1:8787`. `/api/*` goes to the companion's `createRequestHandler` (imported from `companion/src`, bundled by esbuild, so no `tsx` at runtime). Everything else serves `web/dist` with an `index.html` fallback, on the same origin, like the Vite proxy in development. `/desktop/oauth-return` is where the companion sends the browser after sign-in. The app window reloads only when that URL carries a one-time handoff.
 - `src/bluetooth.ts`, `src/picker/`: the device picker window and the Windows/Linux pairing handler.
 - `scripts/bundle.mjs`: esbuild bundles plus copies of `web/dist` and the sample workouts into `dist/`.
 - `electron-builder.yml`: dmg (arm64, x64, ad-hoc signed) and NSIS (x64).

@@ -89,13 +89,70 @@ describe('desktop server', () => {
     expect(await res.text()).not.toContain('nope')
   })
 
-  it('hands an OAuth return back to the app with only the known query keys', async () => {
+  it('shows an OAuth return page without reloading the app', async () => {
     const res = await fetch(
       `${server!.origin}/desktop/oauth-return/?strava=linked&next=https://evil.example`,
     )
     expect(res.status).toBe(200)
     expect(await res.text()).toContain('Strava connected')
-    expect(returns).toEqual(['strava=linked'])
+    expect(returns).toEqual([])
+  })
+
+  it('reloads the app once when a checked sign-in returns', async () => {
+    const signedIn = await createDesktopServer({
+      dataDir,
+      webRoot,
+      port: await freePort(),
+      env: {
+        STRAVA_CLIENT_ID: 'cid',
+        STRAVA_CLIENT_SECRET: 'secret',
+      },
+      fetchImpl: (async () =>
+        new Response(
+          JSON.stringify({
+            token_type: 'Bearer',
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+            expires_in: 3600,
+            refresh_token: 'refresh-1',
+            access_token: 'access-1',
+            athlete: { id: 42, firstname: 'Ada', lastname: 'Rider' },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )) as typeof fetch,
+      onOAuthReturn: (search) => returns.push(search),
+      log: () => {},
+    })
+    await signedIn.listen()
+    try {
+      const authorize = await fetch(`${signedIn.origin}/api/strava/authorize`, {
+        redirect: 'manual',
+      })
+      const state = new URL(authorize.headers.get('location') ?? '').searchParams.get('state')
+      const callback = await fetch(
+        `${signedIn.origin}/api/strava/callback?code=auth-code&state=${state}&scope=activity:write`,
+        { redirect: 'manual' },
+      )
+      const location = callback.headers.get('location') ?? ''
+      expect(location).toContain('/desktop/oauth-return/')
+      expect(location).toContain('handoff=')
+
+      const done = await fetch(location)
+      expect(done.status).toBe(200)
+      expect(returns).toEqual(['strava=linked'])
+
+      await fetch(location)
+      expect(returns).toEqual(['strava=linked'])
+
+      const forged = await fetch(`${signedIn.origin}/api/strava/callback?error=nope`, {
+        redirect: 'manual',
+      })
+      const forgedLocation = forged.headers.get('location') ?? ''
+      expect(forgedLocation).not.toContain('handoff=')
+      await fetch(forgedLocation)
+      expect(returns).toEqual(['strava=linked'])
+    } finally {
+      await signedIn.close()
+    }
   })
 
   it('rejects with EADDRINUSE when the port is taken', async () => {

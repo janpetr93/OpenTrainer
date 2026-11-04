@@ -22,6 +22,8 @@ export type CreateAppOptions = {
   companionOrigin?: string
   webOrigin?: string
   fetchImpl?: StravaFetch
+  /** Desktop only. Stamps the return URL after OAuth state is accepted. */
+  issueOAuthHandoff?: () => string
 }
 
 function sendRedirect(res: ServerResponse, location: string): void {
@@ -283,6 +285,7 @@ export function createRequestHandler(
     companionOrigin,
     webOrigin,
     fetchImpl: options.fetchImpl,
+    issueOAuthHandoff: options.issueOAuthHandoff,
   })
   const googleCalendarConfig =
     options.googleCalendarConfig === undefined
@@ -294,6 +297,7 @@ export function createRequestHandler(
     companionOrigin,
     webOrigin,
     fetchImpl: options.fetchImpl,
+    issueOAuthHandoff: options.issueOAuthHandoff,
   })
 
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {

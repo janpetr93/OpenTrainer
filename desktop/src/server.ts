@@ -5,16 +5,20 @@ import {
   type ServerResponse,
 } from 'node:http'
 import { createRequestHandler } from '../../companion/src/http/createApp.js'
+import type { StravaFetch } from '../../companion/src/strava/client.js'
 import { LocalStore } from '../../companion/src/store/localStore.js'
 import { readStravaConfigFromEnv } from '../../companion/src/strava/config.js'
 import { readGoogleCalendarConfigFromEnv } from '../../companion/src/googleCalendar/config.js'
 import { CalendarMirror } from '../../companion/src/googleCalendar/service.js'
+import { OAUTH_HANDOFF_PARAM } from '../../companion/src/oauthHandoff.js'
+import { createOAuthHandoff } from './oauthHandoff.js'
 import { serveStatic } from './staticFiles.js'
 
 /**
  * Where the companion sends the browser after a Strava / Google sign-in.
  * Sign-in runs in the system browser, so this page tells the rider to go back
- * to the app, and the app reloads its own window with the same query.
+ * to the app. The app reloads only when the URL carries a one-time handoff
+ * the companion issued after checking the OAuth state.
  */
 export const OAUTH_RETURN_PATH = '/desktop/oauth-return'
 
@@ -31,7 +35,9 @@ export type DesktopServerOptions = {
   webRoot: string
   port: number
   env?: NodeJS.ProcessEnv
-  /** Called with the filtered query (no leading `?`) after a sign-in returns. */
+  /** Test double for Strava and Google token calls. */
+  fetchImpl?: StravaFetch
+  /** Called with the filtered query (no leading `?`) after a checked sign-in returns. */
   onOAuthReturn?: (search: string) => void
   log?: (message: string) => void
 }
@@ -123,17 +129,21 @@ export async function createDesktopServer(
 
   const stravaConfig = readStravaConfigFromEnv(env)
   const googleCalendarConfig = readGoogleCalendarConfigFromEnv(env)
+  const handoff = createOAuthHandoff()
   const calendarMirror = new CalendarMirror({
     store,
     config: googleCalendarConfig,
     companionOrigin: origin,
     webOrigin,
+    fetchImpl: options.fetchImpl,
   })
   const companion = createRequestHandler(store, {
     stravaConfig,
     googleCalendarConfig,
     companionOrigin: origin,
     webOrigin,
+    fetchImpl: options.fetchImpl,
+    issueOAuthHandoff: () => handoff.issue(),
   })
 
   const handle = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -144,12 +154,13 @@ export async function createDesktopServer(
     }
     if (url.pathname === OAUTH_RETURN_PATH || url.pathname === `${OAUTH_RETURN_PATH}/`) {
       const search = oauthReturnSearch(url.search)
+      const accepted = handoff.consume(url.searchParams.get(OAUTH_HANDOFF_PARAM))
       res.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'no-store',
       })
       res.end(oauthReturnPage(search))
-      options.onOAuthReturn?.(search)
+      if (accepted) options.onOAuthReturn?.(search)
       return
     }
     await serveStatic(req, res, options.webRoot, url.pathname)

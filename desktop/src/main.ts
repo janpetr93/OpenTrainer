@@ -11,6 +11,7 @@ import {
   type WebContents,
 } from 'electron'
 import { loadCompanionEnv } from '../../companion/src/env.js'
+import { OAUTH_RESULT_STORAGE_KEY } from '../../web/src/oauthResult.js'
 import { BluetoothPicker } from './bluetooth.js'
 import { DATA_DIR_NAME, SETTINGS_FILE_NAME, ensureSettingsFile, seedDataDir } from './dataDir.js'
 import { teeConsoleToFile } from './logFile.js'
@@ -147,16 +148,46 @@ function createMainWindow(path = '/'): BrowserWindow {
   return win
 }
 
-/** After a sign-in in the system browser, reload the app on the Profile result. */
-function showOAuthResult(search: string): void {
+/** After a checked sign-in, reload the app on the Profile result unless a ride is underway. */
+async function showOAuthResult(search: string): Promise<void> {
   if (!server) return
   const path = search ? `/?${search}` : '/'
   if (mainWindow && !mainWindow.isDestroyed()) {
+    if (await rideIsActive(mainWindow)) {
+      try {
+        await rememberOAuthResult(mainWindow, search)
+      } catch (error) {
+        log(`OAuth result kept off the ride: ${String(error)}`)
+      }
+      focusWindow(mainWindow)
+      return
+    }
     void mainWindow.loadURL(new URL(path, server.origin).toString())
     focusWindow(mainWindow)
-  } else {
-    focusWindow(createMainWindow(path))
+    return
   }
+  focusWindow(createMainWindow(path))
+}
+
+async function rideIsActive(win: BrowserWindow): Promise<boolean> {
+  try {
+    return Boolean(
+      await win.webContents.executeJavaScript(
+        'document.documentElement.dataset.rideActive === "true"',
+        true,
+      ),
+    )
+  } catch {
+    return false
+  }
+}
+
+async function rememberOAuthResult(win: BrowserWindow, search: string): Promise<void> {
+  const payload = JSON.stringify(search)
+  await win.webContents.executeJavaScript(
+    `sessionStorage.setItem(${JSON.stringify(OAUTH_RESULT_STORAGE_KEY)}, ${payload})`,
+    true,
+  )
 }
 
 async function isOpenTrainerAt(port: number): Promise<boolean> {

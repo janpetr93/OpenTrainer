@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import type { LocalStore } from '../store/localStore.js'
 import type { ActivityStravaUpload, StravaLink } from '../domain/types.js'
+import { oauthResultUrl } from '../oauthHandoff.js'
 import type { StravaConfig } from './config.js'
 import {
   athleteDisplayName,
@@ -29,6 +30,8 @@ export type StravaServiceOptions = {
   webOrigin: string
   fetchImpl?: StravaFetch
   now?: () => number
+  /** Desktop only. Called after OAuth state is accepted, to stamp the return URL. */
+  issueOAuthHandoff?: () => string
 }
 
 export class StravaLinkService {
@@ -38,6 +41,7 @@ export class StravaLinkService {
   private readonly webOrigin: string
   private readonly fetchImpl: StravaFetch
   private readonly now: () => number
+  private readonly issueOAuthHandoff: (() => string) | undefined
   private readonly oauthStates = new Map<string, number>()
 
   constructor(options: StravaServiceOptions) {
@@ -47,6 +51,7 @@ export class StravaLinkService {
     this.webOrigin = options.webOrigin.replace(/\/$/, '')
     this.fetchImpl = options.fetchImpl ?? fetch
     this.now = options.now ?? Date.now
+    this.issueOAuthHandoff = options.issueOAuthHandoff
   }
 
   get redirectUri(): string {
@@ -88,20 +93,20 @@ export class StravaLinkService {
     scope: string | null
     error: string | null
   }): Promise<string> {
-    const returnBase = `${this.webOrigin}/?`
-    if (input.error) {
-      return `${returnBase}strava=error&message=${encodeURIComponent(input.error)}`
-    }
     if (!this.config) {
-      return `${returnBase}strava=error&message=${encodeURIComponent('Strava not configured')}`
+      return this.resultUrl({ strava: 'error', message: 'Strava not configured' }, false)
     }
-    if (!input.code || !input.state) {
-      return `${returnBase}strava=error&message=${encodeURIComponent('Missing OAuth code')}`
+    if (!this.consumeState(input.state)) {
+      return this.resultUrl(
+        { strava: 'error', message: 'Invalid or expired OAuth state' },
+        false,
+      )
     }
-    const expires = this.oauthStates.get(input.state)
-    this.oauthStates.delete(input.state)
-    if (expires === undefined || expires < this.now()) {
-      return `${returnBase}strava=error&message=${encodeURIComponent('Invalid or expired OAuth state')}`
+    if (input.error) {
+      return this.resultUrl({ strava: 'error', message: input.error }, true)
+    }
+    if (!input.code) {
+      return this.resultUrl({ strava: 'error', message: 'Missing OAuth code' }, true)
     }
 
     try {
@@ -115,7 +120,10 @@ export class StravaLinkService {
       }
       const scope = input.scope ?? 'activity:write'
       if (!scope.split(/[\s,]+/).includes('activity:write')) {
-        return `${returnBase}strava=error&message=${encodeURIComponent('activity:write scope is required')}`
+        return this.resultUrl(
+          { strava: 'error', message: 'activity:write scope is required' },
+          true,
+        )
       }
 
       const link: StravaLink = {
@@ -129,11 +137,27 @@ export class StravaLinkService {
         updatedAt: new Date(this.now()).toISOString(),
       }
       await this.store.saveStravaLink(link)
-      return `${returnBase}strava=linked`
+      return this.resultUrl({ strava: 'linked' }, true)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      return `${returnBase}strava=error&message=${encodeURIComponent(message)}`
+      return this.resultUrl({ strava: 'error', message }, true)
     }
+  }
+
+  /** True when `state` matches a beginAuthorize call that has not expired. */
+  private consumeState(state: string | null): boolean {
+    if (!state) return false
+    const expires = this.oauthStates.get(state)
+    this.oauthStates.delete(state)
+    return expires !== undefined && expires >= this.now()
+  }
+
+  private resultUrl(params: Record<string, string>, trusted: boolean): string {
+    return oauthResultUrl(
+      this.webOrigin,
+      params,
+      trusted ? this.issueOAuthHandoff : undefined,
+    )
   }
 
   async disconnect(): Promise<void> {

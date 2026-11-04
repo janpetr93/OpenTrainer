@@ -6,6 +6,7 @@ import type {
   ScheduledRideView,
   Workout,
 } from '../domain/types.js'
+import { oauthResultUrl } from '../oauthHandoff.js'
 import type { GoogleCalendarConfig } from './config.js'
 import {
   buildAuthorizeUrl,
@@ -38,6 +39,8 @@ export type CalendarMirrorOptions = {
   webOrigin: string
   fetchImpl?: GoogleFetch
   now?: () => number
+  /** Desktop only. Called after OAuth state is accepted, to stamp the return URL. */
+  issueOAuthHandoff?: () => string
 }
 
 export class CalendarMirror {
@@ -47,6 +50,7 @@ export class CalendarMirror {
   private readonly webOrigin: string
   private readonly fetchImpl: GoogleFetch
   private readonly now: () => number
+  private readonly issueOAuthHandoff: (() => string) | undefined
   private readonly oauthStates = new Map<string, number>()
 
   constructor(options: CalendarMirrorOptions) {
@@ -56,6 +60,7 @@ export class CalendarMirror {
     this.webOrigin = options.webOrigin.replace(/\/$/, '')
     this.fetchImpl = options.fetchImpl ?? fetch
     this.now = options.now ?? Date.now
+    this.issueOAuthHandoff = options.issueOAuthHandoff
   }
 
   get redirectUri(): string {
@@ -96,20 +101,26 @@ export class CalendarMirror {
     scope: string | null
     error: string | null
   }): Promise<string> {
-    const returnBase = `${this.webOrigin}/?`
-    if (input.error) {
-      return `${returnBase}googleCalendar=error&message=${encodeURIComponent(input.error)}`
-    }
     if (!this.config) {
-      return `${returnBase}googleCalendar=error&message=${encodeURIComponent('Google Calendar not configured')}`
+      return this.resultUrl(
+        { googleCalendar: 'error', message: 'Google Calendar not configured' },
+        false,
+      )
     }
-    if (!input.code || !input.state) {
-      return `${returnBase}googleCalendar=error&message=${encodeURIComponent('Missing OAuth code')}`
+    if (!this.consumeState(input.state)) {
+      return this.resultUrl(
+        { googleCalendar: 'error', message: 'Invalid or expired OAuth state' },
+        false,
+      )
     }
-    const expires = this.oauthStates.get(input.state)
-    this.oauthStates.delete(input.state)
-    if (expires === undefined || expires < this.now()) {
-      return `${returnBase}googleCalendar=error&message=${encodeURIComponent('Invalid or expired OAuth state')}`
+    if (input.error) {
+      return this.resultUrl({ googleCalendar: 'error', message: input.error }, true)
+    }
+    if (!input.code) {
+      return this.resultUrl(
+        { googleCalendar: 'error', message: 'Missing OAuth code' },
+        true,
+      )
     }
 
     try {
@@ -124,7 +135,10 @@ export class CalendarMirror {
       }
       const scope = token.scope ?? input.scope ?? ''
       if (!hasCalendarScope(scope)) {
-        return `${returnBase}googleCalendar=error&message=${encodeURIComponent('calendar.app.created scope is required')}`
+        return this.resultUrl(
+          { googleCalendar: 'error', message: 'calendar.app.created scope is required' },
+          true,
+        )
       }
       const existing = await this.store.getGoogleCalendarLink()
       const link: GoogleCalendarLink = {
@@ -139,11 +153,27 @@ export class CalendarMirror {
       }
       await this.store.saveGoogleCalendarLink(link)
       await this.reconcile()
-      return `${returnBase}googleCalendar=linked`
+      return this.resultUrl({ googleCalendar: 'linked' }, true)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      return `${returnBase}googleCalendar=error&message=${encodeURIComponent(message)}`
+      return this.resultUrl({ googleCalendar: 'error', message }, true)
     }
+  }
+
+  /** True when `state` matches a beginAuthorize call that has not expired. */
+  private consumeState(state: string | null): boolean {
+    if (!state) return false
+    const expires = this.oauthStates.get(state)
+    this.oauthStates.delete(state)
+    return expires !== undefined && expires >= this.now()
+  }
+
+  private resultUrl(params: Record<string, string>, trusted: boolean): string {
+    return oauthResultUrl(
+      this.webOrigin,
+      params,
+      trusted ? this.issueOAuthHandoff : undefined,
+    )
   }
 
   /** Drop tokens on this laptop. The OpenTrainer calendar stays in Google. */

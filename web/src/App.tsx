@@ -36,6 +36,7 @@ import { CadenceConnection, type CadenceSnapshot } from './csc'
 import { TrainerConnection, type TrainerSnapshot } from './ftms'
 import { HeartRateConnection, type HeartRateSnapshot } from './hrm'
 import { APP_TAB_ORDER, initialAppTab, type AppTab } from './appTab'
+import { rideHoldsTheWindow } from './oauthResult'
 import { CalendarPanel } from './CalendarPanel'
 import { DevicesPanel } from './DevicesPanel'
 import { LiveDisplay } from './LiveDisplay'
@@ -258,6 +259,12 @@ function App() {
     }, 250)
     return () => window.clearInterval(id)
   }, [connection, meterConnection, alignmentAverager])
+
+  useEffect(() => {
+    document.documentElement.dataset.rideActive = rideHoldsTheWindow(runnerSnap.status)
+      ? 'true'
+      : 'false'
+  }, [runnerSnap.status])
 
   useEffect(() => {
     const release = () => {
