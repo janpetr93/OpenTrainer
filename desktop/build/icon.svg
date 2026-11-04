@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f66f0"/>
+      <stop offset="1" stop-color="#153db8"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <!-- Power gauge: 270 degree track with a filled arc and a needle. -->
+  <g fill="none" stroke-linecap="round" stroke-width="64">
+    <path d="M 339.2 684.8 A 244 244 0 1 1 684.8 684.8" stroke="#ffffff" stroke-opacity="0.28"/>
+    <path d="M 339.2 684.8 A 244 244 0 1 1 684.8 339.2" stroke="#ffffff"/>
+  </g>
+  <line x1="512" y1="512" x2="622" y2="402" stroke="#ffffff" stroke-width="44" stroke-linecap="round"/>
+  <circle cx="512" cy="512" r="46" fill="#ffffff"/>
+</svg>

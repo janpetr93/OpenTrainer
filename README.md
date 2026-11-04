@@ -14,12 +14,24 @@ MIT-licensed and free to fork. We built this as an alternative to closed trainer
 
 ## Requirements
 
-- **Node.js** + npm
-- Desktop **Chrome** or **Edge** for the Ride UI (not Safari for v1)
+- macOS or Windows
 - A Bluetooth FTMS trainer (D100 and similar); optional power meter / HR / cadence sensors
-- macOS or Windows (Windows: use Git Bash or WSL for `./start.sh`)
+- **Desktop app**: nothing else
+- **From source**: **Node.js** + npm, and desktop **Chrome** or **Edge** for the Ride UI (not Safari for v1). Windows: use Git Bash or WSL for `./start.sh`
 
 ## Quick start
+
+### Download the app
+
+No terminal or Node.js needed. Get the installer for your computer from **[Releases](https://github.com/janpetr93/OpenTrainer/releases/latest)**:
+
+- **Mac with Apple silicon**: `OpenTrainer-<version>-mac-arm64.dmg`
+- **Mac with Intel**: `OpenTrainer-<version>-mac-x64.dmg`
+- **Windows**: `OpenTrainer-<version>-win-x64.exe`
+
+The installers are not signed yet, so the first launch needs one extra click: on macOS, **System Settings → Privacy & Security → Open Anyway**; on Windows, **More info → Run anyway** in SmartScreen. Your data stays on your computer. Install steps, Strava / Google Calendar setup, and pointing MCP at the app: **[desktop/README.md](desktop/README.md)**.
+
+### Run from source
 
 ```bash
 npm install --prefix web
@@ -41,7 +53,7 @@ Or run separately: `npm run dev:companion` and `npm run dev:web`.
 
 ## MCP
 
-MCP talks to the same JSON **Local Store** as the UI. It does **not** need the HTTP companion or Bluetooth.
+MCP talks to the same JSON **Local Store** as the UI. It does **not** need the HTTP companion or Bluetooth. Using the desktop app? Set `D100_DATA_DIR` to the app's data folder so MCP plans into it — see [desktop/README.md](desktop/README.md#ai-planning-with-mcp-optional).
 
 ```bash
 npm install --prefix companion
@@ -139,6 +151,7 @@ Manual FIT export works without Strava.
 | --- | --- |
 | [`web/`](web/) | Vite + React — Web Bluetooth FTMS UI |
 | [`companion/`](companion/) | Local Companion — JSON store, HTTP, MCP |
+| [`desktop/`](desktop/) | Desktop app (Electron) — UI + companion in one window, macOS / Windows installers |
 
 ## Docs
 

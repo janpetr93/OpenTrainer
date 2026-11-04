@@ -116,6 +116,10 @@ _Avoid_: Server, backend-as-product, cloud sync
 Versioned JSON files on disk (`workouts/`, `activities/`, later scheduled rides) owned by the **Local Companion**.
 _Avoid_: localStorage as source of truth, remote database
 
+**Desktop App**:
+The installable macOS / Windows app (Electron) that runs the **Local Companion** and the web UI in one window, with its **Local Store** in the OS user-data folder. Same UI and data shapes as the browser setup; MCP stays optional.
+_Avoid_: native app (the UI is still the web app), offline mode
+
 ### Plans & history (later slices)
 
 **Workout**:
@@ -324,6 +328,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Training Intent** | On **Rider Profile** / `profile.json`; UI Profile tab (read-only); MCP `set_training_intent` (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`, `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`) |
 | **Target Prescription** | Workout steps: watts / `%FTP` / zone; resolve at run via current FTP |
 | **Local Companion** / **Local Store** | `companion/` + `companion/data/` — [ADR 0001](docs/adr/0001-local-companion-json-store.md) |
+| **Desktop App** | `desktop/` — Electron main process serves `/api` + `web/dist` on `127.0.0.1:8787`, Bluetooth picker in `desktop/src/bluetooth.ts` ([decision](docs/decisions/2026-11-04-desktop-app-electron.md)) |
 
 ## Flagged ambiguities
 

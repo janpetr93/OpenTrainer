@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Choose a Bluetooth device</title>
+    <link rel="stylesheet" href="picker.css" />
+  </head>
+  <body>
+    <main id="devices-view" hidden>
+      <header>
+        <h1>Choose a Bluetooth device</h1>
+        <p class="hint">
+          Wake the trainer or sensor (pedal a few strokes) if it is not listed. Close Zwift and
+          other training apps first.
+        </p>
+      </header>
+      <p class="scanning" id="scanning" role="status">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="scanning-text">Looking for devices…</span>
+      </p>
+      <ul id="device-list" class="device-list" aria-label="Devices found"></ul>
+      <footer>
+        <button type="button" id="cancel" class="secondary">Cancel</button>
+      </footer>
+    </main>
+
+    <main id="pin-view" hidden>
+      <header>
+        <h1>Enter Bluetooth PIN</h1>
+        <p class="hint" id="pin-hint">The device asks for a PIN to pair.</p>
+      </header>
+      <form id="pin-form" class="pin-form">
+        <label for="pin">PIN</label>
+        <input id="pin" name="pin" inputmode="numeric" autocomplete="off" required />
+        <footer>
+          <button type="button" id="pin-cancel" class="secondary">Cancel</button>
+          <button type="submit" class="primary">Pair</button>
+        </footer>
+      </form>
+    </main>
+
+    <script src="picker.js"></script>
+  </body>
+</html>

@@ -1,0 +1,56 @@
+# electron-builder config for the OpenTrainer desktop app.
+# Build with `npm run dist:mac` / `npm run dist:win` (or `npm run pack` for an
+# unpacked app). Builds are unsigned for now: see desktop/README.md.
+appId: io.github.janpetr93.opentrainer
+productName: OpenTrainer
+copyright: Copyright © 2026 Jan Petr
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+directories:
+  output: release
+  buildResources: build
+
+# Everything the app runs is bundled into dist/ by scripts/bundle.mjs, so no
+# node_modules ship with it.
+files:
+  - dist/**/*
+  - "!dist/**/*.map"
+  - package.json
+
+publish: null
+
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  onlyLoadAppFromAsar: true
+
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  category: public.app-category.healthcare-fitness
+  icon: build/icon.png
+  # Ad-hoc signature only (no Apple Developer ID yet). Apple Silicon needs at
+  # least this to launch; Gatekeeper still asks once (see README).
+  identity: "-"
+  hardenedRuntime: false
+  extendInfo:
+    NSBluetoothAlwaysUsageDescription: OpenTrainer connects to your smart trainer, power meter, heart rate monitor, and cadence sensor over Bluetooth.
+    NSBluetoothPeripheralUsageDescription: OpenTrainer connects to your smart trainer, power meter, heart rate monitor, and cadence sensor over Bluetooth.
+
+dmg:
+  title: ${productName} ${version}
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.png
+
+nsis:
+  oneClick: true
+  perMachine: false
+  shortcutName: OpenTrainer
+  uninstallDisplayName: OpenTrainer
+  deleteAppDataOnUninstall: false

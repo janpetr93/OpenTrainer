@@ -18,3 +18,7 @@ companion/data/**
 !companion/data/activities/.gitkeep
 !companion/data/scheduled/
 !companion/data/scheduled/.gitkeep
+
+# Desktop app build output
+desktop/dist/
+desktop/release/
