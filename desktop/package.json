@@ -1,0 +1,32 @@
+{
+  "name": "open-trainer-desktop",
+  "productName": "OpenTrainer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenTrainer desktop app: the web UI and Local Companion in one window",
+  "author": "Jan Petr",
+  "license": "MIT",
+  "homepage": "https://github.com/janpetr93/OpenTrainer",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build:web": "npm run build --prefix ../web",
+    "bundle": "node scripts/bundle.mjs",
+    "build": "npm run build:web && npm run bundle",
+    "start": "npm run build && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac --arm64 --x64",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "electron": "45.2.1",
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2",
+    "typescript": "~6.0.3",
+    "vitest": "^3.2.7"
+  }
+}

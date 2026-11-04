@@ -10,6 +10,9 @@
     "mcp": "npm run --silent mcp --prefix companion",
     "test": "npm test --prefix web && npm test --prefix companion",
     "test:web": "npm test --prefix web",
-    "test:companion": "npm test --prefix companion"
+    "test:companion": "npm test --prefix companion",
+    "test:desktop": "npm test --prefix desktop",
+    "desktop": "npm start --prefix desktop",
+    "desktop:dist": "npm run dist --prefix desktop"
   }
 }

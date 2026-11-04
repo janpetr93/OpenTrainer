@@ -17,14 +17,14 @@ import {
 } from './api'
 import { formatMmpDuration } from './mmp/formatDuration'
 import { MmpChart } from './mmp/MmpChart'
+import { takeOAuthSearch } from './oauthResult'
 import { PageHeader } from './PageHeader'
 
 type Props = {
   onProfileChange?: (profile: RiderProfile) => void
 }
 
-function readStravaQueryMessage(): string | null {
-  const params = new URLSearchParams(window.location.search)
+function readStravaQueryMessage(params: URLSearchParams): string | null {
   const flag = params.get('strava')
   if (!flag) return null
   if (flag === 'linked') return 'Strava Link connected.'
@@ -42,8 +42,7 @@ function clearStravaQuery(): void {
   window.history.replaceState({}, '', url.pathname + url.search + url.hash)
 }
 
-function readCalendarQueryMessage(): string | null {
-  const params = new URLSearchParams(window.location.search)
+function readCalendarQueryMessage(params: URLSearchParams): string | null {
   const flag = params.get('googleCalendar')
   if (!flag) return null
   if (flag === 'linked') return 'Google Calendar connected.'
@@ -70,11 +69,14 @@ export function ProfilePanel({ onProfileChange }: Props) {
   const [calendarMirror, setCalendarMirror] =
     useState<CalendarMirrorStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [oauthParams] = useState(
+    () => new URLSearchParams(takeOAuthSearch(window.location.search, sessionStorage)),
+  )
   const [stravaMessage, setStravaMessage] = useState<string | null>(() =>
-    readStravaQueryMessage(),
+    readStravaQueryMessage(oauthParams),
   )
   const [calendarMessage, setCalendarMessage] = useState<string | null>(() =>
-    readCalendarQueryMessage(),
+    readCalendarQueryMessage(oauthParams),
   )
   const [busy, setBusy] = useState(false)
 
