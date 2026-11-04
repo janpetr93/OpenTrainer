@@ -15,6 +15,19 @@ export function getDevicesAvailable(): boolean {
   )
 }
 
+/**
+ * True inside the Electron desktop app (its default user agent carries
+ * `Electron/<version>`). Electron keeps no Web Bluetooth permissions between
+ * launches and has no chrome://flags, so the flag hint does not apply there.
+ */
+export function isDesktopShell(
+  userAgent: string = typeof navigator !== 'undefined'
+    ? navigator.userAgent
+    : '',
+): boolean {
+  return /\bElectron\//.test(userAgent)
+}
+
 export type PersistenceHintRole = {
   remembered: boolean
   /** A Known Device from getDevices() is this role's remembered device. */
@@ -24,16 +37,19 @@ export type PersistenceHintRole = {
 /**
  * Show the flag hint when the rider has paired before (something is
  * remembered) but Chrome handed none of it back: either getDevices() is
- * missing, or it returned none of the remembered devices.
+ * missing, or it returned none of the remembered devices. Never in the
+ * desktop app, where no flag helps.
  */
 export function shouldShowPersistenceHint(input: {
   webBluetoothSupported: boolean
   getDevicesAvailable: boolean
   knownDevicesChecked: boolean
   dismissed: boolean
+  desktopShell: boolean
   roles: PersistenceHintRole[]
 }): boolean {
   if (!input.webBluetoothSupported || input.dismissed) return false
+  if (input.desktopShell) return false
   const remembered = input.roles.filter((r) => r.remembered)
   if (remembered.length === 0) return false
   if (!input.getDevicesAvailable) return true

@@ -180,7 +180,7 @@ export function ConnectorRole({
         </ul>
       ) : action.kind === 'repair' ? (
         <p className="muted known-devices-empty">
-          Chrome no longer lists it as a known device. Re-pair opens the chooser
+          Not a known device since the last restart. Re-pair opens the chooser
           with only {rememberedDevice?.name} in it.
         </p>
       ) : (

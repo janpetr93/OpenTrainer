@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { findRememberedDevice } from './ble/pickKnownDevice'
 import {
   getDevicesAvailable,
+  isDesktopShell,
   loadPersistenceHintDismissed,
   savePersistenceHintDismissed,
   shouldShowPersistenceHint,
@@ -76,6 +77,7 @@ export function DevicesPanel({
     getDevicesAvailable: getDevicesAvailable(),
     knownDevicesChecked: links.every((link) => link.knownDevicesChecked),
     dismissed: hintDismissed,
+    desktopShell: isDesktopShell(),
     roles: links.map((link) => ({
       remembered: link.rememberedDevice !== null,
       knownMatchesRemembered:
@@ -102,7 +104,7 @@ export function DevicesPanel({
                 : `${linkedCount} linked`}
           </p>
         }
-        blurb="Known devices are ones Chrome still permits for this app; Connect reconnects them without the chooser. The app also remembers your last device per role, so if Chrome has forgotten it, Re-pair opens the chooser with only that device."
+        blurb="Known devices are ones the browser still permits for this app; Connect reconnects them without the chooser. The app also remembers your last device per role, so when that permission is gone after a restart, Re-pair opens the chooser with only that device."
       />
 
       {showPersistenceHint && (

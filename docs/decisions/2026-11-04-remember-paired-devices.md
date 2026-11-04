@@ -29,15 +29,18 @@ Two smaller gaps were in our own code:
 - **Re-pair**: when a role has no Known Device but a Remembered Device with a name, its Connect button becomes "Re-pair <name>". It opens the Device Picker with `filters: [{ name }]` and the role service in `optionalServices`, so the chooser lists only that device. The service is not in the filter because the D100 often leaves FTMS out of its advertisement ([device discovery](2026-10-09-device-discovery-ftms-uuid.md)). **Find New Device** stays unfiltered for switching devices.
 - **Connect All Known** stays an explicit button. It still connects only Known Devices. Its summary names the roles to Re-pair, for example "Re-pair trainer (D100 0421) / heart rate (Polar H10 7A1B)". It does not open choosers itself, because each `requestDevice()` needs its own click.
 - **Auto-connect on load stays rejected** ([friendlier connectors](2026-10-09-friendlier-connectors-known-devices.md)). The reason still holds: it can take the trainer from Zwift or MyWhoosh without a click. With the flag on, Connect all known is one click.
-- **Persistence hint**: a one-time, dismissible banner on the **Devices** tab. It shows when something is remembered but Chrome returned none of it, either because getDevices() is missing or because it matched no remembered device. It names the flag, offers to copy its address, and says to relaunch and Re-pair once. Dismissal is stored under `openTrainer.bluetoothPersistenceHintDismissed.v1`. Once Chrome ships persistent permissions, getDevices() will return the remembered devices and the hint will stop appearing on its own.
+- **Persistence hint**: a one-time, dismissible banner on the **Devices** tab. It shows when something is remembered but Chrome returned none of it, either because getDevices() is missing or because it matched no remembered device. It never shows in the desktop app (user agent contains `Electron/`), which has no chrome://flags and keeps no Web Bluetooth permissions between launches. It names the flag, offers to copy its address, and says to relaunch and Re-pair once. Dismissal is stored under `openTrainer.bluetoothPersistenceHintDismissed.v1`. Once Chrome ships persistent permissions, getDevices() will return the remembered devices and the hint will stop appearing on its own.
 - The Ride tab shows the remembered name in the sensor pills' tooltip and in "Connect your trainer (<name>) on Devices". It does not get connectors.
 
-## Contract for a desktop shell
+## Desktop app (Electron)
 
-A shell that answers `select-bluetooth-device` (Electron) can auto-pick without new renderer code:
+The desktop app leaves getDevices() off, because Electron keeps no Web Bluetooth permissions ([desktop app](2026-11-04-desktop-app-electron.md)). Its Known Devices list is always empty, so Connect is always "Re-pair <name>" there. The main-process picker window then lists only the remembered device, and one click connects it. The window loads from the fixed origin `http://127.0.0.1:8787`, so the Remembered Device survives app restarts in Electron's profile.
+
+A shell that answers `select-bluetooth-device` can go further:
 
 - A Re-pair request filters on the exact remembered name, so the device list should hold only that device. Pick it when there is exactly one entry.
 - Or read `openTrainer.rememberedDevices.v1` from the renderer's localStorage and match on `name`. The shell's `deviceId` is the platform id, not the Web Bluetooth `BluetoothDevice.id` stored here, so match on the name.
+- Connecting with no click at all needs the renderer to tell the shell when a request is a Re-pair. Otherwise, auto-picking the remembered name would also fire on Find new… and block switching devices. That signal needs a preload on the main window, which the desktop app does not have yet. It is left for a follow-up.
 
 ## Alternatives considered
 

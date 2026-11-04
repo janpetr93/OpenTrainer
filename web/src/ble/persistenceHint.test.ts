@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   PERSISTENCE_HINT_DISMISSED_KEY,
+  isDesktopShell,
   loadPersistenceHintDismissed,
   savePersistenceHintDismissed,
   shouldShowPersistenceHint,
@@ -11,6 +12,7 @@ const base = {
   getDevicesAvailable: true,
   knownDevicesChecked: true,
   dismissed: false,
+  desktopShell: false,
 }
 
 describe('shouldShowPersistenceHint', () => {
@@ -79,6 +81,17 @@ describe('shouldShowPersistenceHint', () => {
     ).toBe(false)
   })
 
+  it('stays hidden in the desktop app, where no Chrome flag can keep permissions', () => {
+    expect(
+      shouldShowPersistenceHint({
+        ...base,
+        desktopShell: true,
+        getDevicesAvailable: false,
+        roles: [{ remembered: true, knownMatchesRemembered: false }],
+      }),
+    ).toBe(false)
+  })
+
   it('stays hidden without Web Bluetooth (the unavailable banner covers it)', () => {
     expect(
       shouldShowPersistenceHint({
@@ -115,5 +128,28 @@ describe('persistence hint dismissal', () => {
     expect(loadPersistenceHintDismissed(storage)).toBe(false)
     expect(() => savePersistenceHintDismissed(storage)).not.toThrow()
     expect(loadPersistenceHintDismissed(null)).toBe(false)
+  })
+})
+
+describe('isDesktopShell', () => {
+  it('recognises the Electron desktop app by its user agent', () => {
+    expect(
+      isDesktopShell(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) OpenTrainer/0.1.0 Chrome/138.0.7204.35 Electron/37.2.0 Safari/537.36',
+      ),
+    ).toBe(true)
+  })
+
+  it('treats Chrome and Edge as browsers', () => {
+    expect(
+      isDesktopShell(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36',
+      ),
+    ).toBe(false)
+    expect(
+      isDesktopShell(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0',
+      ),
+    ).toBe(false)
   })
 })
