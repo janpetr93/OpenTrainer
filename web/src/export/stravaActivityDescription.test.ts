@@ -44,6 +44,40 @@ describe('stravaActivityDescription', () => {
     )
   })
 
+  it('notes the Ride Intensity under the planned steps', () => {
+    const activity = {
+      sessionLoad: load,
+      sessionAdherence: {
+        completionRatio: 1,
+        targetAdherence: 0.95,
+        intensityPercent: 80,
+      },
+      plannedPowerProfile: [
+        { tSec: 0, watts: 280 },
+        { tSec: 600, watts: 280 },
+      ],
+    }
+    expect(stravaActivityDescription(activity)).toBe(
+      'NP 245 · IF 0.89 · TSS 78\n\n10m - 280W\nRidden at 80% of plan',
+    )
+  })
+
+  it('says nothing about intensity at 100%', () => {
+    const activity = {
+      sessionLoad: null,
+      sessionAdherence: {
+        completionRatio: 1,
+        targetAdherence: 0.95,
+        intensityPercent: 100,
+      },
+      plannedPowerProfile: [
+        { tSec: 0, watts: 280 },
+        { tSec: 600, watts: 280 },
+      ],
+    }
+    expect(stravaActivityDescription(activity)).toBe('10m - 280W')
+  })
+
   it('formats sub-minute and mixed durations', () => {
     expect(
       stravaActivityDescription({

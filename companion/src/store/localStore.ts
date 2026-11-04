@@ -447,6 +447,7 @@ export class LocalStore {
       maxPowerWatts: input.maxPowerWatts,
       achievedPowerProfile: input.achievedPowerProfile,
       plannedPowerProfile: input.plannedPowerProfile,
+      targetPowerProfile: input.targetPowerProfile ?? null,
       workoutId: input.workoutId,
       scheduledRideId,
       purpose: normalizePurpose(input.purpose),
@@ -457,6 +458,7 @@ export class LocalStore {
       sessionAdherence: computeSessionAdherence(
         input.achievedPowerProfile,
         input.plannedPowerProfile,
+        input.targetPowerProfile ?? null,
       ),
       averageAlignmentDeltaWatts: computeAverageAlignmentDeltaWatts(
         input.achievedPowerProfile,
@@ -532,6 +534,7 @@ export class LocalStore {
         : computeSessionAdherence(
             base.achievedPowerProfile,
             base.plannedPowerProfile,
+            base.targetPowerProfile ?? null,
           ),
       averageAlignmentDeltaWatts: hasAlignment
         ? (raw.averageAlignmentDeltaWatts ?? null)

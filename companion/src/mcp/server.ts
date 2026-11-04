@@ -352,7 +352,7 @@ async function main(): Promise<void> {
     'get_training_summary',
     {
       description:
-        'Planning read of recent Activities without 1 Hz Power Profiles. Each ride has kind (easy/moderate/hard from the planned Workout, or from Z4–Z7 time on a Free Ride), Session Load, adherence, and compact Workout steps. rollup has tssSum, easySec (zones 1+2), moderateSec (zone 3), thresholdSec (zone 4), aboveSec (zones 5–7), hardSessionCount, missedCount, and lastHard.work (plannedWatts and averageWatts of the main hard efforts). When averageWatts is at or above plannedWatts, add a repeat or minutes at the same percent. When it is lower, keep the percent and do not add a repeat. Do not lower the percent because targetAdherence is low. Use this instead of list_activities when planning or reviewing a week.',
+        'Planning read of recent Activities without 1 Hz Power Profiles. Each ride has kind (easy/moderate/hard from the planned Workout, or from Z4–Z7 time on a Free Ride), Session Load, adherence, and compact Workout steps. rollup has tssSum, easySec (zones 1+2), moderateSec (zone 3), thresholdSec (zone 4), aboveSec (zones 5–7), hardSessionCount, missedCount, and lastHard.work (plannedWatts and averageWatts of the main hard efforts). When averageWatts is at or above plannedWatts, add a repeat or minutes at the same percent. When it is lower, keep the percent and do not add a repeat. Do not lower the percent because targetAdherence is low. adherence.intensityPercent appears when the rider changed Ride Intensity mid-ride (80 = asked for 80% of the planned watts); targetAdherence is then scored against those lower targets, and lastHard.work still compares with the original plan. Use this instead of list_activities when planning or reviewing a week.',
       inputSchema: {
         pastDays: z.number().nonnegative().default(14),
         since: z.string().optional().describe('ISO lower bound'),
@@ -403,7 +403,7 @@ async function main(): Promise<void> {
     'list_activities',
     {
       description:
-        'List Activity records including 1 Hz Power Profiles. Prefer get_training_summary for week planning. Includes Session Load (NP/IF/TSS + time-in-zone when FTP known), Session Adherence, optional Session Purpose, and optional per-sample hrBpm / cadenceRpm / meterWatts.',
+        'List Activity records including 1 Hz Power Profiles. Prefer get_training_summary for week planning. Includes Session Load (NP/IF/TSS + time-in-zone when FTP known), Session Adherence (with intensityPercent when the rider changed Ride Intensity), optional targetPowerProfile (targets the rider actually asked for), optional Session Purpose, and optional per-sample hrBpm / cadenceRpm / meterWatts.',
       inputSchema: {
         pastDays: z.number().nonnegative().default(14),
         since: z.string().optional(),

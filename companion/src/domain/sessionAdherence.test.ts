@@ -68,4 +68,52 @@ describe('computeSessionAdherence', () => {
       targetAdherence: 1,
     })
   })
+
+  it('scores against the ridden targets when the rider changed Ride Intensity', () => {
+    // Planned 280 W, rider dialled to 80% and held 224 W in ERG.
+    const a = computeSessionAdherence(
+      profile(224, 100),
+      profile(280, 100),
+      profile(224, 100),
+    )
+    expect(a).toEqual({
+      completionRatio: 1,
+      targetAdherence: 1,
+      intensityPercent: 80,
+    })
+  })
+
+  it('weights intensity by planned watts over the seconds ridden', () => {
+    const planned: PowerProfilePoint[] = [
+      { tSec: 0, watts: 140 },
+      { tSec: 60, watts: 140 },
+      { tSec: 60, watts: 280 },
+      { tSec: 120, watts: 280 },
+    ]
+    const target: PowerProfilePoint[] = [
+      { tSec: 0, watts: 140 },
+      { tSec: 60, watts: 140 },
+      { tSec: 60, watts: 224 },
+      { tSec: 120, watts: 224 },
+    ]
+    // (60×140 + 60×224) / (60×140 + 60×280) = 21840 / 25200
+    const full = computeSessionAdherence(profile(200, 120), planned, target)
+    expect(full!.intensityPercent).toBe(87)
+
+    // Stopped before the dialled-down step: everything ridden was at 100%.
+    const early = computeSessionAdherence(profile(140, 60), planned, target)
+    expect(early!.intensityPercent).toBe(100)
+    expect(early!.completionRatio).toBe(0.496)
+  })
+
+  it('omits intensity when there is no target profile', () => {
+    const a = computeSessionAdherence(profile(200, 60), profile(200, 60), null)
+    expect(a).not.toHaveProperty('intensityPercent')
+  })
+
+  it('stays null for a Free Ride with targets but no plan', () => {
+    expect(
+      computeSessionAdherence(profile(150, 60), null, profile(150, 60)),
+    ).toBeNull()
+  })
 })

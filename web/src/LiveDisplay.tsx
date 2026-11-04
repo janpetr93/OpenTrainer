@@ -7,12 +7,17 @@ import type { CadenceSnapshot } from './csc'
 import type { PowerSourceMode } from './domain/powerSourceMode'
 import { workoutNeedsFtp } from './domain/resolveTarget'
 import {
+  DEFAULT_INTENSITY_PERCENT,
+  type RideKeyAction,
+} from './domain/rideIntensity'
+import {
   buildRideChartSeries,
   splitRideChartSeries,
 } from './chart/metricSeries'
 import type { TrainerSnapshot } from './ftms'
 import type { HeartRateSnapshot } from './hrm'
 import { PowerProfileLine } from './PowerProfileLine'
+import { RideIntensityControl } from './RideIntensityControl'
 import { SessionModule } from './SessionModule'
 import {
   chartFromScheduledWorkout,
@@ -40,6 +45,8 @@ type Props = {
   selectedScheduledRideId: string | null
   runner: RunnerSnapshot
   plannedProfile: PowerProfilePoint[]
+  /** Ridden targets: plan after Ride Intensity, or Free Ride targets. */
+  targetProfile: PowerProfilePoint[] | null
   achievedProfile: PowerProfilePoint[]
   saveMessage: string | null
   ftpWatts: number | null
@@ -54,6 +61,8 @@ type Props = {
   onResume: () => void
   onSkip: () => void
   onStop: () => void
+  /** Ride Intensity (Workout) or Free Ride ERG target change. */
+  onRideAdjust: (action: RideKeyAction) => void
 }
 
 function devicePowerLabel(
@@ -79,6 +88,30 @@ function livePowerHint(
   }
 }
 
+/** `224 W` plus `of 280 W` when Ride Intensity moved the target off plan. */
+function TargetTile({ runner }: { runner: RunnerSnapshot }) {
+  const scaled =
+    runner.intensityPercent !== DEFAULT_INTENSITY_PERCENT &&
+    runner.stepPlannedWatts !== null
+  return (
+    <div
+      className="live-metric-tile"
+      data-intensity={scaled ? 'changed' : undefined}
+    >
+      <span className="live-metric-label">Target</span>
+      <span className="live-metric-value">
+        {runner.stepTargetWatts === null ? '—' : runner.stepTargetWatts}
+      </span>
+      <span className="live-metric-unit">W</span>
+      {scaled && (
+        <span className="live-metric-original">
+          of {runner.stepPlannedWatts} W · {runner.intensityPercent}%
+        </span>
+      )}
+    </div>
+  )
+}
+
 function formatClock(sec: number): string {
   const m = Math.floor(sec / 60)
   const s = sec % 60
@@ -98,6 +131,7 @@ export function LiveDisplay({
   selectedScheduledRideId,
   runner,
   plannedProfile,
+  targetProfile,
   achievedProfile,
   saveMessage,
   ftpWatts,
@@ -108,6 +142,7 @@ export function LiveDisplay({
   onResume,
   onSkip,
   onStop,
+  onRideAdjust,
 }: Props) {
   const connected = snapshot.connectionState === 'connected'
   const meterConnected = meter.connectionState === 'connected'
@@ -170,6 +205,7 @@ export function LiveDisplay({
     cadenceConnected
   const rideSeries = buildRideChartSeries({
     planned: plannedProfile,
+    target: targetProfile,
     achieved: achievedProfile,
   })
   const { power: powerSeries, body: bodySeries } =
@@ -392,17 +428,14 @@ export function LiveDisplay({
 
             <div className="live-metric-rail live-metric-rail-session">
               {inWorkout &&
+                (isFreeRide || runner.stepCount === 0) &&
+                runner.stepTargetWatts !== null && (
+                  <TargetTile runner={runner} />
+                )}
+              {inWorkout &&
                 !(isFreeRide || runner.stepCount === 0) && (
                   <>
-                    <div className="live-metric-tile">
-                      <span className="live-metric-label">Target</span>
-                      <span className="live-metric-value">
-                        {runner.stepTargetWatts === null
-                          ? '—'
-                          : runner.stepTargetWatts}
-                      </span>
-                      <span className="live-metric-unit">W</span>
-                    </div>
+                    <TargetTile runner={runner} />
                     <div className="live-metric-tile">
                       <span className="live-metric-label">Left</span>
                       <span className="live-metric-value">
@@ -518,6 +551,14 @@ export function LiveDisplay({
                             ? '—'
                             : `${runner.stepTargetWatts} W`}
                         </strong>
+                        {runner.intensityPercent !== DEFAULT_INTENSITY_PERCENT &&
+                          runner.stepPlannedWatts !== null && (
+                            <span className="muted">
+                              {' '}
+                              of {runner.stepPlannedWatts} W ·{' '}
+                              {runner.intensityPercent}%
+                            </span>
+                          )}
                       </span>
                       <span>
                         Left{' '}
@@ -548,6 +589,25 @@ export function LiveDisplay({
           </>
         )}
       </section>
+
+      {riding &&
+        (isFreeRide || runner.stepCount === 0 ? (
+          <RideIntensityControl
+            mode="freeRide"
+            targetWatts={runner.stepTargetWatts}
+            ftpWatts={ftpWatts}
+            ergAvailable={snapshot.ergControlAvailable}
+            onNudge={(delta) => onRideAdjust({ kind: 'nudge', delta })}
+          />
+        ) : (
+          <RideIntensityControl
+            mode="workout"
+            intensityPercent={runner.intensityPercent}
+            ergAvailable={snapshot.ergControlAvailable}
+            onNudge={(delta) => onRideAdjust({ kind: 'nudge', delta })}
+            onReset={() => onRideAdjust({ kind: 'reset' })}
+          />
+        ))}
 
       {riding && (
         <div className="actions ride-controls">

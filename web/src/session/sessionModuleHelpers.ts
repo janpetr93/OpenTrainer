@@ -97,6 +97,10 @@ export function activityMeta(activity: Activity): SessionMeta {
       label: 'On-target',
       value: `${Math.round(adherence.targetAdherence * 100)}%`,
     })
+    const intensity = adherence.intensityPercent
+    if (intensity !== undefined && intensity !== null && intensity !== 100) {
+      metrics.push({ label: 'Intensity', value: `${intensity}%` })
+    }
   }
   return {
     when: formatCompactDateTime(activity.startedAt),
@@ -226,19 +230,24 @@ export function chartFromActivity(activity: Activity): SessionChartModel {
     activity.plannedPowerProfile && activity.plannedPowerProfile.length >= 2
       ? activity.plannedPowerProfile
       : null
+  const target =
+    activity.targetPowerProfile && activity.targetPowerProfile.length >= 2
+      ? activity.targetPowerProfile
+      : null
   const achieved =
     activity.achievedPowerProfile.length >= 2
       ? activity.achievedPowerProfile
       : null
   const series: PowerProfileSeries[] = [
     ...(planned ? [{ points: planned, tone: 'planned' as const }] : []),
+    ...(target ? [{ points: target, tone: 'target' as const }] : []),
     ...(achieved ? [{ points: achieved, tone: 'achieved' as const }] : []),
   ]
   return {
     plannedPoints: planned,
     achievedPoints: achieved,
     needsFtpToPreview: false,
-    showLegend: Boolean(planned && achieved),
+    showLegend: Boolean((planned || target) && achieved),
     series,
   }
 }

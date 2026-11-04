@@ -168,3 +168,155 @@ describe('WorkoutRunner', () => {
     expect(snap.stepTargetWatts).toBe(200)
   })
 })
+
+describe('WorkoutRunner Ride Intensity', () => {
+  it('starts at 100% with the planned target', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    const snap = runner.getSnapshot()
+    expect(snap.intensityPercent).toBe(100)
+    expect(snap.stepPlannedWatts).toBe(100)
+    expect(snap.stepTargetWatts).toBe(100)
+    expect(runner.getTargetPowerProfile()).toBeNull()
+  })
+
+  it('scales the current step at once and flags a new ERG target', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.tick(6000)
+    runner.clearTargetChanged()
+    runner.setIntensity(80, 7000)
+    const snap = runner.getSnapshot()
+    expect(snap.intensityPercent).toBe(80)
+    expect(snap.stepPlannedWatts).toBe(200)
+    expect(snap.stepTargetWatts).toBe(160)
+    expect(snap.targetChanged).toBe(true)
+  })
+
+  it('keeps the intensity for later steps', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.setIntensity(90, 1000)
+    runner.tick(16_000)
+    const snap = runner.getSnapshot()
+    expect(snap.stepIndex).toBe(2)
+    expect(snap.stepPlannedWatts).toBe(80)
+    expect(snap.stepTargetWatts).toBe(72)
+  })
+
+  it('clamps to 50–150% and does not flag an unchanged value', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.setIntensity(20, 0)
+    expect(runner.getSnapshot().intensityPercent).toBe(50)
+    runner.clearTargetChanged()
+    runner.setIntensity(40, 0)
+    expect(runner.getSnapshot().targetChanged).toBe(false)
+    runner.setIntensity(400, 0)
+    expect(runner.getSnapshot().intensityPercent).toBe(150)
+  })
+
+  it('records the targets actually asked for on the plan timeline', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.tick(7500)
+    runner.setIntensity(80, 7500)
+    expect(runner.getTargetPowerProfile()).toEqual([
+      { tSec: 0, watts: 100 },
+      { tSec: 5, watts: 100 },
+      { tSec: 5, watts: 200 },
+      { tSec: 7, watts: 200 },
+      { tSec: 7, watts: 160 },
+      { tSec: 15, watts: 160 },
+      { tSec: 15, watts: 64 },
+      { tSec: 20, watts: 64 },
+    ])
+  })
+
+  it('reports no target profile after returning to 100% at the same second', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.setIntensity(80, 0)
+    runner.setIntensity(100, 0)
+    expect(runner.getTargetPowerProfile()).toBeNull()
+  })
+
+  it('shows the scaled target once the Workout is stopped', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.setIntensity(80, 1000)
+    runner.stop(2000)
+    expect(runner.getSnapshot().stepTargetWatts).toBe(80)
+    expect(runner.getSnapshot().stepPlannedWatts).toBe(100)
+  })
+
+  it('resets to 100% on the next start', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.setIntensity(80, 1000)
+    runner.stop(2000)
+    runner.start(sampleWorkout, 3000)
+    expect(runner.getSnapshot().intensityPercent).toBe(100)
+    expect(runner.getTargetPowerProfile()).toBeNull()
+  })
+
+  it('ignores intensity while idle or in a Free Ride', () => {
+    const runner = new WorkoutRunner()
+    runner.setIntensity(80, 0)
+    expect(runner.getSnapshot().intensityPercent).toBe(100)
+    runner.startFreeRide(0)
+    runner.setIntensity(80, 0)
+    expect(runner.getSnapshot().intensityPercent).toBe(100)
+    expect(runner.getSnapshot().stepTargetWatts).toBeNull()
+  })
+})
+
+describe('WorkoutRunner Free Ride targets', () => {
+  it('has no target until the rider sets one', () => {
+    const runner = new WorkoutRunner()
+    runner.startFreeRide(0)
+    expect(runner.getSnapshot().stepTargetWatts).toBeNull()
+    expect(runner.getSnapshot().targetChanged).toBe(false)
+    expect(runner.getTargetPowerProfile()).toBeNull()
+  })
+
+  it('sets and changes the ERG target', () => {
+    const runner = new WorkoutRunner()
+    runner.startFreeRide(0)
+    runner.tick(30_000)
+    runner.setFreeRideTarget(150, 30_000)
+    let snap = runner.getSnapshot()
+    expect(snap.stepTargetWatts).toBe(150)
+    expect(snap.stepPlannedWatts).toBeNull()
+    expect(snap.targetChanged).toBe(true)
+
+    runner.clearTargetChanged()
+    runner.tick(90_000)
+    runner.setFreeRideTarget(175, 90_000)
+    runner.tick(120_000)
+    snap = runner.getSnapshot()
+    expect(snap.stepTargetWatts).toBe(175)
+    expect(runner.getTargetPowerProfile()).toEqual([
+      { tSec: 30, watts: 150 },
+      { tSec: 90, watts: 150 },
+      { tSec: 90, watts: 175 },
+      { tSec: 120, watts: 175 },
+    ])
+  })
+
+  it('clamps the target to 30–1500 W', () => {
+    const runner = new WorkoutRunner()
+    runner.startFreeRide(0)
+    runner.setFreeRideTarget(5, 0)
+    expect(runner.getSnapshot().stepTargetWatts).toBe(30)
+    runner.setFreeRideTarget(5000, 0)
+    expect(runner.getSnapshot().stepTargetWatts).toBe(1500)
+  })
+
+  it('ignores Free Ride targets during a Workout', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.setFreeRideTarget(300, 0)
+    expect(runner.getSnapshot().stepTargetWatts).toBe(100)
+  })
+})

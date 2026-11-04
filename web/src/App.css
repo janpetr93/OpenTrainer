@@ -762,6 +762,12 @@ button.export-fit {
   stroke: var(--accent);
 }
 
+/* Ridden targets (Ride Intensity / Free Ride): solid step line over the plan. */
+.power-profile-line .profile-series-target {
+  stroke: var(--ok);
+  opacity: 0.9;
+}
+
 .power-profile-line .profile-series-meter {
   stroke: #b8923f;
   opacity: 0.85;
@@ -1101,6 +1107,7 @@ button.export-fit {
 }
 
 .legend-planned::before,
+.legend-target::before,
 .legend-achieved::before,
 .legend-meter::before,
 .legend-heartRate::before,
@@ -1142,6 +1149,10 @@ button.export-fit {
 
 .legend-achieved::before {
   background: var(--accent);
+}
+
+.legend-target::before {
+  background: var(--ok);
 }
 
 .legend-meter::before {
@@ -1470,6 +1481,75 @@ button.linkish:hover {
 
 .ride-controls {
   width: 100%;
+}
+
+/* Ride Intensity (Workout %) / Free Ride ERG target (W) while riding. */
+.ride-intensity {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+}
+
+.ride-intensity-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.ride-intensity-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-right: 0.2rem;
+}
+
+button.ride-intensity-step {
+  min-width: 3.6rem;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.ride-intensity-value {
+  display: grid;
+  justify-items: center;
+  min-width: 7.5rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ride-intensity-value strong {
+  font-family: var(--font-mono);
+  font-size: 1.45rem;
+  color: var(--metric);
+}
+
+.ride-intensity[data-changed='true'] .ride-intensity-value strong {
+  color: var(--warn-text);
+}
+
+.ride-intensity-value .muted {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.ride-intensity-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.live-metric-original {
+  flex-basis: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--warn-text);
 }
 
 .ride-controls button {

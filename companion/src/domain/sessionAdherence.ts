@@ -4,8 +4,17 @@ import type { PowerProfilePoint } from './types.js'
 export type SessionAdherence = {
   /** Achieved duration / planned duration, capped at 1. */
   completionRatio: number
-  /** Fraction of overlapping seconds within the target band. */
+  /**
+   * Fraction of overlapping seconds within the target band, scored against
+   * the ridden targets when the rider changed Ride Intensity.
+   */
   targetAdherence: number
+  /**
+   * Σ ridden target ÷ Σ planned watts over the seconds ridden, as a whole
+   * percent. Present only when the rider changed Ride Intensity; absent
+   * means the plan ran at 100%.
+   */
+  intensityPercent?: number
 }
 
 /** On-target when |Δ| ≤ max(15% × planned, 20W). */
@@ -52,6 +61,7 @@ export function expandStepHoldWattSeries(
 export function computeSessionAdherence(
   achievedPowerProfile: PowerProfilePoint[],
   plannedPowerProfile: PowerProfilePoint[] | null,
+  targetPowerProfile: PowerProfilePoint[] | null = null,
 ): SessionAdherence | null {
   if (!plannedPowerProfile || plannedPowerProfile.length === 0) {
     return null
@@ -62,19 +72,46 @@ export function computeSessionAdherence(
   if (planned.length === 0) return null
 
   const completionRatio = Math.min(1, achieved.length / planned.length)
+  const ridden =
+    targetPowerProfile && targetPowerProfile.length > 0
+      ? expandStepHoldWattSeries(targetPowerProfile)
+      : null
+  const target = ridden && ridden.length > 0 ? ridden : planned
 
-  const overlap = Math.min(planned.length, achieved.length)
-  if (overlap === 0) {
-    return { completionRatio, targetAdherence: 0 }
-  }
-
+  const overlap = Math.min(target.length, achieved.length)
   let onTarget = 0
   for (let i = 0; i < overlap; i++) {
-    if (isWithinTargetBand(achieved[i]!, planned[i]!)) onTarget += 1
+    if (isWithinTargetBand(achieved[i]!, target[i]!)) onTarget += 1
   }
 
-  return {
+  const adherence: SessionAdherence = {
     completionRatio: Math.round(completionRatio * 1000) / 1000,
-    targetAdherence: Math.round((onTarget / overlap) * 1000) / 1000,
+    targetAdherence:
+      overlap === 0 ? 0 : Math.round((onTarget / overlap) * 1000) / 1000,
   }
+  if (target !== planned) {
+    adherence.intensityPercent = rideIntensityPercent(
+      planned,
+      target,
+      achieved.length,
+    )
+  }
+  return adherence
+}
+
+/** Watts-weighted share of the plan the rider asked for while riding. */
+function rideIntensityPercent(
+  planned: number[],
+  target: number[],
+  riddenSec: number,
+): number {
+  const n = Math.min(planned.length, target.length, riddenSec)
+  let plannedSum = 0
+  let targetSum = 0
+  for (let i = 0; i < n; i++) {
+    plannedSum += planned[i]!
+    targetSum += target[i]!
+  }
+  if (plannedSum <= 0) return 100
+  return Math.round((targetSum / plannedSum) * 100)
 }

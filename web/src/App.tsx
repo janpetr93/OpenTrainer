@@ -25,6 +25,14 @@ import {
   type PowerSourceMode,
 } from './domain/powerSourceMode'
 import { workoutNeedsFtp } from './domain/resolveTarget'
+import {
+  DEFAULT_INTENSITY_PERCENT,
+  freeRideSeedWatts,
+  nudgeFreeRideTarget,
+  nudgeIntensityPercent,
+  rideKeyAction,
+  type RideKeyAction,
+} from './domain/rideIntensity'
 import { samplePowerMetrics } from './domain/samplePowerMetrics'
 import {
   AlignmentDeltaAverager,
@@ -49,6 +57,14 @@ import {
 } from './workout/workoutRunner'
 import './App.css'
 
+/** Ride keys must not steal typing in a field (e.g. a future search box). */
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  const tag = target.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+}
+
 function withResolvedPlan(workout: Workout, ftpWatts: number | null): Workout {
   return {
     ...workout,
@@ -70,6 +86,8 @@ function App() {
   /** ERG Calibration EMA must run once per elapsed second, not every 250ms tick. */
   const lastErgAdaptSecRef = useRef(-1)
   const ergAdaptMemoryRef = useRef<ErgAdaptMemory>({ previous: null })
+  /** One FTMS write at a time; a changed target waits for the next tick. */
+  const ergPushInFlightRef = useRef(false)
 
   const [snapshot, setSnapshot] = useState<TrainerSnapshot>(() =>
     connection.getSnapshot(),
@@ -111,6 +129,10 @@ function App() {
     [],
   )
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null)
+  /** Ridden targets (plan after Ride Intensity, or Free Ride targets). */
+  const [targetProfile, setTargetProfile] = useState<
+    PowerProfilePoint[] | null
+  >(null)
   const [profile, setProfile] = useState<RiderProfile | null>(null)
   const startedAtRef = useRef<string | null>(null)
   const savingRef = useRef(false)
@@ -137,6 +159,8 @@ function App() {
         }
         return
       }
+      // Leave targetChanged set so the next tick sends the latest target.
+      if (ergPushInFlightRef.current) return
       const sec = Math.floor(snap.elapsedSec)
       if (!force && !snap.targetChanged && sec === lastErgPushSecRef.current) {
         return
@@ -147,20 +171,26 @@ function App() {
         setRunnerSnap(runner.getSnapshot())
       }
 
-      const mode = powerSourceModeRef.current
-      if (mode === 'trainer') {
-        await connection.setTargetPower(snap.stepTargetWatts)
-        return
-      }
+      ergPushInFlightRef.current = true
+      try {
+        const mode = powerSourceModeRef.current
+        if (mode === 'trainer') {
+          await connection.setTargetPower(snap.stepTargetWatts)
+          return
+        }
 
-      const powerMeter = meterConnection.getSnapshot()
-      const setpoint = resolveErgSetpoint({
-        meterTargetWatts: snap.stepTargetWatts,
-        calibration: ergCalRef.current,
-        meterWatts: powerMeter.watts,
-        meterFresh: powerMeter.powerStatus === 'fresh',
-      })
-      await connection.setTargetPower(setpoint)
+        // Hybrid ERG trims toward the scaled / Free Ride target, not the plan.
+        const powerMeter = meterConnection.getSnapshot()
+        const setpoint = resolveErgSetpoint({
+          meterTargetWatts: snap.stepTargetWatts,
+          calibration: ergCalRef.current,
+          meterWatts: powerMeter.watts,
+          meterFresh: powerMeter.powerStatus === 'fresh',
+        })
+        await connection.setTargetPower(setpoint)
+      } finally {
+        ergPushInFlightRef.current = false
+      }
     },
     [connection, meterConnection, runner, snapshot.ergControlAvailable],
   )
@@ -184,6 +214,7 @@ function App() {
         maxPowerWatts: summary.maxPowerWatts,
         achievedPowerProfile: sampler.getProfile(),
         plannedPowerProfile: workout?.plannedPowerProfile ?? null,
+        targetPowerProfile: runner.getTargetPowerProfile(),
         workoutId: workout?.id ?? null,
         scheduledRideId: activeScheduledRideId,
         purpose: activePurpose,
@@ -375,6 +406,7 @@ function App() {
       }
       setRunnerSnap(snap)
       setAchievedProfile(sampler.getProfile())
+      setTargetProfile(runner.getTargetPowerProfile())
 
       if (snap.targetChanged || mode === 'meter') {
         void pushErgTarget(snap.targetChanged)
@@ -396,10 +428,71 @@ function App() {
     finishAndSave,
   ])
 
+  /** Ride Intensity (Workout) or Free Ride target change from a button or key. */
+  const onRideAdjust = useCallback(
+    (action: RideKeyAction) => {
+      const snap = runner.getSnapshot()
+      if (snap.status !== 'running' && snap.status !== 'paused') return
+      const now = Date.now()
+      if (snap.workoutId !== null) {
+        runner.setIntensity(
+          action.kind === 'reset'
+            ? DEFAULT_INTENSITY_PERCENT
+            : nudgeIntensityPercent(snap.intensityPercent, action.delta),
+          now,
+        )
+      } else if (action.kind === 'nudge') {
+        const trainer = connection.getSnapshot()
+        const powerMeter = meterConnection.getSnapshot()
+        const live =
+          powerSourceModeRef.current === 'meter'
+            ? powerMeter.powerStatus === 'fresh'
+              ? powerMeter.watts
+              : null
+            : trainer.powerStatus === 'fresh'
+              ? trainer.watts
+              : null
+        const seed = freeRideSeedWatts({ liveWatts: live, ftpWatts })
+        runner.setFreeRideTarget(
+          nudgeFreeRideTarget(snap.stepTargetWatts, action.delta, seed),
+          now,
+        )
+      }
+      // The ride tick sends the new target to the trainer within 250 ms.
+      setRunnerSnap(runner.getSnapshot())
+      setTargetProfile(runner.getTargetPowerProfile())
+    },
+    [runner, connection, meterConnection, ftpWatts],
+  )
+
+  const onRideAdjustRef = useRef(onRideAdjust)
+  useEffect(() => {
+    onRideAdjustRef.current = onRideAdjust
+  }, [onRideAdjust])
+
+  // Ride keys work on every tab while a ride runs or is paused.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isEditableTarget(event.target)) return
+      const snap = runner.getSnapshot()
+      if (snap.status !== 'running' && snap.status !== 'paused') return
+      const action = rideKeyAction(
+        event,
+        snap.workoutId === null ? 'freeRide' : 'workout',
+      )
+      if (!action) return
+      event.preventDefault()
+      onRideAdjustRef.current(action)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [runner])
+
   function onStart(): void {
     setSaveMessage(null)
     sampler.reset()
     setAchievedProfile([])
+    setTargetProfile(null)
     savingRef.current = false
     startedAtRef.current = new Date().toISOString()
     lastErgPushSecRef.current = -1
@@ -636,6 +729,7 @@ function App() {
           selectedScheduledRideId={selectedScheduledRideId}
           runner={runnerSnap}
           plannedProfile={plannedProfile}
+          targetProfile={targetProfile}
           achievedProfile={achievedProfile}
           saveMessage={saveMessage}
           ftpWatts={ftpWatts}
@@ -646,6 +740,7 @@ function App() {
           onResume={onResume}
           onSkip={onSkip}
           onStop={onStop}
+          onRideAdjust={onRideAdjust}
         />
       )}
       {tab === 'devices' && (

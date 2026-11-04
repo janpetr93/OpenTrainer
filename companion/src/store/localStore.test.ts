@@ -236,6 +236,57 @@ describe('LocalStore', () => {
     expect(activity.averageAlignmentDeltaWatts).toBeNull()
   })
 
+  it('saveActivity stores ridden targets and scores adherence against them', async () => {
+    const planned = [
+      { tSec: 0, watts: 280 },
+      { tSec: 120, watts: 280 },
+    ]
+    const target = [
+      { tSec: 0, watts: 280 },
+      { tSec: 60, watts: 280 },
+      { tSec: 60, watts: 224 },
+      { tSec: 120, watts: 224 },
+    ]
+    const achieved = Array.from({ length: 120 }, (_, tSec) => ({
+      tSec,
+      watts: tSec < 60 ? 280 : 224,
+    }))
+    const activity = await store.saveActivity({
+      startedAt: '2026-11-04T07:05:00.000Z',
+      durationSec: 120,
+      averagePowerWatts: 252,
+      maxPowerWatts: 280,
+      achievedPowerProfile: achieved,
+      plannedPowerProfile: planned,
+      targetPowerProfile: target,
+      workoutId: null,
+      purpose: null,
+    })
+    expect(activity.plannedPowerProfile).toEqual(planned)
+    expect(activity.targetPowerProfile).toEqual(target)
+    expect(activity.sessionAdherence).toEqual({
+      completionRatio: 0.992,
+      targetAdherence: 1,
+      intensityPercent: 90,
+    })
+    const reread = await store.getActivity(activity.id)
+    expect(reread?.targetPowerProfile).toEqual(target)
+  })
+
+  it('saveActivity stores a null target profile when none was sent', async () => {
+    const activity = await store.saveActivity({
+      startedAt: '2026-11-04T08:05:00.000Z',
+      durationSec: 10,
+      averagePowerWatts: 100,
+      maxPowerWatts: 100,
+      achievedPowerProfile: [{ tSec: 0, watts: 100 }],
+      plannedPowerProfile: null,
+      workoutId: null,
+      purpose: null,
+    })
+    expect(activity.targetPowerProfile).toBeNull()
+  })
+
   it('saveActivity stores Average Alignment Delta from paired meter samples', async () => {
     const activity = await store.saveActivity({
       startedAt: '2026-10-12T08:00:00.000Z',

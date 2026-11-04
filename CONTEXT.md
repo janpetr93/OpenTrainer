@@ -110,6 +110,14 @@ _Avoid_: Dashboard, analytics view, invented sensor values, full **Known Devices
 **Connection State**:
 One of: disconnected, connecting, connected, or disconnected-with-reconnect (link lost; samples/UI preserved for reconnect).
 
+**Ride Intensity**:
+Rider-set percent (50–150%, default 100) applied mid-ride to a **Workout**'s resolved targets, from the current step onward; changed with on-screen ±1% / ±5% / Reset or keys (↑/↓, Shift, R) on any tab while riding. In meter-primary, **ERG Calibration** and trim act on the scaled target. Resets to 100% at each **Start**.
+_Avoid_: Difficulty, ERG bias, changing FTP mid-ride
+
+**Free Ride Target**:
+Watts the rider asks the **Trainer** to hold in ERG during a **Free Ride**; unset until the first nudge (±5 / ±25 W or ↑/↓ keys), which starts from current **Live Power**. Cannot be switched back off for that ride.
+_Avoid_: Workout target, Ride Intensity (that is a percent of a plan)
+
 **Control Probe**:
 An automatic post-connect FTMS check that Request Control and (if advertised) target-power commands are accepted, reported in the **Devices**-tab FTMS debug panel only.
 _Avoid_: Workout, ERG mode UI, silent resistance changes without surfacing the result
@@ -167,7 +175,7 @@ Coggan Normalized Power, Intensity Factor, Training Stress Score, and time-in-zo
 _Avoid_: CTL/ATL/TSB (deferred), live mid-ride TSS
 
 **Session Adherence**:
-How closely an **Activity** followed its planned **Power Profile**: completion ratio and target-adherence fraction within `|Δ| ≤ max(15% × planned, 20W)`; null for a **Free Ride**.
+How closely an **Activity** followed its planned **Power Profile**: completion ratio and target-adherence fraction within `|Δ| ≤ max(15% × planned, 20W)`, scored against the ridden targets when **Ride Intensity** changed, plus `intensityPercent` (Σ ridden ÷ Σ planned watts over the seconds ridden; absent = 100%); null for a **Free Ride**.
 _Avoid_: Compliance score (synonym — use this term), TSS
 
 **Mean Maximal Power** (MMP):
@@ -182,7 +190,7 @@ _Avoid_: Set FTP, threshold test protocol
 The create/list payload for a **Workout**: name, ordered steps (type, duration, target watts), and its planned **Power Profile**.
 
 **Activity Specs**:
-The summary payload for an **Activity**: start time, duration, average/max power, achieved **Power Profile**, planned **Power Profile** when the ride followed a **Workout**, plus **Session Load** / **Session Adherence** / **Average Alignment Delta** when computed.
+The summary payload for an **Activity**: start time, duration, average/max power, achieved **Power Profile**, planned **Power Profile** when the ride followed a **Workout**, `targetPowerProfile` (step corners of the targets actually asked for) when **Ride Intensity** changed or **Free Ride Target**s were set, plus **Session Load** / **Session Adherence** / **Average Alignment Delta** when computed.
 _Avoid_: Invented HR/cadence
 
 **Free Ride**:
@@ -227,6 +235,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - **Power Source Mode** is fixed at **Start** from whether a **Power Meter** is connected and fresh; trainer-only riders stay **trainer-primary**.
 - In **meter-primary**, **Live Power** / achieved `watts` / FIT follow **Meter Power**; **Trainer** ERG uses **ERG Calibration** (hybrid open-loop + Assioma trim, default gain 0.7 / max ±25 W; watt offset EMA once per elapsed second from settled meter 70–450 W paired samples, scale held at 1); secondary stream is `trainerWatts`.
 - **Session Adherence** expands sparse planned step-corner **Power Profile**s to 1 Hz step-hold before scoring against achieved.
+- **Ride Intensity** never rewrites the planned **Power Profile**; the **Activity** keeps the plan and adds `targetPowerProfile`. `lastHard.work` in the **Training Summary** still compares held watts with the original plan (see `docs/decisions/2026-11-04-ride-intensity-and-free-ride-targets.md`).
 - If **Meter Power** goes stale mid-ride, ERG holds the calibration map (no trim) and primary does not flip to the **Trainer** for that session.
 - **Live Power** is stale when the active primary source stops notifying within the freshness window; **Trainer Power** / **Meter Power** each have their own freshness for alignment and trim.
 - **Power Alignment** compares the two device streams; it does not change **Target Prescription** watts.
@@ -332,6 +341,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Training Summary** / week check | `companion/src/domain/trainingSummary.ts`; MCP `get_training_summary`, `check_training_week` |
 | **Workout Repeat** | `companion/src/domain/workoutItems.ts` and `web/src/domain/workoutItems.ts` — expanded for the planned **Power Profile** and the **Workout** runner |
 | **Workout** runner | `web/src/workout/workoutRunner.ts` — start/pause/resume/skip/stop + ERG targets |
+| **Ride Intensity** / **Free Ride Target** | `web/src/domain/rideIntensity.ts` (scaling, ridden-target profile, keys); runner `setIntensity` / `setFreeRideTarget`; UI `web/src/RideIntensityControl.tsx`; app-wide keys in `App.tsx` |
 | MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`) |
 | **Rider Profile** | `companion/data/profile.json`; GET `/api/profile`; UI Profile tab (read-only); MCP `set_ftp` / `get_rider_profile`; resolve `web/src/domain/resolveTarget.ts` |
 | **Training Intent** | On **Rider Profile** / `profile.json`; UI Profile tab (read-only); MCP `set_training_intent` (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`, `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`) |

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Activity } from '../api'
 import {
   activityMeta,
+  chartFromActivity,
   formatCompactDateTime,
   formatCompactTime,
   formatDuration,
@@ -122,6 +123,32 @@ describe('activityMeta', () => {
     expect(meta.metrics.at(-1)).toEqual({ label: 'On-target', value: '65%' })
   })
 
+  it('shows Ride Intensity after adherence when the plan was not ridden at 100%', () => {
+    const meta = activityMeta(
+      activity({
+        sessionAdherence: {
+          completionRatio: 1,
+          targetAdherence: 0.9,
+          intensityPercent: 80,
+        },
+      }),
+    )
+    expect(meta.metrics.at(-1)).toEqual({ label: 'Intensity', value: '80%' })
+  })
+
+  it('omits Ride Intensity at 100%', () => {
+    const meta = activityMeta(
+      activity({
+        sessionAdherence: {
+          completionRatio: 1,
+          targetAdherence: 0.9,
+          intensityPercent: 100,
+        },
+      }),
+    )
+    expect(meta.metrics.map((m) => m.label)).not.toContain('Intensity')
+  })
+
   it('inserts Average Alignment Delta after Max when present', () => {
     const meta = activityMeta(
       activity({ averageAlignmentDeltaWatts: 8 }),
@@ -155,5 +182,51 @@ describe('scheduledMeta', () => {
     expect(meta.when).toBe('')
     expect(meta.kind).toBe('From Calendar')
     expect(meta.metrics).toEqual([{ label: 'Duration', value: '30m' }])
+  })
+})
+
+describe('chartFromActivity', () => {
+  const planned = [
+    { tSec: 0, watts: 280 },
+    { tSec: 60, watts: 280 },
+  ]
+  const target = [
+    { tSec: 0, watts: 224 },
+    { tSec: 60, watts: 224 },
+  ]
+  const achieved = [
+    { tSec: 0, watts: 220 },
+    { tSec: 1, watts: 225 },
+  ]
+
+  it('draws plan and power without a target profile', () => {
+    const chart = chartFromActivity(
+      activity({ plannedPowerProfile: planned, achievedPowerProfile: achieved }),
+    )
+    expect(chart.series.map((s) => s.tone)).toEqual(['planned', 'achieved'])
+    expect(chart.showLegend).toBe(true)
+  })
+
+  it('adds the ridden targets between plan and power', () => {
+    const chart = chartFromActivity(
+      activity({
+        plannedPowerProfile: planned,
+        targetPowerProfile: target,
+        achievedPowerProfile: achieved,
+      }),
+    )
+    expect(chart.series.map((s) => s.tone)).toEqual([
+      'planned',
+      'target',
+      'achieved',
+    ])
+  })
+
+  it('shows Free Ride targets with power and a legend', () => {
+    const chart = chartFromActivity(
+      activity({ targetPowerProfile: target, achievedPowerProfile: achieved }),
+    )
+    expect(chart.series.map((s) => s.tone)).toEqual(['target', 'achieved'])
+    expect(chart.showLegend).toBe(true)
   })
 })

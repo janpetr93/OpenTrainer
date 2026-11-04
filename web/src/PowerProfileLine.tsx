@@ -8,6 +8,7 @@ import {
   wattsAxisDomain,
 } from './chart/axisTicks'
 import {
+  SERIES_TONE_LABEL,
   bodyChartAxisSides,
   chartScaleDomain,
   type ChartPoint,
@@ -25,7 +26,7 @@ import type { PowerProfilePoint } from './api'
 /** Backward-compatible series shape used by Workouts/Calendar panels. */
 export type PowerProfileSeries = {
   points: PowerProfilePoint[]
-  tone?: 'planned' | 'achieved'
+  tone?: 'planned' | 'target' | 'achieved'
 }
 
 type Props = {
@@ -101,7 +102,7 @@ function normalizeSeries(
     const tone = s.tone ?? (index === 0 ? 'planned' : 'achieved')
     return {
       tone,
-      label: tone === 'planned' ? 'Plan' : 'Power',
+      label: SERIES_TONE_LABEL[tone],
       scale: 'watts' as const,
       points: s.points.map((p) => ({ tSec: p.tSec, value: p.watts })),
     }
@@ -168,6 +169,8 @@ function strokeWidth(tone: ChartSeries['tone']): number {
       return 2.9
     case 'planned':
       return 1.6
+    case 'target':
+      return 2
     case 'meter':
       return 1.75
     default:
@@ -180,6 +183,8 @@ function seriesPaintOrder(tone: ChartSeries['tone']): number {
   switch (tone) {
     case 'planned':
       return 0
+    case 'target':
+      return 1
     case 'meter':
       return 1
     case 'cadence':
