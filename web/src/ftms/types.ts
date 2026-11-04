@@ -1,4 +1,5 @@
 import type { KnownDevice } from '../ble/knownDevice'
+import type { RememberedDevice } from '../ble/rememberedDevices'
 import type { FitnessMachineFeatures } from './parseFitnessMachineFeatures'
 import type { LivePowerStatus } from './livePowerFreshness'
 
@@ -26,7 +27,10 @@ export type TrainerSnapshot = {
   /** True after Control Probe accepted Set Target Power. */
   ergControlAvailable: boolean
   /** Previously permitted devices from navigator.bluetooth.getDevices(). */
-  knownDevices: KnownDevice[]
+  knownDevices: KnownDevice[]  /** True once getDevices() has been read at least once. */
+  knownDevicesChecked: boolean
+  /** Last device connected in this role, remembered across restarts. */
+  rememberedDevice: RememberedDevice | null
 }
 
 export const initialSnapshot = (): TrainerSnapshot => ({
@@ -46,4 +50,6 @@ export const initialSnapshot = (): TrainerSnapshot => ({
   webBluetoothSupported: typeof navigator !== 'undefined' && 'bluetooth' in navigator,
   ergControlAvailable: false,
   knownDevices: [],
+  knownDevicesChecked: false,
+  rememberedDevice: null,
 })

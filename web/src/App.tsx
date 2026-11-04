@@ -509,6 +509,7 @@ function App() {
         label: 'trainer',
         connectionState: trainerSnap.connectionState,
         knownDeviceCount: trainerSnap.knownDevices.length,
+        rememberedName: trainerSnap.rememberedDevice?.name ?? null,
         connect: () => connection.connect(),
         getConnectionState: () => connection.getSnapshot().connectionState,
       },
@@ -516,6 +517,7 @@ function App() {
         label: 'power meter',
         connectionState: meterSnap.connectionState,
         knownDeviceCount: meterSnap.knownDevices.length,
+        rememberedName: meterSnap.rememberedDevice?.name ?? null,
         connect: () => meterConnection.connect(),
         getConnectionState: () => meterConnection.getSnapshot().connectionState,
       },
@@ -523,6 +525,7 @@ function App() {
         label: 'heart rate',
         connectionState: hrSnap.connectionState,
         knownDeviceCount: hrSnap.knownDevices.length,
+        rememberedName: hrSnap.rememberedDevice?.name ?? null,
         connect: () => heartRateConnection.connect(),
         getConnectionState: () =>
           heartRateConnection.getSnapshot().connectionState,
@@ -531,6 +534,7 @@ function App() {
         label: 'cadence',
         connectionState: cadSnap.connectionState,
         knownDeviceCount: cadSnap.knownDevices.length,
+        rememberedName: cadSnap.rememberedDevice?.name ?? null,
         connect: () => cadenceConnection.connect(),
         getConnectionState: () =>
           cadenceConnection.getSnapshot().connectionState,

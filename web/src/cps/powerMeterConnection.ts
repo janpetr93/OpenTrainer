@@ -1,5 +1,14 @@
+import {
+  rememberedDeviceRequest,
+  repairChooserError,
+} from '../ble/connectAction'
 import { toKnownDevice } from '../ble/knownDevice'
-import { pickKnownDevice } from '../ble/pickKnownDevice'
+import { findRememberedDevice, pickKnownDevice } from '../ble/pickKnownDevice'
+import { preconnectKnownDevice } from '../ble/preconnectKnownDevice'
+import {
+  rememberedDeviceStore,
+  type RememberedDeviceStore,
+} from '../ble/rememberedDevices'
 import { livePowerStatus } from '../ftms/livePowerFreshness'
 import { parseCyclingPowerMeasurement } from './parseCyclingPowerMeasurement'
 import {
@@ -21,6 +30,12 @@ export class PowerMeterConnection {
   private server: BluetoothRemoteGATTServer | null = null
   private measurementChar: BluetoothRemoteGATTCharacteristic | null = null
   private freshnessTimer: ReturnType<typeof setInterval> | null = null
+  private readonly remembered: RememberedDeviceStore
+
+  constructor(remembered: RememberedDeviceStore = rememberedDeviceStore()) {
+    this.remembered = remembered
+    this.snapshot.rememberedDevice = remembered.get('powerMeter')
+  }
 
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener)
@@ -39,22 +54,27 @@ export class PowerMeterConnection {
       !this.snapshot.webBluetoothSupported ||
       !navigator.bluetooth.getDevices
     ) {
-      this.patch({ knownDevices: [] })
+      this.patch({ knownDevices: [], knownDevicesChecked: true })
       return []
     }
     try {
       const devices = await navigator.bluetooth.getDevices()
+      const remembered = this.snapshot.rememberedDevice
       const meters = devices.filter(
-        (d) => d.id === this.device?.id || ASSIOMA_NAME.test(d.name ?? ''),
+        (d) =>
+          d.id === this.device?.id ||
+          findRememberedDevice([d], remembered) !== null ||
+          ASSIOMA_NAME.test(d.name ?? ''),
       )
       this.patch({
         knownDevices: meters.map((d) =>
           toKnownDevice(d, 'Known power meter'),
         ),
+        knownDevicesChecked: true,
       })
       return meters
     } catch {
-      this.patch({ knownDevices: [] })
+      this.patch({ knownDevices: [], knownDevicesChecked: true })
       return []
     }
   }
@@ -79,6 +99,14 @@ export class PowerMeterConnection {
       lastError: null,
     })
 
+    const repairRequest =
+      options.forceChooser || options.acceptAllDevices
+        ? null
+        : rememberedDeviceRequest(
+            this.snapshot.rememberedDevice,
+            CYCLING_POWER_SERVICE,
+          )
+
     try {
       if (!options.forceChooser && !options.acceptAllDevices) {
         const known = await this.refreshKnownDevices()
@@ -87,12 +115,16 @@ export class PowerMeterConnection {
           {
             deviceId: options.deviceId,
             lastUsedDeviceId: this.device?.id ?? null,
+            remembered: this.snapshot.rememberedDevice,
           },
         )
         const preferred = preferredRef
           ? known.find((d) => d.id === preferredRef.id)
           : undefined
         if (preferred) {
+          if (preferred !== this.device) {
+            await preconnectKnownDevice(preferred, { label: 'Power meter' })
+          }
           await this.attachAndConnect(preferred)
           return
         }
@@ -106,6 +138,13 @@ export class PowerMeterConnection {
           this.stopFreshnessTimer()
           return
         }
+      }
+
+      if (repairRequest) {
+        await this.attachAndConnect(
+          await navigator.bluetooth.requestDevice(repairRequest),
+        )
+        return
       }
 
       const device = await navigator.bluetooth.requestDevice(
@@ -136,7 +175,14 @@ export class PowerMeterConnection {
         connectionState: this.device
           ? 'disconnected-with-reconnect'
           : 'disconnected',
-        lastError: message,
+        lastError:
+          (repairRequest &&
+            repairChooserError(
+              raw,
+              this.snapshot.rememberedDevice,
+              'power meter',
+            )) ??
+          message,
       })
       this.stopFreshnessTimer()
     }
@@ -191,6 +237,9 @@ export class PowerMeterConnection {
     device.removeEventListener('gattserverdisconnected', this.onDisconnected)
     device.addEventListener('gattserverdisconnected', this.onDisconnected)
     await this.finishConnect(device)
+    this.patch({
+      rememberedDevice: this.remembered.remember('powerMeter', device),
+    })
   }
 
   private onDisconnected = (): void => {

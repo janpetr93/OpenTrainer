@@ -1,4 +1,6 @@
+import { connectActionFor } from './ble/connectAction'
 import type { KnownDevice } from './ble/knownDevice'
+import type { RememberedDevice } from './ble/rememberedDevices'
 
 export type ConnectorRoleHandlers = {
   onConnect: () => void
@@ -11,9 +13,13 @@ export type ConnectorRoleHandlers = {
 
 type Props = {
   title: string
+  /** Lower-case role name for copy, e.g. "trainer", "heart rate monitor". */
+  roleNoun: string
   connectionState: string
   deviceName: string | null
   knownDevices: KnownDevice[]
+  /** Last device used in this role, remembered across browser restarts. */
+  rememberedDevice: RememberedDevice | null
   connected: boolean
   canReconnect: boolean
   handlers: ConnectorRoleHandlers
@@ -43,11 +49,28 @@ function FindNewMenu({
   )
 }
 
+function YourDevice({
+  roleNoun,
+  rememberedDevice,
+}: {
+  roleNoun: string
+  rememberedDevice: RememberedDevice | null
+}) {
+  if (!rememberedDevice?.name) return null
+  return (
+    <p className="your-device">
+      Your {roleNoun}: <strong>{rememberedDevice.name}</strong>
+    </p>
+  )
+}
+
 export function ConnectorRole({
   title,
+  roleNoun,
   connectionState,
   deviceName,
   knownDevices,
+  rememberedDevice,
   connected,
   canReconnect,
   handlers,
@@ -55,6 +78,10 @@ export function ConnectorRole({
 }: Props) {
   const stateLabel = connectionState.replaceAll('-', ' ')
   const compact = variant === 'compact'
+  const action = connectActionFor({
+    knownDevices,
+    remembered: rememberedDevice,
+  })
 
   if (compact) {
     return (
@@ -68,12 +95,18 @@ export function ConnectorRole({
             {stateLabel}
             {deviceName ? ` · ${deviceName}` : ''}
           </p>
+          {!connected && (
+            <YourDevice
+              roleNoun={roleNoun}
+              rememberedDevice={rememberedDevice}
+            />
+          )}
         </div>
         <div className="connector-role-actions">
           {!connected && (
             <>
               <button type="button" onClick={handlers.onConnect}>
-                Connect
+                {action.kind === 'repair' ? 'Re-pair' : 'Connect'}
               </button>
               {canReconnect && (
                 <button type="button" onClick={handlers.onReconnect}>
@@ -122,6 +155,12 @@ export function ConnectorRole({
           {stateLabel}
           {deviceName ? ` · ${deviceName}` : ''}
         </p>
+        {!connected && (
+          <YourDevice
+            roleNoun={roleNoun}
+            rememberedDevice={rememberedDevice}
+          />
+        )}
       </div>
 
       {knownDevices.length > 0 ? (
@@ -139,6 +178,11 @@ export function ConnectorRole({
             </li>
           ))}
         </ul>
+      ) : action.kind === 'repair' ? (
+        <p className="muted known-devices-empty">
+          Not a known device since the last restart. Re-pair opens the chooser
+          with only {rememberedDevice?.name} in it.
+        </p>
       ) : (
         <p className="muted known-devices-empty">
           No known devices yet — use Find new…
@@ -148,8 +192,12 @@ export function ConnectorRole({
       <div className="actions connector-role-actions">
         {!connected && (
           <>
-            <button type="button" className="primary" onClick={handlers.onConnect}>
-              Connect
+            <button
+              type="button"
+              className="primary"
+              onClick={handlers.onConnect}
+            >
+              {action.label}
             </button>
             {canReconnect && (
               <button type="button" onClick={handlers.onReconnect}>

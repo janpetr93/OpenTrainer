@@ -1,3 +1,14 @@
+import { useState } from 'react'
+import { findRememberedDevice } from './ble/pickKnownDevice'
+import {
+  getDevicesAvailable,
+  isDesktopShell,
+  loadPersistenceHintDismissed,
+  savePersistenceHintDismissed,
+  shouldShowPersistenceHint,
+} from './ble/persistenceHint'
+import { browserStorage } from './ble/rememberedDevices'
+import { BluetoothPersistenceHint } from './BluetoothPersistenceHint'
 import type { PowerMeterSnapshot } from './cps'
 import type { CadenceSnapshot } from './csc'
 import type { TrainerSnapshot } from './ftms'
@@ -57,6 +68,28 @@ export function DevicesPanel({
     cadenceConnected,
   ].filter(Boolean).length
 
+  const [hintDismissed, setHintDismissed] = useState(() =>
+    loadPersistenceHintDismissed(browserStorage()),
+  )
+  const links = [snapshot, meter, heartRate, cadence]
+  const showPersistenceHint = shouldShowPersistenceHint({
+    webBluetoothSupported: snapshot.webBluetoothSupported,
+    getDevicesAvailable: getDevicesAvailable(),
+    knownDevicesChecked: links.every((link) => link.knownDevicesChecked),
+    dismissed: hintDismissed,
+    desktopShell: isDesktopShell(),
+    roles: links.map((link) => ({
+      remembered: link.rememberedDevice !== null,
+      knownMatchesRemembered:
+        findRememberedDevice(link.knownDevices, link.rememberedDevice) !== null,
+    })),
+  })
+
+  function dismissPersistenceHint(): void {
+    savePersistenceHintDismissed(browserStorage())
+    setHintDismissed(true)
+  }
+
   return (
     <div className="devices-panel">
       <PageHeader
@@ -71,8 +104,12 @@ export function DevicesPanel({
                 : `${linkedCount} linked`}
           </p>
         }
-        blurb="Known devices are ones Chrome already permitted for this app. After the first link, trainers often stop advertising — use Connect (not Find new) to reconnect."
+        blurb="Known devices are ones the browser still permits for this app; Connect reconnects them without the chooser. The app also remembers your last device per role, so when that permission is gone after a restart, Re-pair opens the chooser with only that device."
       />
+
+      {showPersistenceHint && (
+        <BluetoothPersistenceHint onDismiss={dismissPersistenceHint} />
+      )}
 
       {!snapshot.webBluetoothSupported && (
         <p className="banner warn">
@@ -110,10 +147,12 @@ export function DevicesPanel({
         <div className="connectors">
           <ConnectorRole
             title="Trainer"
+            roleNoun="trainer"
             variant="primary"
             connectionState={snapshot.connectionState}
             deviceName={snapshot.deviceName}
             knownDevices={snapshot.knownDevices}
+            rememberedDevice={snapshot.rememberedDevice}
             connected={connected}
             canReconnect={canReconnectSensor(snapshot)}
             handlers={trainer}
@@ -122,30 +161,36 @@ export function DevicesPanel({
             <h3 className="connectors-sensors-title">Sensors</h3>
             <ConnectorRole
               title="Power meter"
+              roleNoun="power meter"
               variant="compact"
               connectionState={meter.connectionState}
               deviceName={meter.deviceName}
               knownDevices={meter.knownDevices}
+              rememberedDevice={meter.rememberedDevice}
               connected={meterConnected}
               canReconnect={canReconnectSensor(meter)}
               handlers={powerMeter}
             />
             <ConnectorRole
               title="Heart rate"
+              roleNoun="heart rate monitor"
               variant="compact"
               connectionState={heartRate.connectionState}
               deviceName={heartRate.deviceName}
               knownDevices={heartRate.knownDevices}
+              rememberedDevice={heartRate.rememberedDevice}
               connected={hrConnected}
               canReconnect={canReconnectSensor(heartRate)}
               handlers={heartRateLink}
             />
             <ConnectorRole
               title="Cadence"
+              roleNoun="cadence sensor"
               variant="compact"
               connectionState={cadence.connectionState}
               deviceName={cadence.deviceName}
               knownDevices={cadence.knownDevices}
+              rememberedDevice={cadence.rememberedDevice}
               connected={cadenceConnected}
               canReconnect={canReconnectSensor(cadence)}
               handlers={cadenceLink}

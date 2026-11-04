@@ -1,4 +1,5 @@
 import type { KnownDevice } from '../ble/knownDevice'
+import type { RememberedDevice } from '../ble/rememberedDevices'
 import type { LivePowerStatus } from '../ftms/livePowerFreshness'
 import type { ConnectionState } from '../ftms/types'
 
@@ -11,6 +12,8 @@ export type CadenceSnapshot = {
   lastError: string | null
   webBluetoothSupported: boolean
   knownDevices: KnownDevice[]
+  knownDevicesChecked: boolean
+  rememberedDevice: RememberedDevice | null
 }
 
 export const initialCadenceSnapshot = (): CadenceSnapshot => ({
@@ -23,4 +26,6 @@ export const initialCadenceSnapshot = (): CadenceSnapshot => ({
   webBluetoothSupported:
     typeof navigator !== 'undefined' && 'bluetooth' in navigator,
   knownDevices: [],
+  knownDevicesChecked: false,
+  rememberedDevice: null,
 })

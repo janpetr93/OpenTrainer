@@ -201,25 +201,29 @@ export function LiveDisplay({
       id: 'trainer',
       label: 'Trainer',
       connectionState: snapshot.connectionState,
-      deviceName: snapshot.deviceName,
+      deviceName:
+        snapshot.deviceName ?? snapshot.rememberedDevice?.name ?? null,
     },
     {
       id: 'meter',
       label: 'Meter',
       connectionState: meter.connectionState,
-      deviceName: meter.deviceName,
+      deviceName:
+        meter.deviceName ?? meter.rememberedDevice?.name ?? null,
     },
     {
       id: 'hr',
       label: 'HR',
       connectionState: heartRate.connectionState,
-      deviceName: heartRate.deviceName,
+      deviceName:
+        heartRate.deviceName ?? heartRate.rememberedDevice?.name ?? null,
     },
     {
       id: 'cadence',
       label: 'Cadence',
       connectionState: cadence.connectionState,
-      deviceName: cadence.deviceName,
+      deviceName:
+        cadence.deviceName ?? cadence.rememberedDevice?.name ?? null,
     },
   ]
 
@@ -687,7 +691,9 @@ export function LiveDisplay({
                 className="linkish"
                 onClick={onOpenDevices}
               >
-                Connect trainer on Devices
+                {snapshot.rememberedDevice?.name
+                  ? `Connect your trainer (${snapshot.rememberedDevice.name}) on Devices`
+                  : 'Connect trainer on Devices'}
               </button>{' '}
               to enable Start.
             </p>

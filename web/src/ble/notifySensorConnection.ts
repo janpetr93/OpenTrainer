@@ -1,7 +1,15 @@
 import { livePowerStatus } from '../ftms/livePowerFreshness'
 import type { ConnectionState } from '../ftms/types'
+import { rememberedDeviceRequest, repairChooserError } from './connectAction'
 import { toKnownDevice, type KnownDevice } from './knownDevice'
-import { pickKnownDevice } from './pickKnownDevice'
+import { findRememberedDevice, pickKnownDevice } from './pickKnownDevice'
+import { preconnectKnownDevice } from './preconnectKnownDevice'
+import {
+  rememberedDeviceStore,
+  type DeviceRole,
+  type RememberedDevice,
+  type RememberedDeviceStore,
+} from './rememberedDevices'
 
 const FRESHNESS_TICK_MS = 500
 
@@ -13,6 +21,8 @@ export type SensorLinkSnapshot = {
   lastError: string | null
   webBluetoothSupported: boolean
   knownDevices: KnownDevice[]
+  knownDevicesChecked: boolean
+  rememberedDevice: RememberedDevice | null
 }
 
 type ConnectOptions = {
@@ -32,6 +42,7 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
   private server: BluetoothRemoteGATTServer | null = null
   private characteristic: BluetoothRemoteGATTCharacteristic | null = null
   private freshnessTimer: ReturnType<typeof setInterval> | null = null
+  private readonly remembered: RememberedDeviceStore
 
   protected abstract readonly serviceUuid: number
   protected abstract readonly characteristicUuid: number
@@ -39,11 +50,17 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
   protected abstract readonly namePrefixes: string[]
   protected abstract readonly knownNamePattern: RegExp
   protected abstract createInitial(): T
+  /** Remembered Devices key; a method so the base constructor can call it. */
+  protected abstract deviceRole(): DeviceRole
   protected abstract valueKey(): keyof T & string
   protected abstract onNotify(view: DataView): Partial<T>
 
-  constructor() {
-    this.snapshot = this.createInitial()
+  constructor(remembered: RememberedDeviceStore = rememberedDeviceStore()) {
+    this.remembered = remembered
+    this.snapshot = {
+      ...this.createInitial(),
+      rememberedDevice: remembered.get(this.deviceRole()),
+    }
   }
 
   subscribe(listener: (snapshot: T) => void): () => void {
@@ -63,24 +80,27 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
       !this.snapshot.webBluetoothSupported ||
       !navigator.bluetooth.getDevices
     ) {
-      this.patchFields({ knownDevices: [] })
+      this.patchFields({ knownDevices: [], knownDevicesChecked: true })
       return []
     }
     try {
       const devices = await navigator.bluetooth.getDevices()
+      const remembered = this.snapshot.rememberedDevice
       const matched = devices.filter(
         (d) =>
           d.id === this.device?.id ||
+          findRememberedDevice([d], remembered) !== null ||
           this.knownNamePattern.test(d.name ?? ''),
       )
       this.patchFields({
         knownDevices: matched.map((d) =>
           toKnownDevice(d, `Known ${this.sensorLabel}`),
         ),
+        knownDevicesChecked: true,
       })
       return matched
     } catch {
-      this.patchFields({ knownDevices: [] })
+      this.patchFields({ knownDevices: [], knownDevicesChecked: true })
       return []
     }
   }
@@ -99,6 +119,14 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
       lastError: null,
     })
 
+    const repairRequest =
+      options.forceChooser || options.acceptAllDevices
+        ? null
+        : rememberedDeviceRequest(
+            this.snapshot.rememberedDevice,
+            this.serviceUuid,
+          )
+
     try {
       if (!options.forceChooser && !options.acceptAllDevices) {
         const known = await this.refreshKnownDevices()
@@ -107,12 +135,18 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
           {
             deviceId: options.deviceId,
             lastUsedDeviceId: this.device?.id ?? null,
+            remembered: this.snapshot.rememberedDevice,
           },
         )
         const preferred = preferredRef
           ? known.find((d) => d.id === preferredRef.id)
           : undefined
         if (preferred) {
+          if (preferred !== this.device) {
+            await preconnectKnownDevice(preferred, {
+              label: this.sensorLabel,
+            })
+          }
           await this.attachAndConnect(preferred)
           return
         }
@@ -126,6 +160,13 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
           this.stopFreshnessTimer()
           return
         }
+      }
+
+      if (repairRequest) {
+        await this.attachAndConnect(
+          await navigator.bluetooth.requestDevice(repairRequest),
+        )
+        return
       }
 
       const device = await navigator.bluetooth.requestDevice(
@@ -154,7 +195,14 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
         connectionState: this.device
           ? 'disconnected-with-reconnect'
           : 'disconnected',
-        lastError: message,
+        lastError:
+          (repairRequest &&
+            repairChooserError(
+              raw,
+              this.snapshot.rememberedDevice,
+              this.sensorLabel,
+            )) ??
+          message,
       })
       this.stopFreshnessTimer()
     }
@@ -215,6 +263,9 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
     device.removeEventListener('gattserverdisconnected', this.onDisconnected)
     device.addEventListener('gattserverdisconnected', this.onDisconnected)
     await this.finishConnect(device)
+    this.patchFields({
+      rememberedDevice: this.remembered.remember(this.deviceRole(), device),
+    })
   }
 
   private onDisconnected = (): void => {

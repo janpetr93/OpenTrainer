@@ -50,7 +50,7 @@ Bluetooth devices this origin may reconnect to without a new **Device Picker** �
 _Avoid_: Advertising list, OS paired devices (unless also permitted for this origin)
 
 **Connect All Known**:
-One **Devices**-tab action that sequentially connects every role that has at least one **Known Device** and is not already connected; roles with none stay disconnected and are named in a short summary.
+One **Devices**-tab action that sequentially connects every role that has at least one **Known Device** and is not already connected; roles with none stay disconnected and are named in a short summary (as **Re-pair** when a **Remembered Device** exists, else **Find New Device**).
 _Avoid_: Auto-connect on page load, parallel GATT storm
 
 **Disconnect All**:
@@ -60,6 +60,14 @@ _Avoid_: OS unpair, revoking browser permission
 **Find New Device**:
 Collapsed per-role escape hatch that opens the **Device Picker** (filtered or accept-all) when no suitable **Known Device** exists or the rider wants a different one.
 _Avoid_: In-page BLE scan results
+
+**Remembered Device**:
+The last device connected in each role (**Trainer** / **Power Meter** / **Heart Rate Monitor** / **Cadence Sensor**): its Web Bluetooth id and advertised name, kept in this browser's localStorage so the app can name it after a restart even when Chrome no longer lists it as a **Known Device**.
+_Avoid_: Paired device (OS bond), Known Device (that is Chrome's permission list)
+
+**Re-pair**:
+The per-role action shown instead of Connect when there is a **Remembered Device** but no **Known Device**: opens the **Device Picker** filtered to the remembered name so it lists only that device. Re-grants Chrome's permission; not OS Bluetooth pairing.
+_Avoid_: Find New Device (unfiltered), Pairing (OS-level)
 
 ### Live ride
 
@@ -302,6 +310,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Average Alignment Delta** | `companion/src/domain/powerAlignment.ts`; on **Activity** JSON; Session module `Δ` via `activityMeta` |
 | **Live Display** | `web/src/LiveDisplay.tsx` |
 | **Known Devices** / **Connect All Known** / **Disconnect All** | `web/src/ble/connectAllKnown.ts` + **Devices** tab UI (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`) |
+| **Remembered Device** / **Re-pair** | `web/src/ble/rememberedDevices.ts` (localStorage `openTrainer.rememberedDevices.v1`), `web/src/ble/connectAction.ts`, `web/src/ble/preconnectKnownDevice.ts`; persistence hint `web/src/ble/persistenceHint.ts` (see `docs/decisions/2026-11-04-remember-paired-devices.md`) |
 | **Control Probe** | `web/src/ftms/controlProbe.ts` + probe runner in `trainerConnection.ts` |
 | **Live Power** / **Stale Power** | `web/src/ftms/livePowerFreshness.ts` |
 | **Activity** export | `web/src/export/encodeActivityFit.ts` — indoor FIT (manual download + Strava upload payload) |
@@ -351,6 +360,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - **Power Meter** / **Power Source Mode** — resolved: [ADR 0002](docs/adr/0002-meter-primary-hybrid-erg.md) + `docs/decisions/2026-10-11-meter-primary-hybrid-erg.md` (supersedes trainer-always-primary in `2026-10-09-power-meter-comparison-only.md`; Δ still `2026-10-10-average-alignment-delta-on-activity.md`).
 - **Heart Rate Monitor** / **Cadence Sensor** — resolved: live connectors + optional fields on achieved **Power Profile** (see `docs/decisions/2026-10-09-hrm-and-cadence-connectors.md`).
 - Friendlier connectors — resolved: in-page **Known Devices**, explicit **Connect All Known** / **Disconnect All**, collapsed **Find New Device** (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`).
+- Devices forgotten after a browser restart — resolved: Chrome keeps Web Bluetooth permissions for one session unless `#enable-web-bluetooth-new-permissions-backend` is on; the app keeps a **Remembered Device** per role, offers one-click **Re-pair**, and shows a one-time flag hint; auto-connect on load stays rejected (see `docs/decisions/2026-11-04-remember-paired-devices.md`).
 - **Devices** tab — resolved: top-level tab owns full connectors + FTMS debug; Ride keeps sensor-status strip + tab-switch link only; nav order Ride · Devices · History · Calendar · Profile.
 - **Scheduled Ride** plan preview — resolved: duration + planned **Power Profile** on Calendar day detail and Ride (rebuild with current FTP; FTP gate for `%FTP`/zones; no zone bands) — see `docs/decisions/2026-10-10-scheduled-ride-plan-preview.md`.
 - Session module UI — resolved: one row chrome for **Scheduled Ride** and **Activity** on Ride / History / Calendar; Activity adds achieved vs planned — see `docs/decisions/2026-10-10-unified-session-module-ui.md`.
