@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
+import type { PowerProfilePoint } from '../api'
 import { stravaActivityDescription } from './stravaActivityDescription'
+
+function plannedSteps(
+  segments: readonly { durationSec: number; watts: number }[],
+): PowerProfilePoint[] {
+  const points: PowerProfilePoint[] = []
+  let tSec = 0
+  for (const segment of segments) {
+    points.push({ tSec, watts: segment.watts })
+    tSec += segment.durationSec
+    points.push({ tSec, watts: segment.watts })
+  }
+  return points
+}
 
 const load = {
   ftpWattsAtSave: 250,
@@ -40,7 +54,7 @@ describe('stravaActivityDescription', () => {
       ],
     }
     expect(stravaActivityDescription(activity)).toBe(
-      'NP 245 · IF 0.89 · TSS 78\n\n10m - 100W, 20m - 150W',
+      'NP 245 · IF 0.89 · TSS 78\n\n10m - 100W\n20m - 150W',
     )
   })
 
@@ -78,6 +92,78 @@ describe('stravaActivityDescription', () => {
     expect(stravaActivityDescription(activity)).toBe('10m - 280W')
   })
 
+  it('groups a repeated cycle onto one line and leaves the warm-up written out', () => {
+    expect(
+      stravaActivityDescription({
+        sessionLoad: null,
+        plannedPowerProfile: plannedSteps([
+          { durationSec: 300, watts: 100 },
+          { durationSec: 300, watts: 130 },
+          { durationSec: 180, watts: 160 },
+          { durationSec: 15, watts: 240 },
+          { durationSec: 60, watts: 100 },
+          { durationSec: 15, watts: 240 },
+          { durationSec: 60, watts: 100 },
+          { durationSec: 15, watts: 240 },
+          { durationSec: 60, watts: 100 },
+          { durationSec: 360, watts: 190 },
+          { durationSec: 180, watts: 100 },
+          { durationSec: 360, watts: 190 },
+          { durationSec: 180, watts: 100 },
+          { durationSec: 360, watts: 190 },
+          { durationSec: 180, watts: 100 },
+          { durationSec: 360, watts: 190 },
+          { durationSec: 180, watts: 100 },
+          { durationSec: 360, watts: 190 },
+          { durationSec: 180, watts: 100 },
+          { durationSec: 300, watts: 90 },
+        ]),
+      }),
+    ).toBe(
+      [
+        '5m - 100W',
+        '5m - 130W',
+        '3m - 160W',
+        '3x (15s - 240W, 1m - 100W)',
+        '5x (6m - 190W, 3m - 100W)',
+        '5m - 90W',
+      ].join('\n'),
+    )
+  })
+
+  it('leaves a partial cycle outside the group', () => {
+    expect(
+      stravaActivityDescription({
+        sessionLoad: null,
+        plannedPowerProfile: plannedSteps([
+          { durationSec: 360, watts: 190 },
+          { durationSec: 180, watts: 100 },
+          { durationSec: 360, watts: 190 },
+          { durationSec: 180, watts: 100 },
+          { durationSec: 360, watts: 190 },
+        ]),
+      }),
+    ).toBe('2x (6m - 190W, 3m - 100W)\n6m - 190W')
+  })
+
+  it('writes the shorter cycle when a longer one covers the same steps', () => {
+    expect(
+      stravaActivityDescription({
+        sessionLoad: null,
+        plannedPowerProfile: plannedSteps([
+          { durationSec: 360, watts: 190 },
+          { durationSec: 180, watts: 100 },
+          { durationSec: 360, watts: 190 },
+          { durationSec: 180, watts: 100 },
+          { durationSec: 360, watts: 190 },
+          { durationSec: 180, watts: 100 },
+          { durationSec: 360, watts: 190 },
+          { durationSec: 180, watts: 100 },
+        ]),
+      }),
+    ).toBe('4x (6m - 190W, 3m - 100W)')
+  })
+
   it('formats sub-minute and mixed durations', () => {
     expect(
       stravaActivityDescription({
@@ -89,7 +175,7 @@ describe('stravaActivityDescription', () => {
           { tSec: 120, watts: 100 },
         ],
       }),
-    ).toBe('30s - 240W, 1m 30s - 100W')
+    ).toBe('30s - 240W\n1m 30s - 100W')
   })
 
   it('omits null Session Load metrics', () => {

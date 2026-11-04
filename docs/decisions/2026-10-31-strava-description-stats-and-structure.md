@@ -6,6 +6,8 @@ supersedes: 2026-10-13-strava-upload-description.md
 
 # Strava upload description is stats and workout structure
 
+> Planned-step layout updated by [2026-11-04-strava-description-grouped-steps](./2026-11-04-strava-description-grouped-steps.md). Session Load and omitting Session Purpose still apply.
+
 ## Context
 
 Strava’s activity description was **Session Purpose** plus NP / IF / TSS. Purpose is coaching rationale for planning (“raise lactate threshold”), and it read oddly as the public ride text. The planned **Power Profile** already has the step watts.
@@ -15,7 +17,7 @@ Strava’s activity description was **Session Purpose** plus NP / IF / TSS. Purp
 `stravaActivityDescription` sends:
 
 - Session Load when present: `NP <n> · IF <x.xx> · TSS <n>` (omit null metrics).
-- Planned structure when the planned profile has any non-zero watts: `10m - 100W, 20m - 150W`. Sub-minute steps use seconds (`30s - 240W`).
+- Planned structure when the planned profile has any non-zero watts, one block per line. Sub-minute steps use seconds (`30s - 240W`). Repeated cycles are grouped; see the 2026-11-04 decision.
 - A blank line between the two blocks when both exist.
 - No **Session Purpose**. No description at all when both blocks are empty. An all-zero planned profile (targets that never resolved) is omitted.
 
@@ -27,4 +29,4 @@ Strava’s activity description was **Session Purpose** plus NP / IF / TSS. Purp
 ## Consequences
 
 - Free Rides upload stats only.
-- A long interval set lists every rep. Strava gets that string as the description; the FIT file is unchanged.
+- Strava gets that string as the description; the FIT file is unchanged.
