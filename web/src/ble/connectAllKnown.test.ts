@@ -9,6 +9,7 @@ function role(
   options: {
     connect?: ReturnType<typeof vi.fn>
     endsConnected?: boolean
+    rememberedName?: string
   } = {},
 ) {
   const connect = options.connect ?? vi.fn(async () => {})
@@ -17,6 +18,7 @@ function role(
     label,
     connectionState,
     knownDeviceCount: knownCount,
+    rememberedName: options.rememberedName ?? null,
     connect,
     getConnectionState: () =>
       endsConnected ? ('connected' as const) : connectionState,
@@ -66,5 +68,26 @@ describe('connectAllKnown', () => {
     })
     const summary = await connectAllKnown([trainer])
     expect(summary).toBe('Connected 0 of 1.')
+  })
+
+  it('names the remembered device to Re-pair instead of sending the rider to Find new', async () => {
+    const summary = await connectAllKnown([
+      role('trainer', 'disconnected', 0, { rememberedName: 'D100 0421' }),
+      role('power meter', 'disconnected', 0),
+      role('heart rate', 'disconnected', 0, { rememberedName: 'Polar H10 7A1B' }),
+    ])
+    expect(summary).toBe(
+      'No known devices to connect — Re-pair trainer (D100 0421) / heart rate (Polar H10 7A1B); power meter needs Find new…',
+    )
+  })
+
+  it('mixes connected roles with a Re-pair list', async () => {
+    const summary = await connectAllKnown([
+      role('trainer', 'disconnected', 1, { rememberedName: 'D100 0421' }),
+      role('heart rate', 'disconnected', 0, { rememberedName: 'Polar H10 7A1B' }),
+    ])
+    expect(summary).toBe(
+      'Connected 1 of 2 — Re-pair heart rate (Polar H10 7A1B)',
+    )
   })
 })

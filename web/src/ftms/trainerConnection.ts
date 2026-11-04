@@ -1,5 +1,14 @@
+import {
+  rememberedDeviceRequest,
+  repairChooserError,
+} from '../ble/connectAction'
 import { toKnownDevice } from '../ble/knownDevice'
-import { pickKnownDevice } from '../ble/pickKnownDevice'
+import { findRememberedDevice, pickKnownDevice } from '../ble/pickKnownDevice'
+import { preconnectKnownDevice } from '../ble/preconnectKnownDevice'
+import {
+  rememberedDeviceStore,
+  type RememberedDeviceStore,
+} from '../ble/rememberedDevices'
 import {
   buildRequestControlCommand,
   buildSetTargetPowerCommand,
@@ -31,6 +40,7 @@ function uuidLabel(uuid: string): string {
 export class TrainerConnection {
   private snapshot: TrainerSnapshot = initialSnapshot()
   private listeners = new Set<Listener>()
+  private readonly remembered: RememberedDeviceStore
   private device: BluetoothDevice | null = null
   private server: BluetoothRemoteGATTServer | null = null
   private indoorBikeChar: BluetoothRemoteGATTCharacteristic | null = null
@@ -40,6 +50,11 @@ export class TrainerConnection {
     resolve: (view: DataView) => void
     reject: (error: Error) => void
   } | null = null
+
+  constructor(remembered: RememberedDeviceStore = rememberedDeviceStore()) {
+    this.remembered = remembered
+    this.snapshot.rememberedDevice = remembered.get('trainer')
+  }
 
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener)
@@ -56,27 +71,33 @@ export class TrainerConnection {
   /** Refresh list of devices this origin already may reconnect to (no scan). */
   async refreshKnownDevices(): Promise<BluetoothDevice[]> {
     if (!this.snapshot.webBluetoothSupported || !navigator.bluetooth.getDevices) {
-      this.patch({ knownDevices: [] })
+      this.patch({ knownDevices: [], knownDevicesChecked: true })
       return []
     }
     try {
       const devices = await navigator.bluetooth.getDevices()
+      const remembered = this.snapshot.rememberedDevice
       const matched = devices.filter(
-        (d) => d.id === this.device?.id || TRAINER_NAME.test(d.name ?? ''),
+        (d) =>
+          d.id === this.device?.id ||
+          findRememberedDevice([d], remembered) !== null ||
+          TRAINER_NAME.test(d.name ?? ''),
       )
       this.patch({
         knownDevices: matched.map((d) => toKnownDevice(d, 'Known trainer')),
+        knownDevicesChecked: true,
       })
       return matched
     } catch {
-      this.patch({ knownDevices: [] })
+      this.patch({ knownDevices: [], knownDevicesChecked: true })
       return []
     }
   }
 
   /**
-   * Connect. Prefers a previously permitted device (no chooser / no advertising
-   * required). Use forceChooser / acceptAllDevices to open the browser picker.
+   * Connect. Prefers a previously permitted device (no chooser). Otherwise opens
+   * the browser picker, filtered to the remembered trainer when there is one.
+   * Use forceChooser / acceptAllDevices for the unfiltered picker.
    */
   async connect(
     options: {
@@ -100,6 +121,11 @@ export class TrainerConnection {
       ergControlAvailable: false,
     })
 
+    const repairRequest =
+      options.forceChooser || options.acceptAllDevices
+        ? null
+        : rememberedDeviceRequest(this.snapshot.rememberedDevice, FTMS_SERVICE)
+
     try {
       // After the first successful connect, the D100 often stops advertising while
       // still permitted in Chrome — getDevices() reconnects without a scan.
@@ -110,12 +136,17 @@ export class TrainerConnection {
           {
             deviceId: options.deviceId,
             lastUsedDeviceId: this.device?.id ?? null,
+            remembered: this.snapshot.rememberedDevice,
           },
         )
         const preferred = preferredRef
           ? known.find((d) => d.id === preferredRef.id)
           : undefined
         if (preferred) {
+          // After a browser restart the adapter may not have seen the device yet.
+          if (preferred !== this.device) {
+            await preconnectKnownDevice(preferred, { label: 'Trainer' })
+          }
           await this.attachAndConnect(preferred)
           return
         }
@@ -128,6 +159,13 @@ export class TrainerConnection {
           })
           return
         }
+      }
+
+      if (repairRequest) {
+        await this.attachAndConnect(
+          await navigator.bluetooth.requestDevice(repairRequest),
+        )
+        return
       }
 
       // FTMS is often missing from advertisements — OR name prefixes; FTMS via optionalServices.
@@ -160,7 +198,14 @@ export class TrainerConnection {
           : raw
       this.patch({
         connectionState: this.device ? 'disconnected-with-reconnect' : 'disconnected',
-        lastError: message,
+        lastError:
+          (repairRequest &&
+            repairChooserError(
+              raw,
+              this.snapshot.rememberedDevice,
+              'trainer',
+            )) ??
+          message,
       })
       this.stopFreshnessTimer()
     }
@@ -218,6 +263,9 @@ export class TrainerConnection {
     device.removeEventListener('gattserverdisconnected', this.onDisconnected)
     device.addEventListener('gattserverdisconnected', this.onDisconnected)
     await this.finishConnect(device)
+    this.patch({
+      rememberedDevice: this.remembered.remember('trainer', device),
+    })
   }
 
   private onDisconnected = (): void => {

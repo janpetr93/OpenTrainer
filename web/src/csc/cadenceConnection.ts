@@ -1,4 +1,5 @@
 import { NotifySensorConnection } from '../ble/notifySensorConnection'
+import type { DeviceRole } from '../ble/rememberedDevices'
 import {
   cadenceRpmFromCrankDelta,
   uint16Delta,
@@ -30,6 +31,10 @@ export class CadenceConnection extends NotifySensorConnection<CadenceSnapshot> {
 
   protected createInitial(): CadenceSnapshot {
     return initialCadenceSnapshot()
+  }
+
+  protected deviceRole(): DeviceRole {
+    return 'cadence'
   }
 
   protected valueKey(): keyof CadenceSnapshot & string {

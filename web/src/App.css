@@ -1799,3 +1799,33 @@ button.danger:hover {
   border-radius: var(--radius);
   font-family: var(--font-mono);
 }
+
+.your-device {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.connector-role-compact .your-device {
+  font-size: 0.75rem;
+}
+
+.persistence-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.persistence-hint p {
+  margin: 0;
+}
+
+.persistence-hint code {
+  word-break: break-all;
+}
+
+.persistence-hint-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}

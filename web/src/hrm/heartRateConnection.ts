@@ -1,4 +1,5 @@
 import { NotifySensorConnection } from '../ble/notifySensorConnection'
+import type { DeviceRole } from '../ble/rememberedDevices'
 import { parseHeartRateMeasurement } from './parseHeartRateMeasurement'
 import {
   initialHeartRateSnapshot,
@@ -24,6 +25,10 @@ export class HeartRateConnection extends NotifySensorConnection<HeartRateSnapsho
 
   protected createInitial(): HeartRateSnapshot {
     return initialHeartRateSnapshot()
+  }
+
+  protected deviceRole(): DeviceRole {
+    return 'heartRate'
   }
 
   protected valueKey(): keyof HeartRateSnapshot & string {
