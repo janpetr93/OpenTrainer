@@ -152,6 +152,57 @@ describe('HTTP API', () => {
     })
   })
 
+  it('POST /api/activities keeps the ridden target profile', async () => {
+    await withServer(store, async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/api/activities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startedAt: new Date().toISOString(),
+          durationSec: 60,
+          averagePowerWatts: 150,
+          maxPowerWatts: 160,
+          achievedPowerProfile: [{ tSec: 0, watts: 150 }],
+          plannedPowerProfile: null,
+          targetPowerProfile: [
+            { tSec: 10, watts: 150 },
+            { tSec: 60, watts: 150 },
+          ],
+          workoutId: null,
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as {
+        activity: { targetPowerProfile: unknown; sessionAdherence: unknown }
+      }
+      expect(body.activity.targetPowerProfile).toEqual([
+        { tSec: 10, watts: 150 },
+        { tSec: 60, watts: 150 },
+      ])
+      expect(body.activity.sessionAdherence).toBeNull()
+    })
+  })
+
+  it('POST /api/activities rejects a malformed target profile', async () => {
+    await withServer(store, async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/api/activities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startedAt: new Date().toISOString(),
+          durationSec: 60,
+          averagePowerWatts: 150,
+          maxPowerWatts: 160,
+          achievedPowerProfile: [{ tSec: 0, watts: 150 }],
+          plannedPowerProfile: null,
+          targetPowerProfile: [{ tSec: 'x', watts: 150 }],
+          workoutId: null,
+        }),
+      })
+      expect(res.status).toBe(400)
+    })
+  })
+
   it('POST /api/activities saves an Activity', async () => {
     await withServer(store, async (baseUrl) => {
       const res = await fetch(`${baseUrl}/api/activities`, {

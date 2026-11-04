@@ -88,6 +88,12 @@ export type Activity = {
   achievedPowerProfile: PowerProfilePoint[]
   /** Present when the ride followed a Workout; null for Free Ride. */
   plannedPowerProfile: PowerProfilePoint[] | null
+  /**
+   * Step corners of the targets the rider asked for: the plan after Ride
+   * Intensity, or Free Ride targets. Null when the plan ran at 100% or no
+   * Free Ride target was set; omitted on older Activities.
+   */
+  targetPowerProfile?: PowerProfilePoint[] | null
   workoutId: string | null
   /** Scheduled Ride this Activity completed; null for Free Ride / unlinked. */
   scheduledRideId: string | null

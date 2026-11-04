@@ -60,16 +60,25 @@ function formatPlannedStructure(
     .join(', ')
 }
 
-/** Strava activity description: Session Load, then planned watts. No Session Purpose. */
+/**
+ * Strava activity description: Session Load, then planned watts, then the
+ * Ride Intensity when the plan was not ridden at 100%. No Session Purpose.
+ */
 export function stravaActivityDescription(
-  activity: Pick<Activity, 'sessionLoad' | 'plannedPowerProfile'>,
+  activity: Pick<Activity, 'sessionLoad' | 'plannedPowerProfile'> &
+    Partial<Pick<Activity, 'sessionAdherence'>>,
 ): string | undefined {
   const loadLine = activity.sessionLoad
     ? formatSessionLoadLine(activity.sessionLoad)
     : null
-  const structure = activity.plannedPowerProfile
+  const planned = activity.plannedPowerProfile
     ? formatPlannedStructure(activity.plannedPowerProfile)
     : null
+  const intensity = activity.sessionAdherence?.intensityPercent
+  const structure =
+    planned && intensity !== undefined && intensity !== 100
+      ? `${planned}\nRidden at ${intensity}% of plan`
+      : planned
   if (loadLine && structure) return `${loadLine}\n\n${structure}`
   return loadLine ?? structure ?? undefined
 }

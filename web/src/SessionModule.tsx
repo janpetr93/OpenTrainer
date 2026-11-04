@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { SERIES_TONE_LABEL } from './chart/metricSeries'
 import { PowerProfileLine, type PowerProfileSeries } from './PowerProfileLine'
 import type { SessionMeta } from './session/sessionModuleHelpers'
 
@@ -81,8 +82,14 @@ export function SessionModule({
         )}
         {showLegend && showChart && (
           <p className="chart-legend muted">
-            <span className="legend-planned">Plan</span>
-            <span className="legend-achieved">Achieved</span>
+            {series.map((s, index) => {
+              const tone = s.tone ?? (index === 0 ? 'planned' : 'achieved')
+              return (
+                <span key={tone} className={`legend-${tone}`}>
+                  {tone === 'achieved' ? 'Achieved' : SERIES_TONE_LABEL[tone]}
+                </span>
+              )
+            })}
           </p>
         )}
       </div>

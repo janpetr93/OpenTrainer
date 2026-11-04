@@ -5,7 +5,20 @@ export type ChartPoint = {
   value: number
 }
 
-export type ChartTone = 'planned' | 'achieved' | 'heartRate' | 'cadence' | 'meter'
+export type ChartTone =
+  | 'planned'
+  | 'target'
+  | 'achieved'
+  | 'heartRate'
+  | 'cadence'
+  | 'meter'
+
+/** Legend / series label for the watts tones a session chart can draw. */
+export const SERIES_TONE_LABEL = {
+  planned: 'Plan',
+  target: 'Target',
+  achieved: 'Power',
+} as const
 
 /** Watts share one Y axis (zone bands); HR/cadence use fixed physiological bands. */
 export type ChartScale = 'watts' | 'heartRate' | 'cadence'
@@ -36,7 +49,7 @@ export function chartScaleDomain(
 
 export function wattsSeries(
   points: PowerProfilePoint[],
-  tone: 'planned' | 'achieved',
+  tone: 'planned' | 'target' | 'achieved',
   label: string,
 ): ChartSeries | null {
   if (points.length < 2) return null
@@ -83,13 +96,18 @@ export function optionalMetricSeries(
   }
 }
 
-/** Build the live-ride overlay series (plan, power, meter, HR, cadence). */
+/**
+ * Build the live-ride overlay series (plan, ridden targets, power, meter, HR,
+ * cadence). `target` is the plan after Ride Intensity, or Free Ride targets.
+ */
 export function buildRideChartSeries(input: {
   planned: PowerProfilePoint[]
+  target?: PowerProfilePoint[] | null
   achieved: PowerProfilePoint[]
 }): ChartSeries[] {
   return [
     wattsSeries(input.planned, 'planned', 'Plan'),
+    wattsSeries(input.target ?? [], 'target', 'Target'),
     wattsSeries(input.achieved, 'achieved', 'Power'),
     optionalMetricSeries(input.achieved, 'meterWatts', 'meter', 'Meter'),
     optionalMetricSeries(input.achieved, 'trainerWatts', 'meter', 'Trainer'),

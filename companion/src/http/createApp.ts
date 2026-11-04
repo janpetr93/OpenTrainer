@@ -156,6 +156,10 @@ function parseSaveActivity(body: unknown): SaveActivityInput {
     record.plannedPowerProfile === undefined || record.plannedPowerProfile === null
       ? null
       : parseProfilePoints(record.plannedPowerProfile, 'plannedPowerProfile')
+  const targetPowerProfile =
+    record.targetPowerProfile === undefined || record.targetPowerProfile === null
+      ? null
+      : parseProfilePoints(record.targetPowerProfile, 'targetPowerProfile')
 
   const primaryPowerSource =
     record.primaryPowerSource === undefined || record.primaryPowerSource === null
@@ -179,6 +183,7 @@ function parseSaveActivity(body: unknown): SaveActivityInput {
       'achievedPowerProfile',
     ),
     plannedPowerProfile,
+    targetPowerProfile,
     workoutId,
     scheduledRideId,
     purpose,

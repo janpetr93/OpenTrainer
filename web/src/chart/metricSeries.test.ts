@@ -31,6 +31,29 @@ describe('buildRideChartSeries', () => {
     expect(series.find((s) => s.tone === 'meter')?.scale).toBe('watts')
   })
 
+  it('adds a Target line for ridden targets after the plan', () => {
+    const series = buildRideChartSeries({
+      planned: [
+        { tSec: 0, watts: 280 },
+        { tSec: 60, watts: 280 },
+      ],
+      target: [
+        { tSec: 0, watts: 224 },
+        { tSec: 60, watts: 224 },
+      ],
+      achieved: [
+        { tSec: 0, watts: 220 },
+        { tSec: 1, watts: 225 },
+      ],
+    })
+    expect(series.map((s) => [s.tone, s.label])).toEqual([
+      ['planned', 'Plan'],
+      ['target', 'Target'],
+      ['achieved', 'Power'],
+    ])
+    expect(series.find((s) => s.tone === 'target')?.scale).toBe('watts')
+  })
+
   it('omits optional metrics when fewer than two points exist', () => {
     const series = buildRideChartSeries({
       planned: [],

@@ -1,6 +1,22 @@
-import type { Workout, WorkoutStep, WorkoutStepType } from '../api'
+import type {
+  PowerProfilePoint,
+  Workout,
+  WorkoutStep,
+  WorkoutStepType,
+} from '../api'
+import { buildPlannedPowerProfile } from '../domain/plannedPowerProfile'
 import { expandWorkoutItems } from '../domain/workoutItems'
 import { resolveStepWatts, workoutNeedsFtp } from '../domain/resolveTarget'
+import {
+  DEFAULT_INTENSITY_PERCENT,
+  applyIntensityToProfile,
+  clampFreeRideTargetWatts,
+  clampIntensityPercent,
+  freeRideTargetProfile,
+  scaleTargetWatts,
+  type FreeRideTargetChange,
+  type IntensityChange,
+} from '../domain/rideIntensity'
 
 export type RunnerStatus =
   | 'idle'
@@ -16,7 +32,15 @@ export type RunnerSnapshot = {
   stepIndex: number
   stepCount: number
   stepType: WorkoutStepType | null
+  /** Planned watts of the active step before Ride Intensity; null in a Free Ride. */
+  stepPlannedWatts: number | null
+  /**
+   * Target the trainer should hold: planned × Ride Intensity in a Workout,
+   * the rider-set watts in a Free Ride (null until set).
+   */
   stepTargetWatts: number | null
+  /** Ride Intensity percent (100 = as planned; always 100 in a Free Ride). */
+  intensityPercent: number
   stepRemainingSec: number
   elapsedSec: number
   totalSec: number
@@ -40,6 +64,12 @@ type Internal = {
   /** Elapsed at the start of the current running segment. */
   elapsedAtSegmentStart: number
   targetChanged: boolean
+  /** Planned step corners (current FTP at Start) on the elapsed timeline. */
+  plannedProfile: PowerProfilePoint[]
+  intensityPercent: number
+  intensityChanges: IntensityChange[]
+  freeRideTargetWatts: number | null
+  freeRideTargetChanges: FreeRideTargetChange[]
 }
 
 function totalDuration(steps: WorkoutStep[]): number {
@@ -66,8 +96,8 @@ function resolvedTarget(
   return resolveStepWatts(step, ftpWatts)
 }
 
-export class WorkoutRunner {
-  private state: Internal = {
+function idleState(): Internal {
+  return {
     workout: null,
     freeRide: false,
     ftpWatts: null,
@@ -77,7 +107,41 @@ export class WorkoutRunner {
     segmentStartedAtMs: 0,
     elapsedAtSegmentStart: 0,
     targetChanged: false,
+    plannedProfile: [],
+    intensityPercent: DEFAULT_INTENSITY_PERCENT,
+    intensityChanges: [],
+    freeRideTargetWatts: null,
+    freeRideTargetChanges: [],
   }
+}
+
+const IDLE_SNAPSHOT: RunnerSnapshot = {
+  status: 'idle',
+  workoutId: null,
+  workoutName: null,
+  stepIndex: 0,
+  stepCount: 0,
+  stepType: null,
+  stepPlannedWatts: null,
+  stepTargetWatts: null,
+  intensityPercent: DEFAULT_INTENSITY_PERCENT,
+  stepRemainingSec: 0,
+  elapsedSec: 0,
+  totalSec: 0,
+  targetChanged: false,
+}
+
+/** Record a change at an elapsed second; a second change in that second wins. */
+function pushChange<T extends { tSec: number }>(changes: T[], change: T): T[] {
+  const last = changes[changes.length - 1]
+  if (last && last.tSec === change.tSec) {
+    return [...changes.slice(0, -1), change]
+  }
+  return [...changes, change]
+}
+
+export class WorkoutRunner {
+  private state: Internal = idleState()
 
   getSnapshot(): RunnerSnapshot {
     const {
@@ -88,88 +152,117 @@ export class WorkoutRunner {
       elapsedSec,
       targetChanged,
       ftpWatts,
+      intensityPercent,
+      freeRideTargetWatts,
     } = this.state
-    if (status === 'idle') {
-      return {
-        status: 'idle',
-        workoutId: null,
-        workoutName: null,
-        stepIndex: 0,
-        stepCount: 0,
-        stepType: null,
-        stepTargetWatts: null,
-        stepRemainingSec: 0,
-        elapsedSec: 0,
-        totalSec: 0,
-        targetChanged: false,
-      }
-    }
+    if (status === 'idle') return { ...IDLE_SNAPSHOT }
 
     if (freeRide) {
       return {
+        ...IDLE_SNAPSHOT,
         status,
-        workoutId: null,
         workoutName: 'Free Ride',
-        stepIndex: 0,
-        stepCount: 0,
-        stepType: null,
-        stepTargetWatts: null,
-        stepRemainingSec: 0,
+        stepTargetWatts: freeRideTargetWatts,
         elapsedSec: Math.floor(elapsedSec),
-        totalSec: 0,
-        targetChanged: false,
+        targetChanged,
       }
     }
 
-    if (!workout) {
-      return {
-        status: 'idle',
-        workoutId: null,
-        workoutName: null,
-        stepIndex: 0,
-        stepCount: 0,
-        stepType: null,
-        stepTargetWatts: null,
-        stepRemainingSec: 0,
-        elapsedSec: 0,
-        totalSec: 0,
-        targetChanged: false,
-      }
-    }
+    if (!workout) return { ...IDLE_SNAPSHOT }
 
     const steps = workout.steps
     const totalSec = totalDuration(steps)
-    if (status === 'completed' || status === 'stopped') {
-      const last = steps[Math.min(stepIndex, steps.length - 1)]!
-      return {
-        status,
-        workoutId: workout.id,
-        workoutName: workout.name,
-        stepIndex,
-        stepCount: steps.length,
-        stepType: last.type,
-        stepTargetWatts: resolvedTarget(last, ftpWatts),
-        stepRemainingSec: 0,
-        elapsedSec: Math.min(elapsedSec, totalSec),
-        totalSec,
-        targetChanged: false,
-      }
-    }
-
-    const { endSec, step } = stepBounds(steps, stepIndex)
-    return {
+    const finished = status === 'completed' || status === 'stopped'
+    const step = finished
+      ? steps[Math.min(stepIndex, steps.length - 1)]!
+      : stepBounds(steps, stepIndex).step
+    const planned = resolvedTarget(step, ftpWatts)
+    const target =
+      planned === null ? null : scaleTargetWatts(planned, intensityPercent)
+    const base = {
       status,
       workoutId: workout.id,
       workoutName: workout.name,
       stepIndex,
       stepCount: steps.length,
       stepType: step.type,
-      stepTargetWatts: resolvedTarget(step, ftpWatts),
+      stepPlannedWatts: planned,
+      stepTargetWatts: target,
+      intensityPercent,
+      totalSec,
+    }
+    if (finished) {
+      return {
+        ...base,
+        stepRemainingSec: 0,
+        elapsedSec: Math.min(elapsedSec, totalSec),
+        targetChanged: false,
+      }
+    }
+
+    const { endSec } = stepBounds(steps, stepIndex)
+    return {
+      ...base,
       stepRemainingSec: Math.max(0, Math.ceil(endSec - elapsedSec)),
       elapsedSec: Math.floor(elapsedSec),
-      totalSec,
       targetChanged,
     }
+  }
+
+  /**
+   * Targets the rider actually asked for, as step corners on the elapsed
+   * timeline: the plan with Ride Intensity applied (carried to the plan's
+   * end), or the Free Ride targets up to now. Null when the plan ran at
+   * 100% throughout or no Free Ride target was set.
+   */
+  getTargetPowerProfile(): PowerProfilePoint[] | null {
+    const { status, freeRide, workout } = this.state
+    if (status === 'idle') return null
+    if (freeRide) {
+      const points = freeRideTargetProfile(
+        this.state.freeRideTargetChanges,
+        Math.floor(this.state.elapsedSec),
+      )
+      return points.length >= 2 ? points : null
+    }
+    if (!workout) return null
+    const changes = this.state.intensityChanges
+    if (changes.every((c) => c.percent === DEFAULT_INTENSITY_PERCENT)) {
+      return null
+    }
+    return applyIntensityToProfile(this.state.plannedProfile, changes)
+  }
+
+  /** Ride Intensity for the current and every later step of a Workout. */
+  setIntensity(percent: number, nowMs: number): void {
+    const { status, freeRide, workout } = this.state
+    if (status !== 'running' && status !== 'paused') return
+    if (freeRide || !workout) return
+    const next = clampIntensityPercent(percent)
+    if (next === this.state.intensityPercent) return
+    this.syncElapsed(nowMs)
+    this.state.intensityPercent = next
+    this.state.intensityChanges = pushChange(this.state.intensityChanges, {
+      tSec: Math.floor(this.state.elapsedSec),
+      percent: next,
+    })
+    this.state.targetChanged = true
+  }
+
+  /** Free Ride ERG target in watts (held until changed or Stop). */
+  setFreeRideTarget(watts: number, nowMs: number): void {
+    const { status, freeRide } = this.state
+    if (status !== 'running' && status !== 'paused') return
+    if (!freeRide) return
+    const next = clampFreeRideTargetWatts(watts)
+    if (next === this.state.freeRideTargetWatts) return
+    this.syncElapsed(nowMs)
+    this.state.freeRideTargetWatts = next
+    this.state.freeRideTargetChanges = pushChange(
+      this.state.freeRideTargetChanges,
+      { tSec: Math.floor(this.state.elapsedSec), watts: next },
+    )
+    this.state.targetChanged = true
   }
 
   /** Consume the targetChanged flag after the UI applies ERG. */
@@ -195,29 +288,22 @@ export class WorkoutRunner {
       resolveStepWatts(step, ftpWatts)
     }
     this.state = {
+      ...idleState(),
       workout: flat,
-      freeRide: false,
       ftpWatts,
       status: 'running',
-      stepIndex: 0,
-      elapsedSec: 0,
       segmentStartedAtMs: nowMs,
-      elapsedAtSegmentStart: 0,
       targetChanged: true,
+      plannedProfile: buildPlannedPowerProfile(steps, ftpWatts),
     }
   }
 
   startFreeRide(nowMs: number): void {
     this.state = {
-      workout: null,
+      ...idleState(),
       freeRide: true,
-      ftpWatts: null,
       status: 'running',
-      stepIndex: 0,
-      elapsedSec: 0,
       segmentStartedAtMs: nowMs,
-      elapsedAtSegmentStart: 0,
-      targetChanged: false,
     }
   }
 

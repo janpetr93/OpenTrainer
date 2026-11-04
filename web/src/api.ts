@@ -87,7 +87,10 @@ export type SessionLoad = {
 
 export type SessionAdherence = {
   completionRatio: number
+  /** Scored against the ridden targets when Ride Intensity changed. */
   targetAdherence: number
+  /** Σ ridden ÷ Σ planned watts; present only when Ride Intensity changed. */
+  intensityPercent?: number
 }
 
 export type Activity = {
@@ -98,6 +101,8 @@ export type Activity = {
   maxPowerWatts: number | null
   achievedPowerProfile: PowerProfilePoint[]
   plannedPowerProfile: PowerProfilePoint[] | null
+  /** Targets the rider asked for (Ride Intensity / Free Ride); null if none. */
+  targetPowerProfile?: PowerProfilePoint[] | null
   workoutId: string | null
   scheduledRideId?: string | null
   /** Session Purpose copied from Scheduled Ride when ridden. */
@@ -270,6 +275,7 @@ export type SaveActivityInput = {
   maxPowerWatts: number | null
   achievedPowerProfile: PowerProfilePoint[]
   plannedPowerProfile: PowerProfilePoint[] | null
+  targetPowerProfile?: PowerProfilePoint[] | null
   workoutId: string | null
   scheduledRideId?: string | null
   purpose?: string | null
