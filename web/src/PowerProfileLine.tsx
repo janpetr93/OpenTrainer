@@ -20,6 +20,7 @@ import {
   powerAxisMaxWatts,
   wattsToY,
   zoneBandRects,
+  zoneBoundaryWatts,
 } from './chart/zoneBands'
 import type { PowerProfilePoint } from './api'
 
@@ -288,7 +289,10 @@ export function PowerProfileLine({
   const rightBody = bodySides.right ? sideLabels(bodySides.right) : null
 
   const wattTicks = hasWatts
-    ? [...new Set(niceAxisTicks(wattsMin, wattsMax, 5))].sort((a, b) => b - a)
+    ? (bands.length > 0
+        ? zoneBoundaryWatts(bands)
+        : [...new Set(niceAxisTicks(wattsMin, wattsMax, 5))]
+      ).sort((a, b) => b - a)
     : []
 
   const leftAxis: AxisSideLabels | null = hasWatts
@@ -302,7 +306,7 @@ export function PowerProfileLine({
 
   const rightAxis: AxisSideLabels | null = hasWatts ? null : rightBody
 
-  // Gridlines share the labeled Y ticks (nice watts, or body thirds).
+  // Gridlines share the labeled Y ticks (zone seams when bands are drawn, else nice watts or body thirds).
   const gridMin = hasWatts
     ? wattsMin
     : leftBody

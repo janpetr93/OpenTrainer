@@ -1,4 +1,5 @@
 import type { MmpPointView } from '../api'
+import { zoneForWatts } from '../domain/cogganZones'
 
 type Props = {
   points: MmpPointView[]
@@ -83,7 +84,11 @@ export function MmpChart({
       {plotted.map((p) => (
         <circle
           key={p.durationSec}
-          className="mmp-point"
+          className={
+            setFtpWatts !== null && setFtpWatts > 0
+              ? `mmp-point mmp-point-z${zoneForWatts(setFtpWatts, p.watts!)}`
+              : 'mmp-point'
+          }
           cx={xOf(p.durationSec)}
           cy={yOf(p.watts!)}
           r={3.5}

@@ -49,6 +49,7 @@ import { CadenceConnection, type CadenceSnapshot } from './csc'
 import { TrainerConnection, type TrainerSnapshot } from './ftms'
 import { HeartRateConnection, type HeartRateSnapshot } from './hrm'
 import { APP_TAB_ORDER, initialAppTab, type AppTab } from './appTab'
+import { readRidePreview } from './ridePreview'
 import { rideHoldsTheWindow } from './oauthResult'
 import { CalendarPanel } from './CalendarPanel'
 import { DevicesPanel } from './DevicesPanel'
@@ -114,6 +115,9 @@ function App() {
   )
   const [tab, setTab] = useState<AppTab>(() =>
     initialAppTab(window.location.search),
+  )
+  const [ridePreview, setRidePreview] = useState(() =>
+    readRidePreview(window.location.search, import.meta.env.DEV),
   )
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [todaysScheduled, setTodaysScheduled] = useState<ScheduledRide[]>([])
@@ -577,6 +581,17 @@ function App() {
     void finishAndSave()
   }
 
+  function dismissRidePreview(): void {
+    setRidePreview(null)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('preview')
+    window.history.replaceState(
+      null,
+      '',
+      `${url.pathname}${url.search}${url.hash}`,
+    )
+  }
+
   function onSelectWorkout(
     workoutId: string,
     purpose: string | null = null,
@@ -698,9 +713,17 @@ function App() {
     await cadenceConnection.disconnect()
   }
 
+  const previewActive =
+    ridePreview !== null &&
+    tab === 'ride' &&
+    runnerSnap.status !== 'running' &&
+    runnerSnap.status !== 'paused'
+
   const riding =
     tab === 'ride' &&
-    (runnerSnap.status === 'running' || runnerSnap.status === 'paused')
+    (previewActive ||
+      runnerSnap.status === 'running' ||
+      runnerSnap.status === 'paused')
 
   const connectorHandlers = {
     trainer: {
@@ -771,30 +794,40 @@ function App() {
 
       {tab === 'ride' && (
         <LiveDisplay
-          snapshot={snapshot}
-          meter={meter}
-          alignmentDelta={alignmentDelta}
-          powerSourceMode={powerSourceMode}
-          heartRate={heartRate}
-          cadence={cadence}
+          snapshot={previewActive ? ridePreview.snapshot : snapshot}
+          meter={previewActive ? ridePreview.meter : meter}
+          alignmentDelta={
+            previewActive ? ridePreview.alignmentDelta : alignmentDelta
+          }
+          powerSourceMode={
+            previewActive ? ridePreview.powerSourceMode : powerSourceMode
+          }
+          heartRate={previewActive ? ridePreview.heartRate : heartRate}
+          cadence={previewActive ? ridePreview.cadence : cadence}
           workouts={workouts}
           todaysScheduled={todaysScheduled}
           selectedWorkoutId={selectedWorkoutId}
           selectedScheduledRideId={selectedScheduledRideId}
-          runner={runnerSnap}
-          plannedProfile={plannedProfile}
-          targetProfile={targetProfile}
-          achievedProfile={achievedProfile}
+          runner={previewActive ? ridePreview.runner : runnerSnap}
+          plannedProfile={
+            previewActive ? ridePreview.plannedProfile : plannedProfile
+          }
+          targetProfile={
+            previewActive ? ridePreview.targetProfile : targetProfile
+          }
+          achievedProfile={
+            previewActive ? ridePreview.achievedProfile : achievedProfile
+          }
           saveMessage={saveMessage}
-          ftpWatts={ftpWatts}
+          ftpWatts={previewActive ? ridePreview.ftpWatts : ftpWatts}
           onSelectWorkout={onSelectWorkout}
           onOpenDevices={() => setTab('devices')}
           onStart={onStart}
-          onPause={onPause}
-          onResume={onResume}
-          onSkip={onSkip}
-          onStop={onStop}
-          onRideAdjust={onRideAdjust}
+          onPause={previewActive ? dismissRidePreview : onPause}
+          onResume={previewActive ? dismissRidePreview : onResume}
+          onSkip={previewActive ? dismissRidePreview : onSkip}
+          onStop={previewActive ? dismissRidePreview : onStop}
+          onRideAdjust={previewActive ? () => undefined : onRideAdjust}
         />
       )}
       {tab === 'devices' && (

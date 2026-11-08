@@ -185,10 +185,13 @@ export function ProfilePanel({ onProfileChange }: Props) {
         {profile?.zones && (
           <ul className="zone-list">
             {profile.zones.map((z) => (
-              <li key={z.zone}>
-                <strong>Z{z.zone}</strong> {z.name} · {z.minWatts}
-                {z.maxWatts === null ? '+' : `–${z.maxWatts}`} W
-                <span className="muted"> (target {z.targetWatts} W)</span>
+              <li key={z.zone} className={`zone-row zone-row-z${z.zone}`}>
+                <span className="zone-swatch" aria-hidden="true" />
+                <span>
+                  <strong>Z{z.zone}</strong> {z.name} · {z.minWatts}
+                  {z.maxWatts === null ? '+' : `–${z.maxWatts}`} W
+                  <span className="muted"> (target {z.targetWatts} W)</span>
+                </span>
               </li>
             ))}
           </ul>

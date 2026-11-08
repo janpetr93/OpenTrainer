@@ -299,6 +299,7 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
                   )}
                   meta={activityMeta(activity)}
                   purpose={activity.purpose}
+                  timeInZonesSec={activity.sessionLoad?.timeInZonesSec ?? null}
                   chartLabel={`Activity ${activity.id}`}
                   series={chart.series}
                   showLegend={chart.showLegend}

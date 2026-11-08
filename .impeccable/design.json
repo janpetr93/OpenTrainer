@@ -1,0 +1,319 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-08T20:46:25Z",
+  "title": "Design System: OpenTrainer",
+  "extensions": {
+    "colorMeta": {
+      "cobalt": {
+        "role": "primary",
+        "displayName": "Cobalt",
+        "canonical": "oklch(49.0% 0.216 264.0)",
+        "tonalRamp": ["oklch(15% 0.137 264.0)", "oklch(27% 0.180 264.0)", "oklch(39% 0.180 264.0)", "oklch(51% 0.180 264.0)", "oklch(63% 0.180 264.0)", "oklch(75% 0.180 264.0)", "oklch(86% 0.180 264.0)", "oklch(95% 0.101 264.0)"]
+      },
+      "metric-cobalt": {
+        "role": "primary",
+        "displayName": "Metric Cobalt",
+        "canonical": "oklch(42.5% 0.198 264.7)",
+        "tonalRamp": ["oklch(15% 0.137 264.7)", "oklch(27% 0.180 264.7)", "oklch(39% 0.180 264.7)", "oklch(51% 0.180 264.7)", "oklch(63% 0.180 264.7)", "oklch(75% 0.180 264.7)", "oklch(86% 0.180 264.7)", "oklch(95% 0.101 264.7)"]
+      },
+      "on-cobalt": {
+        "role": "on-primary",
+        "displayName": "On Cobalt",
+        "canonical": "oklch(100% 0 248)",
+        "tonalRamp": ["oklch(15% 0 248)", "oklch(27% 0 248)", "oklch(39% 0 248)", "oklch(51% 0 248)", "oklch(63% 0 248)", "oklch(75% 0 248)", "oklch(86% 0 248)", "oklch(95% 0 248)"]
+      },
+      "cool-paper": {
+        "role": "neutral",
+        "displayName": "Cool Paper",
+        "canonical": "oklch(97.2% 0.003 247.9)",
+        "tonalRamp": ["oklch(15% 0.003 247.9)", "oklch(27% 0.003 247.9)", "oklch(39% 0.003 247.9)", "oklch(51% 0.003 247.9)", "oklch(63% 0.003 247.9)", "oklch(75% 0.003 247.9)", "oklch(86% 0.003 247.9)", "oklch(95% 0.002 247.9)"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(19.0% 0.007 258.4)",
+        "tonalRamp": ["oklch(15% 0.005 258.4)", "oklch(27% 0.007 258.4)", "oklch(39% 0.007 258.4)", "oklch(51% 0.007 258.4)", "oklch(63% 0.007 258.4)", "oklch(75% 0.007 258.4)", "oklch(86% 0.007 258.4)", "oklch(95% 0.004 258.4)"]
+      },
+      "slate": {
+        "role": "neutral",
+        "displayName": "Slate",
+        "canonical": "oklch(39.6% 0.023 248.4)",
+        "tonalRamp": ["oklch(15% 0.018 248.4)", "oklch(27% 0.023 248.4)", "oklch(39% 0.023 248.4)", "oklch(51% 0.023 248.4)", "oklch(63% 0.023 248.4)", "oklch(75% 0.023 248.4)", "oklch(86% 0.023 248.4)", "oklch(95% 0.013 248.4)"]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "White Panel",
+        "canonical": "oklch(100% 0 248)",
+        "tonalRamp": ["oklch(15% 0 248)", "oklch(27% 0 248)", "oklch(39% 0 248)", "oklch(51% 0 248)", "oklch(63% 0 248)", "oklch(75% 0 248)", "oklch(86% 0 248)", "oklch(95% 0 248)"]
+      },
+      "steel-line": {
+        "role": "neutral",
+        "displayName": "Steel Line",
+        "canonical": "oklch(72.5% 0.025 246.1)",
+        "tonalRamp": ["oklch(15% 0.019 246.1)", "oklch(27% 0.025 246.1)", "oklch(39% 0.025 246.1)", "oklch(51% 0.025 246.1)", "oklch(63% 0.025 246.1)", "oklch(75% 0.025 246.1)", "oklch(86% 0.025 246.1)", "oklch(95% 0.014 246.1)"]
+      },
+      "inset": {
+        "role": "neutral",
+        "displayName": "Inset",
+        "canonical": "oklch(94.1% 0.007 247.9)",
+        "tonalRamp": ["oklch(15% 0.005 247.9)", "oklch(27% 0.007 247.9)", "oklch(39% 0.007 247.9)", "oklch(51% 0.007 247.9)", "oklch(63% 0.007 247.9)", "oklch(75% 0.007 247.9)", "oklch(86% 0.007 247.9)", "oklch(95% 0.004 247.9)"]
+      },
+      "wash": {
+        "role": "neutral",
+        "displayName": "Cool Wash",
+        "canonical": "oklch(91.8% 0.015 251.2)",
+        "tonalRamp": ["oklch(15% 0.011 251.2)", "oklch(27% 0.015 251.2)", "oklch(39% 0.015 251.2)", "oklch(51% 0.015 251.2)", "oklch(63% 0.015 251.2)", "oklch(75% 0.015 251.2)", "oklch(86% 0.015 251.2)", "oklch(95% 0.008 251.2)"]
+      },
+      "status-ok": {
+        "role": "status",
+        "displayName": "Signal Green",
+        "canonical": "oklch(55.9% 0.137 152.2)",
+        "tonalRamp": ["oklch(15% 0.104 152.2)", "oklch(27% 0.137 152.2)", "oklch(39% 0.137 152.2)", "oklch(51% 0.137 152.2)", "oklch(63% 0.137 152.2)", "oklch(75% 0.137 152.2)", "oklch(86% 0.137 152.2)", "oklch(95% 0.077 152.2)"]
+      },
+      "status-warn": {
+        "role": "status",
+        "displayName": "Signal Amber",
+        "canonical": "oklch(65.2% 0.132 81.6)",
+        "tonalRamp": ["oklch(15% 0.101 81.6)", "oklch(27% 0.132 81.6)", "oklch(39% 0.132 81.6)", "oklch(51% 0.132 81.6)", "oklch(63% 0.132 81.6)", "oklch(75% 0.132 81.6)", "oklch(86% 0.132 81.6)", "oklch(95% 0.074 81.6)"]
+      },
+      "status-warn-text": {
+        "role": "status",
+        "displayName": "Amber Ink",
+        "canonical": "oklch(44.3% 0.091 83.8)",
+        "tonalRamp": ["oklch(15% 0.069 83.8)", "oklch(27% 0.091 83.8)", "oklch(39% 0.091 83.8)", "oklch(51% 0.091 83.8)", "oklch(63% 0.091 83.8)", "oklch(75% 0.091 83.8)", "oklch(86% 0.091 83.8)", "oklch(95% 0.051 83.8)"]
+      },
+      "status-danger": {
+        "role": "status",
+        "displayName": "Signal Red",
+        "canonical": "oklch(54.4% 0.183 28.1)",
+        "tonalRamp": ["oklch(15% 0.137 28.1)", "oklch(27% 0.180 28.1)", "oklch(39% 0.180 28.1)", "oklch(51% 0.180 28.1)", "oklch(63% 0.180 28.1)", "oklch(75% 0.180 28.1)", "oklch(86% 0.180 28.1)", "oklch(95% 0.101 28.1)"]
+      },
+      "status-danger-text": {
+        "role": "status",
+        "displayName": "Red Ink",
+        "canonical": "oklch(41.9% 0.145 28.4)",
+        "tonalRamp": ["oklch(15% 0.111 28.4)", "oklch(27% 0.145 28.4)", "oklch(39% 0.145 28.4)", "oklch(51% 0.145 28.4)", "oklch(63% 0.145 28.4)", "oklch(75% 0.145 28.4)", "oklch(86% 0.145 28.4)", "oklch(95% 0.082 28.4)"]
+      },
+      "zone-1": {
+        "role": "zone",
+        "displayName": "Zone 1",
+        "canonical": "oklch(57.7% 0.029 243.1)",
+        "tonalRamp": ["oklch(15% 0.022 243.1)", "oklch(27% 0.029 243.1)", "oklch(39% 0.029 243.1)", "oklch(51% 0.029 243.1)", "oklch(63% 0.029 243.1)", "oklch(75% 0.029 243.1)", "oklch(86% 0.029 243.1)", "oklch(95% 0.017 243.1)"]
+      },
+      "zone-2": {
+        "role": "zone",
+        "displayName": "Zone 2",
+        "canonical": "oklch(63.1% 0.131 247.2)",
+        "tonalRamp": ["oklch(15% 0.100 247.2)", "oklch(27% 0.131 247.2)", "oklch(39% 0.131 247.2)", "oklch(51% 0.131 247.2)", "oklch(63% 0.131 247.2)", "oklch(75% 0.131 247.2)", "oklch(86% 0.131 247.2)", "oklch(95% 0.074 247.2)"]
+      },
+      "zone-3": {
+        "role": "zone",
+        "displayName": "Zone 3",
+        "canonical": "oklch(61.8% 0.115 157.7)",
+        "tonalRamp": ["oklch(15% 0.088 157.7)", "oklch(27% 0.115 157.7)", "oklch(39% 0.115 157.7)", "oklch(51% 0.115 157.7)", "oklch(63% 0.115 157.7)", "oklch(75% 0.115 157.7)", "oklch(86% 0.115 157.7)", "oklch(95% 0.065 157.7)"]
+      },
+      "zone-4": {
+        "role": "zone",
+        "displayName": "Zone 4",
+        "canonical": "oklch(73.5% 0.146 84.3)",
+        "tonalRamp": ["oklch(15% 0.111 84.3)", "oklch(27% 0.146 84.3)", "oklch(39% 0.146 84.3)", "oklch(51% 0.146 84.3)", "oklch(63% 0.146 84.3)", "oklch(75% 0.146 84.3)", "oklch(86% 0.146 84.3)", "oklch(95% 0.082 84.3)"]
+      },
+      "zone-5": {
+        "role": "zone",
+        "displayName": "Zone 5",
+        "canonical": "oklch(66.6% 0.143 57.3)",
+        "tonalRamp": ["oklch(15% 0.109 57.3)", "oklch(27% 0.143 57.3)", "oklch(39% 0.143 57.3)", "oklch(51% 0.143 57.3)", "oklch(63% 0.143 57.3)", "oklch(75% 0.143 57.3)", "oklch(86% 0.143 57.3)", "oklch(95% 0.080 57.3)"]
+      },
+      "zone-6": {
+        "role": "zone",
+        "displayName": "Zone 6",
+        "canonical": "oklch(61.1% 0.165 27.0)",
+        "tonalRamp": ["oklch(15% 0.125 27.0)", "oklch(27% 0.165 27.0)", "oklch(39% 0.165 27.0)", "oklch(51% 0.165 27.0)", "oklch(63% 0.165 27.0)", "oklch(75% 0.165 27.0)", "oklch(86% 0.165 27.0)", "oklch(95% 0.093 27.0)"]
+      },
+      "zone-7": {
+        "role": "zone",
+        "displayName": "Zone 7",
+        "canonical": "oklch(61.1% 0.200 301.8)",
+        "tonalRamp": ["oklch(15% 0.137 301.8)", "oklch(27% 0.180 301.8)", "oklch(39% 0.180 301.8)", "oklch(51% 0.180 301.8)", "oklch(63% 0.180 301.8)", "oklch(75% 0.180 301.8)", "oklch(86% 0.180 301.8)", "oklch(95% 0.101 301.8)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Live watts. The largest type on the ride screen." },
+      "headline": { "displayName": "Headline", "purpose": "Page title on every tab." },
+      "title": { "displayName": "Title", "purpose": "Session name in History and on the calendar." },
+      "body": { "displayName": "Body", "purpose": "Sentences and supporting copy." },
+      "label": { "displayName": "Label", "purpose": "Uppercase names beside live metrics." }
+    },
+    "shadows": [
+      {
+        "name": "floating-menu",
+        "value": "0 8px 24px color-mix(in srgb, #000 35%, transparent)",
+        "purpose": "The device menu that opens over the page. Nothing else casts a shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control",
+        "value": "120ms ease",
+        "purpose": "Border, fill, and opacity on buttons."
+      },
+      {
+        "name": "reduced",
+        "value": "0.01ms",
+        "purpose": "When the rider prefers reduced motion, transitions and animations collapse."
+      }
+    ],
+    "breakpoints": [
+      { "name": "min", "value": "320px" },
+      { "name": "ride-hud", "value": "28rem" },
+      { "name": "device-toolbar", "value": "40rem" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled action. Start, resume, connect.",
+      "html": "<button class=\"ds-btn-primary\">Start</button>",
+      "css": ".ds-btn-primary { appearance: none; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text); border-radius: var(--radius); padding: 0.5rem 0.85rem; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: border-color 120ms ease, background 120ms ease; } .ds-btn-primary:hover { border-color: color-mix(in srgb, var(--accent) 85%, black); background: color-mix(in srgb, var(--accent) 88%, black); } .ds-btn-primary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: default; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The default action. White panel, steel border.",
+      "html": "<button class=\"ds-btn-secondary\">Export FIT</button>",
+      "css": ".ds-btn-secondary { appearance: none; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: var(--radius); padding: 0.5rem 0.85rem; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: border-color 120ms ease, background 120ms ease; } .ds-btn-secondary:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } .ds-btn-secondary:disabled { opacity: 0.5; cursor: default; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Stop. Pale red wash, red ink, never a filled brand red.",
+      "html": "<button class=\"ds-btn-danger\">Stop</button>",
+      "css": ".ds-btn-danger { appearance: none; border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--border)); background: color-mix(in srgb, var(--danger) 16%, var(--panel)); color: var(--danger-text); border-radius: var(--radius); padding: 0.5rem 0.85rem; font-family: var(--font-sans); font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: border-color 120ms ease, background 120ms ease; } .ds-btn-danger:hover { border-color: var(--danger); } .ds-btn-danger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } .ds-btn-danger:disabled { opacity: 0.5; cursor: default; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Inset fill and a steel line. No glow on focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" value=\"250\" aria-label=\"FTP watts\" />",
+      "css": ".ds-input { border: 1px solid var(--border); background: var(--code-bg); color: var(--text); border-radius: var(--radius); padding: 0.5rem 0.65rem; font-family: var(--font-sans); font-size: 1rem; font-weight: 400; min-width: 12rem; }"
+    },
+    {
+      "name": "Tabs",
+      "kind": "nav",
+      "refersTo": "button-tab-active",
+      "description": "The only app navigation. Active state is an inset cobalt underline.",
+      "html": "<nav class=\"ds-tabs\" aria-label=\"App sections\"><button class=\"ds-tab ds-tab-active\" type=\"button\">Ride</button><button class=\"ds-tab\" type=\"button\">Devices</button><button class=\"ds-tab\" type=\"button\">History</button><button class=\"ds-tab\" type=\"button\">Calendar</button><button class=\"ds-tab\" type=\"button\">Profile</button></nav>",
+      "css": ".ds-tabs { display: flex; width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); } .ds-tab { flex: 1; appearance: none; background: transparent; border: none; border-radius: 0; box-shadow: inset 0 -2px 0 transparent; color: var(--text); opacity: 0.55; font-family: var(--font-sans); font-weight: 600; font-size: 0.85rem; padding: 0.5rem 0.65rem; cursor: pointer; } .ds-tab:hover { opacity: 0.85; box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--border) 80%, var(--accent)); } .ds-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; } .ds-tab-active { opacity: 1; box-shadow: inset 0 -2px 0 var(--accent); }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "White surface on cool paper, separated by a steel line.",
+      "html": "<section class=\"ds-panel\"><h2 class=\"ds-panel-title\">History</h2><p class=\"ds-panel-copy\">Past rides, with the power you held.</p></section>",
+      "css": ".ds-panel { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem 1rem; } .ds-panel-title { margin: 0 0 0.25rem; font-family: var(--font-sans); font-size: 0.9rem; font-weight: 650; letter-spacing: 0; } .ds-panel-copy { margin: 0; color: var(--muted); font-family: var(--font-sans); font-size: 0.85rem; line-height: 1.45; max-width: 42rem; }"
+    },
+    {
+      "name": "Warning Banner",
+      "kind": "custom",
+      "refersTo": "banner-warn",
+      "description": "Amber wash and amber ink. Status, not decoration.",
+      "html": "<p class=\"ds-banner-warn\">Trainer link lost. Readings stay until you reconnect.</p>",
+      "css": ".ds-banner-warn { margin: 0; padding: 0.55rem 0.75rem; border-radius: var(--radius); background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn-text); font-family: var(--font-sans); font-size: 0.85rem; }"
+    },
+    {
+      "name": "Live Watts",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "The hero reading. Metric cobalt while fresh, slate when stale.",
+      "html": "<section class=\"ds-power\"><p class=\"ds-power-hint\">Live power</p><p class=\"ds-power-value\">248<span class=\"ds-power-unit\">W</span></p></section>",
+      "css": ".ds-power { text-align: center; padding: 1.5rem 1rem 1.65rem; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--border); } .ds-power-hint { margin: 0; color: var(--muted); font-family: var(--font-sans); font-size: 0.8rem; font-weight: 500; } .ds-power-value { margin: 0.2rem 0 0; font-family: var(--font-mono); font-size: clamp(3.75rem, 17vw, 6.25rem); font-weight: 800; line-height: 0.95; font-variant-numeric: tabular-nums; letter-spacing: -0.045em; color: var(--metric); } .ds-power-unit { margin-left: 0.35rem; font-size: 0.35em; font-weight: 600; color: var(--muted); vertical-align: super; }"
+    },
+    {
+      "name": "Sensor Status",
+      "kind": "chip",
+      "description": "A word and a dot. Green means connected. No filled chip.",
+      "html": "<span class=\"ds-pill\" data-state=\"connected\"><span class=\"ds-pill-dot\"></span>Trainer <span class=\"ds-pill-state\">connected</span></span>",
+      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 0.28rem; padding: 0.1rem 0; border: none; background: transparent; font-family: var(--font-sans); font-size: 0.72rem; font-weight: 600; color: var(--text); } .ds-pill-dot { width: 0.35rem; height: 0.35rem; border-radius: 50%; background: var(--ok); } .ds-pill-state { text-transform: lowercase; font-family: var(--font-mono); font-weight: 500; font-size: 0.7rem; opacity: 0.8; }"
+    },
+    {
+      "name": "Session Figure",
+      "kind": "custom",
+      "description": "A quiet label over a heavy mono number.",
+      "html": "<dl class=\"ds-metric\"><dt>NP</dt><dd>214</dd></dl>",
+      "css": ".ds-metric { display: grid; gap: 0.18rem; min-width: 4.25rem; margin: 0; } .ds-metric dt { margin: 0; color: var(--muted); font-family: var(--font-sans); font-size: 0.82rem; font-weight: 600; line-height: 1.2; } .ds-metric dd { margin: 0; font-family: var(--font-mono); font-size: 1.2rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; color: var(--text); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Paper Cockpit",
+    "overview": "OpenTrainer is a paper instrument meant to be read from the bike. The ground is cool and light. White panels sit on it inside a steel line. Live watts are the only type allowed to shout. Everything else stays quiet so that number can be read at a glance under ordinary room light.\n\nThe climate is light only and does not follow the operating system. At rest the screen is a centered column: a tab bar, then stacked panels. When a ride is in progress the column opens wide and the chrome tightens. Controls are compact, slightly rounded, and bordered. Figures are a second voice: heavy monospace, tabular, and metric cobalt while the reading is live.\n\nThe system rejects a dim instrument theater, a warm cream studio, and harsh pure black on pure white. Green, amber, and red report state. Cobalt is the only interactive accent.",
+    "keyCharacteristics": [
+      "Cool paper ground, white panels, steel borders",
+      "Live watts as the largest type, in heavy monospace",
+      "One cobalt accent; green, amber, and red stay status",
+      "Flat at rest; a shadow only when a layer floats",
+      "Compact bordered controls that stay quieter than the numbers"
+    ],
+    "rules": [
+      {
+        "name": "The Paper Climate Rule",
+        "body": "The cockpit stays light (`color-scheme: light`). It does not follow the operating system, and it does not grow a dark theme.",
+        "section": "colors"
+      },
+      {
+        "name": "The Status-Only Rule",
+        "body": "Green, amber, and red report connection, warning, error, and calendar ride state (amber for scheduled, green for completed). They are not decoration and they are not the primary action.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Accent Rule",
+        "body": "Cobalt is the only interactive accent. Metric cobalt is that same hue used for live numbers, not a second brand color.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "Source Sans 3 carries labels and prose. Source Code Pro carries watts, durations, and any figure a rider compares. A live number is never set in the sans face.",
+        "section": "typography"
+      },
+      {
+        "name": "The Glance Rule",
+        "body": "On the ride screen the live watt figure is the largest type. No headline competes with it.",
+        "section": "typography"
+      },
+      {
+        "name": "The Ride-Opens Rule",
+        "body": "Resting screens stay in the centered column. A ride in progress may go wide and shorten the padding. Do not keep the resting margins once the workout is running.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-by-Default Rule",
+        "body": "Surfaces are flat at rest. A shadow appears only when a layer floats over the page. Panels, cards, and buttons do not carry a resting shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One Corner Rule",
+        "body": "Controls, panels, inputs, and banners use a 0.4rem corner. Do not add a pill button or a sharp rectangle beside that corner.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do keep the cockpit light-only, on Cool Paper (`#f4f6f8`) with Ink (`#121417`).",
+      "Do use Cobalt (`#1b4fd8`) for the primary action, the active tab underline, links, and today on the calendar.",
+      "Do set live watts and compared figures in Source Code Pro, weight 800, tabular numerals, Metric Cobalt (`#153db8`) when fresh.",
+      "Do draw panels and controls with a 1px Steel Line (`#9aa8b5`) and a 0.4rem corner.",
+      "Do mark connection and errors with Signal Green, Signal Amber, and Signal Red, including the small calendar dots."
+    ],
+    "donts": [
+      "Don't add a dark theme or follow the OS appearance.",
+      "Don't use green, amber, or red as a brand accent or a primary button.",
+      "Don't put a resting shadow on panels, cards, or buttons.",
+      "Don't set live watts in Source Sans 3, or let a page title outsize them on the ride screen.",
+      "Don't introduce a second accent, a pill radius, or pure black on pure white."
+    ]
+  }
+}

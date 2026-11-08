@@ -23,19 +23,14 @@
   height: clamp(22rem, 56vh, 40rem);
 }
 
-.app-riding .tabs {
-  opacity: 0.8;
-}
-
 .tabs {
   display: flex;
   gap: 0;
   width: var(--content-width);
   padding: 0;
-  border-radius: var(--radius);
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-bottom-width: 1px;
+  border: 0;
+  border-bottom: 3px solid var(--text);
 }
 
 button.tab {
@@ -43,23 +38,23 @@ button.tab {
   background: transparent;
   border: none;
   border-radius: 0;
-  box-shadow: inset 0 -2px 0 transparent;
-  font-weight: 600;
-  font-size: 0.85rem;
-  opacity: 0.55;
-  padding: 0.5rem 0.65rem;
+  box-shadow: inset 0 -3px 0 transparent;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: #3a3a3a;
+  padding: 0.85rem 0.65rem 0.7rem;
 }
 
 button.tab:hover {
-  opacity: 0.85;
+  color: var(--text);
   border-color: transparent;
-  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--border) 80%, var(--accent));
+  box-shadow: inset 0 -3px 0 #8a8a8a;
 }
 
 button.tab.active {
-  opacity: 1;
   border-color: transparent;
-  box-shadow: inset 0 -2px 0 var(--accent);
+  box-shadow: inset 0 -3px 0 var(--text);
   background: transparent;
   color: var(--text);
 }
@@ -133,15 +128,60 @@ button.tab.active {
 }
 
 .zone-list {
-  margin: 0.75rem 0 0;
+  margin: 0.85rem 0 0;
   padding: 0;
   list-style: none;
   display: grid;
   gap: 0.35rem;
   font-size: 0.9rem;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+.zone-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  background: var(--zone-paper);
+  color: var(--text);
+}
+
+.zone-row-z1 { --zone-paper: var(--zone-1-paper); --zone-ink: var(--zone-1); }
+.zone-row-z2 { --zone-paper: var(--zone-2-paper); --zone-ink: var(--zone-2); }
+.zone-row-z3 { --zone-paper: var(--zone-3-paper); --zone-ink: var(--zone-3); }
+.zone-row-z4 { --zone-paper: var(--zone-4-paper); --zone-ink: var(--zone-4); }
+.zone-row-z5 { --zone-paper: var(--zone-5-paper); --zone-ink: var(--zone-5); }
+.zone-row-z6 { --zone-paper: var(--zone-6-paper); --zone-ink: var(--zone-6); }
+.zone-row-z7 { --zone-paper: var(--zone-7-paper); --zone-ink: var(--zone-7); }
+
+.zone-swatch {
+  width: 0.55rem;
+  height: 0.55rem;
+  background: var(--zone-ink);
+  flex: 0 0 auto;
+  transform: translateY(0.05rem);
+}
+
+.zone-time {
+  display: flex;
+  height: 0.45rem;
+  margin: 0.7rem 0 0;
+  background: var(--code-bg);
+}
+
+.zone-time span {
+  min-width: 2px;
+}
+
+.zone-time-z1 { background: var(--zone-1); }
+.zone-time-z2 { background: var(--zone-2); }
+.zone-time-z3 { background: var(--zone-3); }
+.zone-time-z4 { background: var(--zone-4); }
+.zone-time-z5 { background: var(--zone-5); }
+.zone-time-z6 { background: var(--zone-6); }
+.zone-time-z7 { background: var(--zone-7); }
+
 
 .form-row input,
 .workout-picker select {
@@ -163,13 +203,21 @@ button.tab.active {
 }
 
 .mmp-chart .mmp-curve {
-  stroke: var(--accent);
+  stroke: var(--text);
   stroke-width: 2;
 }
 
 .mmp-chart .mmp-point {
   fill: var(--accent);
 }
+
+.mmp-chart .mmp-point-z1 { fill: var(--zone-1); }
+.mmp-chart .mmp-point-z2 { fill: var(--zone-2); }
+.mmp-chart .mmp-point-z3 { fill: var(--zone-3); }
+.mmp-chart .mmp-point-z4 { fill: var(--zone-4); }
+.mmp-chart .mmp-point-z5 { fill: var(--zone-5); }
+.mmp-chart .mmp-point-z6 { fill: var(--zone-6); }
+.mmp-chart .mmp-point-z7 { fill: var(--zone-7); }
 
 .mmp-chart .mmp-ftp-line line {
   stroke: var(--muted);
@@ -666,25 +714,25 @@ button.export-fit {
 }
 
 .session-chart-zone-z1 {
-  --zone-swatch: #6b7c8a;
+  --zone-swatch: var(--zone-1);
 }
 .session-chart-zone-z2 {
-  --zone-swatch: #3d8fd4;
+  --zone-swatch: var(--zone-2);
 }
 .session-chart-zone-z3 {
-  --zone-swatch: #3d9a6a;
+  --zone-swatch: var(--zone-3);
 }
 .session-chart-zone-z4 {
-  --zone-swatch: #d4a017;
+  --zone-swatch: var(--zone-4);
 }
 .session-chart-zone-z5 {
-  --zone-swatch: #d47a2a;
+  --zone-swatch: var(--zone-5);
 }
 .session-chart-zone-z6 {
-  --zone-swatch: #d4534a;
+  --zone-swatch: var(--zone-6);
 }
 .session-chart-zone-z7 {
-  --zone-swatch: #9b5de5;
+  --zone-swatch: var(--zone-7);
 }
 
 .session-chart-axes .session-power-chart-plot {
@@ -722,25 +770,25 @@ button.export-fit {
 }
 
 .power-profile-line .zone-band-z1 rect {
-  fill: color-mix(in srgb, #6b7c8a 18%, transparent);
+  fill: var(--zone-1-paper);
 }
 .power-profile-line .zone-band-z2 rect {
-  fill: color-mix(in srgb, #3d8fd4 16%, transparent);
+  fill: var(--zone-2-paper);
 }
 .power-profile-line .zone-band-z3 rect {
-  fill: color-mix(in srgb, #3d9a6a 15%, transparent);
+  fill: var(--zone-3-paper);
 }
 .power-profile-line .zone-band-z4 rect {
-  fill: color-mix(in srgb, #d4a017 16%, transparent);
+  fill: var(--zone-4-paper);
 }
 .power-profile-line .zone-band-z5 rect {
-  fill: color-mix(in srgb, #d47a2a 17%, transparent);
+  fill: var(--zone-5-paper);
 }
 .power-profile-line .zone-band-z6 rect {
-  fill: color-mix(in srgb, #d4534a 17%, transparent);
+  fill: var(--zone-6-paper);
 }
 .power-profile-line .zone-band-z7 rect {
-  fill: color-mix(in srgb, #9b5de5 16%, transparent);
+  fill: var(--zone-7-paper);
 }
 
 .power-profile-line .profile-series {
@@ -749,17 +797,16 @@ button.export-fit {
 }
 
 .power-profile-line .profile-series-area-planned {
-  fill: color-mix(in srgb, var(--accent) 14%, transparent);
+  fill: color-mix(in srgb, var(--text) 10%, transparent);
   stroke: none;
 }
 
 .power-profile-line .profile-series-planned {
-  stroke: color-mix(in srgb, var(--muted) 45%, var(--accent));
-  opacity: 0.78;
+  stroke: #4a4a4a;
 }
 
 .power-profile-line .profile-series-achieved {
-  stroke: var(--accent);
+  stroke: var(--text);
 }
 
 /* Ridden targets (Ride Intensity / Free Ride): solid step line over the plan. */
@@ -782,25 +829,23 @@ button.export-fit {
 }
 
 .power-profile-line .profile-future-dim {
-  fill: color-mix(in srgb, var(--panel) 62%, transparent);
+  fill: color-mix(in srgb, var(--panel) 28%, transparent);
   pointer-events: none;
 }
 
 .power-profile-line .profile-cursor-glow {
-  stroke: color-mix(in srgb, #c45a12 28%, transparent);
-  opacity: 1;
+  stroke: color-mix(in srgb, var(--mark) 35%, transparent);
   vector-effect: non-scaling-stroke;
 }
 
 .power-profile-line .profile-cursor {
-  stroke: #c45a12;
-  opacity: 0.95;
+  stroke: var(--mark);
   vector-effect: non-scaling-stroke;
 }
 
 .ride-chart-stack .profile-cursor {
   /* Full-height strokes meet at the chart seam for one done/ahead edge. */
-  stroke: #c45a12;
+  stroke: var(--mark);
 }
 
 .session-chart-axes-no-x {
@@ -823,14 +868,8 @@ button.export-fit {
   height: clamp(18rem, 48vh, 30rem);
   border-radius: var(--radius);
   overflow: hidden;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--panel) 55%, var(--code-bg)) 0%,
-      color-mix(in srgb, var(--code-bg) 85%, var(--bg)) 100%
-    );
-  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent);
+  background: var(--panel);
+  border: 1px solid #c8cacd;
 }
 
 .ride-chart-stack .session-chart-axes.ride-power-chart,
@@ -882,7 +921,7 @@ button.export-fit {
 }
 
 .ride-chart-stack .session-chart-zone {
-  opacity: 0.65;
+  color: var(--text);
 }
 
 .ride-chart-stack .session-chart-zone::before {
@@ -891,7 +930,7 @@ button.export-fit {
 }
 
 .ride-chart-stack .profile-series-area-planned {
-  fill: color-mix(in srgb, var(--accent) 11%, transparent);
+  fill: transparent;
 }
 
 .ride-chart-stack .profile-series-planned {
@@ -912,17 +951,18 @@ button.export-fit {
   margin-top: 0.35rem;
   gap: 0.55rem 0.9rem;
   font-size: 0.72rem;
-  opacity: 0.9;
+  color: var(--muted);
 }
 
 
 .live-display-riding .power-panel {
   padding: 0.85rem 1rem 1.15rem;
   background: var(--panel);
+  border: 3px solid var(--text);
 }
 
 .live-display-riding .power-value {
-  font-size: clamp(3.25rem, 9vw, 5.25rem);
+  font-size: clamp(4rem, 10vw, 6.75rem);
 }
 
 .live-metrics-row {
@@ -1026,10 +1066,20 @@ button.export-fit {
 }
 
 .live-metric-value {
-  font-family: var(--font-mono);
-  font-size: clamp(1.25rem, 2.8vw, 1.7rem);
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2.8vw, 1.85rem);
+  font-weight: 400;
   color: var(--text);
+}
+
+.live-metric-next .live-metric-label::before {
+  content: '';
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-right: 0.35rem;
+  background: var(--mark);
+  vertical-align: -0.05em;
 }
 
 .live-metric-tile[data-status='stale'] .live-metric-value,
@@ -1127,28 +1177,27 @@ button.export-fit {
   border-radius: 2px;
   background: linear-gradient(
     to top,
-    #6b7c8a,
-    #3d8fd4,
-    #3d9a6a,
-    #d4a017,
-    #d47a2a,
-    #d4534a,
-    #9b5de5
+    #5e6872,
+    #2f6f9a,
+    #2f7a52,
+    #a67c12,
+    #b86a2a,
+    #b33b34,
+    #7a45b0
   );
 }
 
 .legend-planned::before {
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--muted) 45%, var(--accent)) 0 55%,
+    #4a4a4a 0 55%,
     transparent 55% 100%
   );
   background-size: 0.35rem 2px;
-  opacity: 0.85;
 }
 
 .legend-achieved::before {
-  background: var(--accent);
+  background: var(--text);
 }
 
 .legend-target::before {
@@ -1363,9 +1412,9 @@ button.linkish:hover {
 .power-panel {
   text-align: center;
   padding: 1.5rem 1rem 1.65rem;
-  border-radius: var(--radius);
+  border-radius: 0;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 3px solid var(--text);
 }
 
 .power-hint {
@@ -1379,13 +1428,13 @@ button.linkish:hover {
 
 .power-value {
   margin: 0.2rem 0 0;
-  font-family: var(--font-mono);
-  font-size: clamp(3.75rem, 17vw, 6.25rem);
-  font-weight: 800;
-  line-height: 0.95;
+  font-family: var(--font-display);
+  font-size: clamp(4.5rem, 16vw, 7.5rem);
+  font-weight: 400;
+  line-height: 0.84;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.045em;
-  color: var(--metric);
+  letter-spacing: -0.04em;
+  color: var(--text);
 }
 
 .power-value[data-status='stale'],
@@ -1394,11 +1443,13 @@ button.linkish:hover {
 }
 
 .power-unit {
-  margin-left: 0.35rem;
-  font-size: 0.35em;
-  font-weight: 600;
-  color: var(--muted);
-  vertical-align: super;
+  margin-left: 0.28rem;
+  font-family: var(--font-sans);
+  font-size: 0.22em;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0;
+  vertical-align: 0.6em;
 }
 
 .power-alignment {

@@ -1,0 +1,87 @@
+{
+  "buildPath": "code",
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "schibsted grotesk",
+        "createdAt": "2026-11-08T20:57:17.810Z",
+        "reason": "Replacement-world decision sketch. These cards propose a new visual world, so they are outside the Paper Cockpit faces in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "grotesk\",sans-serif",
+        "createdAt": "2026-11-08T20:57:17.829Z",
+        "reason": "Replacement-world decision sketch. These cards propose a new visual world, so they are outside the Paper Cockpit faces in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "big shoulders display",
+        "createdAt": "2026-11-08T20:57:17.850Z",
+        "reason": "Replacement-world decision sketch. These cards propose a new visual world, so they are outside the Paper Cockpit faces in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "barlow condensed",
+        "createdAt": "2026-11-08T20:57:17.909Z",
+        "reason": "Replacement-world decision sketch. These cards propose a new visual world, so they are outside the Paper Cockpit faces in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "condensed\",sans-serif",
+        "createdAt": "2026-11-08T20:57:17.931Z",
+        "reason": "Replacement-world decision sketch. These cards propose a new visual world, so they are outside the Paper Cockpit faces in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "atkinson hyperlegible",
+        "createdAt": "2026-11-08T20:57:17.953Z",
+        "reason": "Replacement-world decision sketch. These cards propose a new visual world, so they are outside the Paper Cockpit faces in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "nunito sans",
+        "createdAt": "2026-11-08T20:57:18.019Z",
+        "reason": "Replacement-world decision sketch. These cards propose a new visual world, so they are outside the Paper Cockpit faces in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "sans\",sans-serif",
+        "createdAt": "2026-11-08T20:57:18.039Z",
+        "reason": "Replacement-world decision sketch. These cards propose a new visual world, so they are outside the Paper Cockpit faces in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "figtree",
+        "createdAt": "2026-11-08T21:07:22.742Z",
+        "reason": "Replacement-world decision sketch. These faces belong to the fresh hand, not the Paper Cockpit in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "oswald",
+        "createdAt": "2026-11-08T21:07:22.780Z",
+        "reason": "Replacement-world decision sketch. These faces belong to the fresh hand, not the Paper Cockpit in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "archivo",
+        "createdAt": "2026-11-08T21:07:22.814Z",
+        "reason": "Replacement-world decision sketch. These faces belong to the fresh hand, not the Paper Cockpit in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "archivo black",
+        "createdAt": "2026-11-08T21:07:22.849Z",
+        "reason": "Replacement-world decision sketch. These faces belong to the fresh hand, not the Paper Cockpit in DESIGN.md."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "martian mono",
+        "createdAt": "2026-11-08T21:07:22.883Z",
+        "reason": "Replacement-world decision sketch. These faces belong to the fresh hand, not the Paper Cockpit in DESIGN.md."
+      }
+    ]
+  }
+}

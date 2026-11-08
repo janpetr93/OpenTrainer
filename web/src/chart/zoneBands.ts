@@ -24,6 +24,18 @@ export function powerAxisMaxWatts(input: {
   return Math.max(input.dataMaxWatts, floor, 1)
 }
 
+/**
+ * Watt values where one zone ends and the next begins.
+ * Skips 0 W and the open top of Z7, which are the chart edges, not seams.
+ */
+export function zoneBoundaryWatts(bands: ZoneBandRect[]): number[] {
+  if (bands.length === 0) return []
+  const ceiling = Math.max(...bands.map((band) => band.maxWatts))
+  return [...new Set(bands.map((band) => band.maxWatts))]
+    .filter((watts) => watts > 0 && watts < ceiling)
+    .sort((a, b) => a - b)
+}
+
 /** Closed watt ranges for drawing (Z7 capped at axis max). */
 export function zoneBandRects(
   ftpWatts: number,

@@ -439,7 +439,7 @@ export function LiveDisplay({
                 !(isFreeRide || runner.stepCount === 0) && (
                   <>
                     <TargetTile runner={runner} />
-                    <div className="live-metric-tile">
+                    <div className="live-metric-tile live-metric-next">
                       <span className="live-metric-label">Left</span>
                       <span className="live-metric-value">
                         {formatClock(runner.stepRemainingSec)}

@@ -1,30 +1,45 @@
 :root {
-  /* Cockpit is light-only — does not follow system dark preference. */
+  /* Daylight stone — readable from the bike in room light. Light only. */
   color-scheme: light;
-  --bg: #f4f6f8;
-  --text: #121417;
-  --muted: #3d4853;
+  --bg: #f3f4f5;
+  --text: #161616;
+  --muted: #3a3a3a;
   --panel: #ffffff;
-  --border: #9aa8b5;
-  --accent: #1b4fd8;
+  --border: #161616;
+  --accent: #161616;
   --accent-text: #ffffff;
-  --ok: #1b8a4a;
-  --warn: #b8860b;
-  --warn-text: #6b4e00;
-  --danger: #c4332b;
-  --danger-text: #8b1e18;
-  --code-bg: #e8ecf0;
-  --metric: #153db8;
-  --radius: 0.4rem;
-  --font-sans: 'Source Sans 3', 'Segoe UI', sans-serif;
-  --font-mono: 'Source Code Pro', ui-monospace, monospace;
+  --mark: #c45c12;
+  --ok: #0e5a28;
+  --warn: #8a4b00;
+  --warn-text: #6b3a00;
+  --danger: #8f1d1d;
+  --danger-text: #8f1d1d;
+  --code-bg: #e7e8ea;
+  --metric: #161616;
+  --radius: 0;
+  --zone-1: #5e6872;
+  --zone-1-paper: #e8ebed;
+  --zone-2: #2f6f9a;
+  --zone-2-paper: #d9e6f3;
+  --zone-3: #2f7a52;
+  --zone-3-paper: #d8ecdf;
+  --zone-4: #a67c12;
+  --zone-4-paper: #f7e9c4;
+  --zone-5: #b86a2a;
+  --zone-5-paper: #f7e0cb;
+  --zone-6: #b33b34;
+  --zone-6-paper: #f7d8d4;
+  --zone-7: #7a45b0;
+  --zone-7-paper: #e9daf4;
+  --font-sans: 'Archivo', 'Segoe UI', sans-serif;
+  --font-display: 'Archivo Black', 'Archivo', sans-serif;
+  --font-mono: 'Archivo', ui-monospace, monospace;
   font-family: var(--font-sans);
   line-height: 1.4;
   font-weight: 400;
   color: var(--text);
-  background:
-    radial-gradient(900px 420px at 6% -18%, #dde5ee 0%, transparent 58%),
-    var(--bg);
+  background: var(--bg);
+  caret-color: var(--text);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -32,6 +47,7 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-color: #161616 #e4e5e7;
 }
 
 body {
@@ -46,6 +62,12 @@ body {
 
 a {
   color: inherit;
+  text-underline-offset: 0.18em;
+}
+
+::selection {
+  background: #161616;
+  color: #f3f4f5;
 }
 
 @media (prefers-reduced-motion: reduce) {

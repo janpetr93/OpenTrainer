@@ -24,6 +24,16 @@ export type ResolvedPowerZone = PowerZoneBand & {
   targetWatts: number
 }
 
+/** Zone that contains `watts`. The upper edge belongs to the next zone. */
+export function zoneForWatts(ftpWatts: number, watts: number): PowerZoneId {
+  const zones = zonesFromFtp(ftpWatts)
+  for (const zone of zones) {
+    if (watts < zone.minWatts) continue
+    if (zone.maxWatts === null || watts < zone.maxWatts) return zone.zone
+  }
+  return 7
+}
+
 export function zonesFromFtp(ftpWatts: number): ResolvedPowerZone[] {
   if (!Number.isFinite(ftpWatts) || ftpWatts <= 0) {
     throw new Error('FTP must be a positive number')

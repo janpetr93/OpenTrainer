@@ -3,6 +3,7 @@ import {
   powerAxisMaxWatts,
   wattsToY,
   zoneBandRects,
+  zoneBoundaryWatts,
 } from './zoneBands'
 
 describe('zoneBandRects', () => {
@@ -23,6 +24,13 @@ describe('zoneBandRects', () => {
     expect(
       powerAxisMaxWatts({ ftpWatts: 200, dataMaxWatts: 400 }),
     ).toBe(400)
+  })
+})
+
+describe('zoneBoundaryWatts', () => {
+  it('marks the seams between zones, not round hundreds or the open top', () => {
+    const bands = zoneBandRects(220, powerAxisMaxWatts({ ftpWatts: 220, dataMaxWatts: 100 }))
+    expect(zoneBoundaryWatts(bands)).toEqual([121, 165, 198, 231, 264, 330])
   })
 })
 
