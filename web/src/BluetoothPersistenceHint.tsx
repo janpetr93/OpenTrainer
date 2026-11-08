@@ -38,7 +38,9 @@ export function BluetoothPersistenceHint({ onDismiss }: Props) {
         <em>Use the new permissions backend for Web Bluetooth</em> to{' '}
         <strong>Enabled</strong>, relaunch Chrome, then Re-pair each device
         once. After that, Connect all known reconnects them with one click.
-        Until then, Re-pair opens the chooser with only your device in it.
+        Until then, Re-pair all opens each remembered device's chooser from
+        that one click. Chrome may stop after the first and ask you to click
+        Re-pair all again.
       </p>
       <div className="persistence-hint-actions">
         <button type="button" onClick={() => void copyFlag()}>

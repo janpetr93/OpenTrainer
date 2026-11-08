@@ -16,6 +16,10 @@ export type CadenceSnapshot = {
   rememberedDevice: RememberedDevice | null
 }
 
+/** Shown while the link is up and no crank reading has arrived yet. */
+export const CADENCE_WAITING_HINT =
+  'Spin the crank. This sensor stays quiet until the magnet passes. A green light is speed only — red is cadence.'
+
 export const initialCadenceSnapshot = (): CadenceSnapshot => ({
   connectionState: 'disconnected',
   deviceName: null,

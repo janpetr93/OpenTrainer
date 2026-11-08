@@ -311,7 +311,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Connection** / FTMS | `web/src/ftms/trainerConnection.ts` (+ parsers under `web/src/ftms/`) |
 | **Power Meter Connection** / CPS | `web/src/cps/powerMeterConnection.ts` (+ `parseCyclingPowerMeasurement`, `powerAlignment`) |
 | **Heart Rate Monitor** | `web/src/hrm/heartRateConnection.ts` |
-| **Cadence Sensor** | `web/src/csc/cadenceConnection.ts` |
+| **Cadence Sensor** | `web/src/csc/cadenceConnection.ts`; macOS desktop scan `desktop/native/cadence-bridge.swift` |
 | Shared notify sensors | `web/src/ble/notifySensorConnection.ts` |
 | **Power Alignment** | `web/src/cps/powerAlignment.ts` + Ride tab in `LiveDisplay` |
 | **Power Source Mode** / hybrid ERG | [ADR 0002](docs/adr/0002-meter-primary-hybrid-erg.md); `web/src/domain/powerSourceMode.ts`, `samplePowerMetrics.ts`, `ergCalibration.ts`; wired in `App.tsx` / `LiveDisplay.tsx` |

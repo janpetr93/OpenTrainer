@@ -38,6 +38,11 @@ mac:
   extendInfo:
     NSBluetoothAlwaysUsageDescription: OpenTrainer connects to your smart trainer, power meter, heart rate monitor, and cadence sensor over Bluetooth.
     NSBluetoothPeripheralUsageDescription: OpenTrainer connects to your smart trainer, power meter, heart rate monitor, and cadence sensor over Bluetooth.
+  # Mach-O cannot run from inside app.asar. The cadence scanner is a separate
+  # binary the main process spawns.
+  extraResources:
+    - from: dist/native/cadence-bridge
+      to: native/cadence-bridge
 
 dmg:
   title: ${productName} ${version}

@@ -3,7 +3,7 @@ import {
   formatAlignmentDelta,
   type PowerMeterSnapshot,
 } from './cps'
-import type { CadenceSnapshot } from './csc'
+import { CADENCE_WAITING_HINT, type CadenceSnapshot } from './csc'
 import type { PowerSourceMode } from './domain/powerSourceMode'
 import { workoutNeedsFtp } from './domain/resolveTarget'
 import {
@@ -294,6 +294,9 @@ export function LiveDisplay({
         <p className="banner error">{heartRate.lastError}</p>
       )}
       {cadence.lastError && <p className="banner error">{cadence.lastError}</p>}
+      {cadenceConnected && cadence.rpm === null && !cadence.lastError && (
+        <p className="banner warn">{CADENCE_WAITING_HINT}</p>
+      )}
       {saveMessage && <p className="banner warn">{saveMessage}</p>}
 
       <section className="power-panel" aria-live="polite">

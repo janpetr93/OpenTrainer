@@ -13,6 +13,7 @@ import {
 import { loadCompanionEnv } from '../../companion/src/env.js'
 import { OAUTH_RESULT_STORAGE_KEY } from '../../web/src/oauthResult.js'
 import { BluetoothPicker } from './bluetooth.js'
+import { installCadenceBridge } from './cadenceBridge.js'
 import { DATA_DIR_NAME, SETTINGS_FILE_NAME, ensureSettingsFile, seedDataDir } from './dataDir.js'
 import { teeConsoleToFile } from './logFile.js'
 import { buildAppMenu } from './menu.js'
@@ -49,6 +50,7 @@ app.setAppLogsPath(
 let server: DesktopServer | null = null
 let mainWindow: BrowserWindow | null = null
 let picker: BluetoothPicker | null = null
+let stopCadence: (() => void) | null = null
 let settingsPath = ''
 let dataDir = ''
 
@@ -132,6 +134,7 @@ function createMainWindow(path = '/'): BrowserWindow {
       sandbox: true,
       nodeIntegration: false,
       spellcheck: false,
+      preload: join(here, 'preload.cjs'),
       // No experimentalFeatures: it would expose navigator.bluetooth.getDevices(),
       // but Electron keeps no Web Bluetooth permissions between launches, so it
       // always returns [] and only makes macOS ask for Bluetooth at startup.
@@ -268,6 +271,18 @@ async function start(): Promise<void> {
 
   picker = new BluetoothPicker({ html: assets.pickerHtml, preload: assets.pickerPreload }, log)
   picker.installPairingHandler(session.defaultSession, () => mainWindow)
+  if (process.platform === 'darwin') {
+    stopCadence = installCadenceBridge({
+      helperPath: join(
+        app.isPackaged ? process.resourcesPath : here,
+        'native',
+        'cadence-bridge',
+      ),
+      picker,
+      parent: () => mainWindow,
+      log,
+    }).stop
+  }
 
   Menu.setApplicationMenu(
     buildAppMenu({
@@ -311,6 +326,8 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.on('will-quit', (event) => {
+    stopCadence?.()
+    stopCadence = null
     const running = server
     if (!running) return
     server = null

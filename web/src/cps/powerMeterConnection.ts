@@ -188,6 +188,53 @@ export class PowerMeterConnection {
     }
   }
 
+  /**
+   * Re-pair the remembered power meter from a user-gesture turn.
+   * requestDevice runs before this method awaits.
+   */
+  openRememberedRepair(): Promise<void> {
+    const repairRequest = rememberedDeviceRequest(
+      this.snapshot.rememberedDevice,
+      CYCLING_POWER_SERVICE,
+    )
+    if (!this.snapshot.webBluetoothSupported || !repairRequest) {
+      return this.connect()
+    }
+    this.patch({
+      connectionState: 'connecting',
+      lastError: null,
+    })
+    let pending: Promise<BluetoothDevice>
+    try {
+      pending = navigator.bluetooth.requestDevice(repairRequest)
+    } catch (error) {
+      this.noteChooserFailure(error)
+      return Promise.resolve()
+    }
+    return pending.then(
+      (device) => this.attachAndConnect(device),
+      (error) => {
+        this.noteChooserFailure(error)
+      },
+    )
+  }
+
+  private noteChooserFailure(error: unknown): void {
+    const raw = error instanceof Error ? error.message : String(error)
+    const message = /cancelled|canceled/i.test(raw)
+      ? 'Power meter chooser closed. Wake the Assioma Uno (spin the pedal), then try again.'
+      : /no devices|not found|chooser|empty/i.test(raw)
+        ? 'Chooser empty — wake the Assioma (spin/crank), quit other apps using it, then Open chooser or Scan all.'
+        : raw
+    this.patch({
+      connectionState: this.device ? 'disconnected-with-reconnect' : 'disconnected',
+      lastError:
+        repairChooserError(raw, this.snapshot.rememberedDevice, 'power meter') ??
+        message,
+    })
+    this.stopFreshnessTimer()
+  }
+
   async reconnect(): Promise<void> {
     if (!this.device) {
       await this.connect()

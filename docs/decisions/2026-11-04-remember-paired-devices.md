@@ -3,6 +3,8 @@ date: 2026-11-04
 status: active
 ---
 
+> **Update (2026-11-08):** Connect All Known now re-pairs remembered devices in the same click. See [Re-pair all](2026-11-08-repair-all-remembered.md).
+
 # Remember the device per role, and Re-pair it in one click
 
 ## Context

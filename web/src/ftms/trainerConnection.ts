@@ -211,6 +211,66 @@ export class TrainerConnection {
     }
   }
 
+  /**
+   * Re-pair the remembered trainer from a user-gesture turn.
+   * requestDevice runs before this method awaits.
+   */
+  openRememberedRepair(): Promise<void> {
+    const repairRequest = rememberedDeviceRequest(
+      this.snapshot.rememberedDevice,
+      FTMS_SERVICE,
+    )
+    if (!this.snapshot.webBluetoothSupported || !repairRequest) {
+      return this.connect()
+    }
+    this.patch({
+      connectionState: 'connecting',
+      lastError: null,
+      controlProbeLog: [],
+      ergControlAvailable: false,
+    })
+    return this.requestRemembered(repairRequest, 'trainer', (raw) =>
+      /cancelled|canceled/i.test(raw)
+        ? 'Device chooser closed. If the list was empty: power-cycle the trainer, click Connect (uses last permitted device), or open chrome://bluetooth-internals and disconnect leftovers.'
+        : /no devices|not found|chooser|empty/i.test(raw)
+          ? 'Chooser empty — trainer is probably not advertising (still linked from last session). Power-cycle the D100, use Connect (known device), quit Zwift, and avoid OS Bluetooth pairing.'
+          : raw,
+    )
+  }
+
+  private requestRemembered(
+    repairRequest: RequestDeviceOptions,
+    roleNoun: string,
+    fallback: (raw: string) => string,
+  ): Promise<void> {
+    let pending: Promise<BluetoothDevice>
+    try {
+      pending = navigator.bluetooth.requestDevice(repairRequest)
+    } catch (error) {
+      this.noteChooserFailure(error, roleNoun, fallback)
+      return Promise.resolve()
+    }
+    return pending.then(
+      (device) => this.attachAndConnect(device),
+      (error) => {
+        this.noteChooserFailure(error, roleNoun, fallback)
+      },
+    )
+  }
+
+  private noteChooserFailure(
+    error: unknown,
+    roleNoun: string,
+    fallback: (raw: string) => string,
+  ): void {
+    const raw = error instanceof Error ? error.message : String(error)
+    this.patch({
+      connectionState: this.device ? 'disconnected-with-reconnect' : 'disconnected',
+      lastError: repairChooserError(raw, this.snapshot.rememberedDevice, roleNoun) ?? fallback(raw),
+    })
+    this.stopFreshnessTimer()
+  }
+
   async reconnect(): Promise<void> {
     if (!this.device) {
       await this.connect()

@@ -3,10 +3,12 @@ import {
   dialog,
   ipcMain,
   type IpcMainEvent,
+  type IpcMainInvokeEvent,
   type Session,
   type WebContents,
 } from 'electron'
-import { BluetoothChooser } from './bluetoothChooser.js'
+import { clearTimeout, setTimeout } from 'node:timers'
+import { BluetoothChooser, repairPick } from './bluetoothChooser.js'
 
 export type PickerAssets = {
   /** picker.html */
@@ -18,6 +20,13 @@ export type PickerAssets = {
 type PairingResponse = { confirmed: boolean; pin?: string | null }
 
 const PICKER_BACKGROUND = '#f4f6f8'
+
+/** How long a Re-pair waits for the remembered name before showing the picker. */
+const REPAIR_FALLBACK_MS = 8000
+
+function numberOr(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
 
 /**
  * Web Bluetooth in Electron has no built-in device chooser: the page's
@@ -32,6 +41,10 @@ const PICKER_BACKGROUND = '#f4f6f8'
 export class BluetoothPicker {
   private readonly chooser = new BluetoothChooser()
   private pickerWindow: BrowserWindow | null = null
+  private pageContents: WebContents | null = null
+  /** Remembered name the page asked to re-pair. Unset for Find new. */
+  private armedRepairName: string | null = null
+  private repairFallback: ReturnType<typeof setTimeout> | null = null
   private pinPrompt: {
     window: BrowserWindow
     respond: (response: PairingResponse) => void
@@ -66,13 +79,43 @@ export class BluetoothPicker {
       if (typeof pin !== 'string' || !pin.trim()) return
       this.finishPin({ confirmed: true, pin: pin.trim() })
     })
+    ipcMain.on('bluetooth:arm-repair', (event, name: unknown) => {
+      if (!this.fromPage(event) || typeof name !== 'string' || !name.trim()) {
+        event.returnValue = false
+        return
+      }
+      this.armedRepairName = name.trim()
+      event.returnValue = true
+    })
+    ipcMain.handle('bluetooth:finish-repair', (event) => {
+      if (!this.fromPage(event)) return
+      this.disarmRepair()
+    })
+    ipcMain.handle('bluetooth:click', (event, x: unknown, y: unknown) => {
+      if (!this.fromPage(event)) return
+      this.clickPage(event.sender, numberOr(x, 4), numberOr(y, 4))
+    })
   }
 
   /** Handle `requestDevice()` from this window's page. */
   attach(win: BrowserWindow): void {
+    this.pageContents = win.webContents
     win.webContents.on('select-bluetooth-device', (event, devices, callback) => {
       event.preventDefault()
       const started = this.chooser.update(devices, callback)
+      if (this.armedRepairName) {
+        const id = repairPick(this.chooser.devices(), this.armedRepairName)
+        if (id && this.chooser.choose(id)) {
+          this.log(`Bluetooth: re-paired ${this.armedRepairName}`)
+          this.clearRepairFallback()
+          return
+        }
+        if (started) {
+          this.log(`Bluetooth: re-pair waiting for ${this.armedRepairName}`)
+          this.scheduleRepairFallback(win)
+        }
+        return
+      }
       if (started) {
         this.log('Bluetooth: device request started')
         this.openPicker(win)
@@ -80,6 +123,8 @@ export class BluetoothPicker {
       this.pushDevices()
     })
     win.on('closed', () => {
+      this.pageContents = null
+      this.disarmRepair()
       this.cancelRequest()
       this.finishPin({ confirmed: false })
     })
@@ -121,11 +166,92 @@ export class BluetoothPicker {
     return event.sender === this.pickerWindow?.webContents
   }
 
+  private fromPage(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
+    return this.pageContents !== null && event.sender === this.pageContents
+  }
+
+  private disarmRepair(): void {
+    this.armedRepairName = null
+    this.clearRepairFallback()
+  }
+
+  private clearRepairFallback(): void {
+    if (!this.repairFallback) return
+    clearTimeout(this.repairFallback)
+    this.repairFallback = null
+  }
+
+  /** The remembered device never advertised: let the rider pick, and stop auto-choosing. */
+  private scheduleRepairFallback(win: BrowserWindow): void {
+    if (this.repairFallback) return
+    this.repairFallback = setTimeout(() => {
+      this.repairFallback = null
+      if (!this.armedRepairName || !this.chooser.active) return
+      this.log(`Bluetooth: re-pair did not see ${this.armedRepairName}`)
+      this.armedRepairName = null
+      this.openPicker(win)
+      this.pushDevices()
+    }, REPAIR_FALLBACK_MS)
+    this.repairFallback.unref()
+  }
+
+  /** A real click in the page, so the next requestDevice is inside a user gesture. */
+  private clickPage(contents: WebContents, x: number, y: number): void {
+    if (contents.isDestroyed()) return
+    contents.focus()
+    contents.sendInputEvent({ type: 'mouseMove', x, y })
+    contents.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 })
+    contents.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 })
+  }
+
   private describe(deviceId: string): string {
     return this.chooser.nameOf(deviceId) ?? 'unnamed device'
   }
 
-  private openPicker(parent: BrowserWindow): void {
+  /**
+   * Open the same picker for a scan that did not come from Web Bluetooth
+   * (the macOS cadence sensor). Resolves to the chosen id, or '' on cancel.
+   */
+  prompt(
+    parent: BrowserWindow,
+    hint: string,
+  ): {
+    update(devices: { id: string; name: string }[]): void
+    result: Promise<string>
+    close(): void
+  } {
+    if (this.chooser.active) {
+      throw new Error('A Bluetooth device list is already open.')
+    }
+    let settled = false
+    let resolveResult: (id: string) => void = () => {}
+    const result = new Promise<string>((resolve) => {
+      resolveResult = resolve
+    })
+    const settle = (id: string): void => {
+      if (settled) return
+      settled = true
+      resolveResult(id)
+    }
+    this.chooser.update([], settle)
+    this.openPicker(parent, hint)
+    return {
+      update: (devices) => {
+        if (settled) return
+        this.chooser.update(
+          devices.map((device) => ({ deviceId: device.id, deviceName: device.name })),
+          settle,
+        )
+        this.pushDevices()
+      },
+      result,
+      close: () => {
+        if (!settled) this.cancelRequest()
+      },
+    }
+  }
+
+  private openPicker(parent: BrowserWindow, hint?: string): void {
     this.closePicker()
     const picker = this.createDialogWindow(parent, 'Choose a Bluetooth device', 520)
     this.pickerWindow = picker
@@ -136,7 +262,9 @@ export class BluetoothPicker {
       this.pickerWindow = null
       this.cancelRequest()
     })
-    void picker.loadFile(this.assets.html, { query: { mode: 'devices' } })
+    const query: Record<string, string> = { mode: 'devices' }
+    if (hint) query.hint = hint
+    void picker.loadFile(this.assets.html, { query })
   }
 
   private pushDevices(): void {

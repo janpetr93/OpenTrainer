@@ -102,7 +102,8 @@ The app and MCP read and write the same files. Rides MCP schedules show up when 
 
 ## Bluetooth notes
 
-- Electron has no built-in Web Bluetooth chooser, so the main process shows its own picker window (`src/bluetooth.ts`). The renderer's connection code is the same as in Chrome and Edge.
+- Electron has no built-in Web Bluetooth chooser, so the main process shows its own picker window (`src/bluetooth.ts`). Trainer, power meter, and heart rate use the same Web Bluetooth connection code as Chrome and Edge.
+- On macOS the cadence sensor is scanned by a small CoreBluetooth helper (`native/cadence-bridge.swift`). Web Bluetooth's chooser only lists a device that advertises the cadence service or a known brand name, and the Van Rysel sensor often does neither. Spin the crank before connecting: the sensor sleeps after about a minute. If macOS asks to allow Bluetooth for the scanner, allow OpenTrainer.
 - On Windows, a device that asks to confirm pairing or for a PIN gets a prompt. macOS pairs on its own.
 - Electron keeps no Web Bluetooth permissions between launches (`navigator.bluetooth.getDevices()` has nothing to return), so after a restart the app opens the chooser again instead of reconnecting silently.
 

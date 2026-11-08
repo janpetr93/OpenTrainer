@@ -39,7 +39,12 @@ import {
   PowerMeterConnection,
   type PowerMeterSnapshot,
 } from './cps'
-import { connectAllKnown } from './ble/connectAllKnown'
+import {
+  connectAllKnown,
+  repairBlockedByGesture,
+} from './ble/connectAllKnown'
+import { performInGesture, rememberedRepair } from './ble/desktopBluetooth'
+import { nativeCadenceLink } from './csc/nativeCadence'
 import { CadenceConnection, type CadenceSnapshot } from './csc'
 import { TrainerConnection, type TrainerSnapshot } from './ftms'
 import { HeartRateConnection, type HeartRateSnapshot } from './hrm'
@@ -122,6 +127,8 @@ function App() {
     string | null
   >(null)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [connectAllBusy, setConnectAllBusy] = useState(false)
+  const connectAllBusyRef = useRef(false)
   const [connectAllSummary, setConnectAllSummary] = useState<string | null>(
     null,
   )
@@ -593,47 +600,94 @@ function App() {
   }
 
   async function onConnectAllKnown(): Promise<void> {
+    if (connectAllBusyRef.current) return
+    connectAllBusyRef.current = true
+    setConnectAllBusy(true)
     const trainerSnap = connection.getSnapshot()
     const meterSnap = meterConnection.getSnapshot()
     const hrSnap = heartRateConnection.getSnapshot()
     const cadSnap = cadenceConnection.getSnapshot()
-    const summary = await connectAllKnown([
-      {
-        label: 'trainer',
-        connectionState: trainerSnap.connectionState,
-        knownDeviceCount: trainerSnap.knownDevices.length,
-        rememberedName: trainerSnap.rememberedDevice?.name ?? null,
-        connect: () => connection.connect(),
-        getConnectionState: () => connection.getSnapshot().connectionState,
-      },
-      {
-        label: 'power meter',
-        connectionState: meterSnap.connectionState,
-        knownDeviceCount: meterSnap.knownDevices.length,
-        rememberedName: meterSnap.rememberedDevice?.name ?? null,
-        connect: () => meterConnection.connect(),
-        getConnectionState: () => meterConnection.getSnapshot().connectionState,
-      },
-      {
-        label: 'heart rate',
-        connectionState: hrSnap.connectionState,
-        knownDeviceCount: hrSnap.knownDevices.length,
-        rememberedName: hrSnap.rememberedDevice?.name ?? null,
-        connect: () => heartRateConnection.connect(),
-        getConnectionState: () =>
-          heartRateConnection.getSnapshot().connectionState,
-      },
-      {
-        label: 'cadence',
-        connectionState: cadSnap.connectionState,
-        knownDeviceCount: cadSnap.knownDevices.length,
-        rememberedName: cadSnap.rememberedDevice?.name ?? null,
-        connect: () => cadenceConnection.connect(),
-        getConnectionState: () =>
-          cadenceConnection.getSnapshot().connectionState,
-      },
-    ])
-    setConnectAllSummary(summary)
+    try {
+      const cadenceNative = nativeCadenceLink() !== null
+      const summary = await connectAllKnown(
+        [
+          {
+            label: 'trainer',
+            connectionState: trainerSnap.connectionState,
+            knownDeviceCount: trainerSnap.knownDevices.length,
+            rememberedName: trainerSnap.rememberedDevice?.name ?? null,
+            connect: () => connection.connect(),
+            repair: trainerSnap.rememberedDevice?.name
+              ? rememberedRepair(trainerSnap.rememberedDevice.name, () =>
+                  connection.openRememberedRepair(),
+                )
+              : undefined,
+            needsGesture: true,
+            repairBlocked: () =>
+              repairBlockedByGesture(connection.getSnapshot().lastError),
+            getConnectionState: () => connection.getSnapshot().connectionState,
+          },
+          {
+            label: 'power meter',
+            connectionState: meterSnap.connectionState,
+            knownDeviceCount: meterSnap.knownDevices.length,
+            rememberedName: meterSnap.rememberedDevice?.name ?? null,
+            connect: () => meterConnection.connect(),
+            repair: meterSnap.rememberedDevice?.name
+              ? rememberedRepair(meterSnap.rememberedDevice.name, () =>
+                  meterConnection.openRememberedRepair(),
+                )
+              : undefined,
+            needsGesture: true,
+            repairBlocked: () =>
+              repairBlockedByGesture(meterConnection.getSnapshot().lastError),
+            getConnectionState: () =>
+              meterConnection.getSnapshot().connectionState,
+          },
+          {
+            label: 'heart rate',
+            connectionState: hrSnap.connectionState,
+            knownDeviceCount: hrSnap.knownDevices.length,
+            rememberedName: hrSnap.rememberedDevice?.name ?? null,
+            connect: () => heartRateConnection.connect(),
+            repair: hrSnap.rememberedDevice?.name
+              ? rememberedRepair(hrSnap.rememberedDevice.name, () =>
+                  heartRateConnection.openRememberedRepair(),
+                )
+              : undefined,
+            needsGesture: true,
+            repairBlocked: () =>
+              repairBlockedByGesture(heartRateConnection.getSnapshot().lastError),
+            getConnectionState: () =>
+              heartRateConnection.getSnapshot().connectionState,
+          },
+          {
+            label: 'cadence',
+            connectionState: cadSnap.connectionState,
+            knownDeviceCount: cadSnap.knownDevices.length,
+            rememberedName: cadSnap.rememberedDevice?.name ?? null,
+            connect: () => cadenceConnection.connect(),
+            repair: cadSnap.rememberedDevice?.name
+              ? cadenceNative
+                ? () => cadenceConnection.connect({ autoRepair: true })
+                : rememberedRepair(cadSnap.rememberedDevice.name, () =>
+                    cadenceConnection.openRememberedRepair(),
+                  )
+              : undefined,
+            needsGesture: !cadenceNative,
+            repairBlocked: () =>
+              repairBlockedByGesture(cadenceConnection.getSnapshot().lastError),
+            getConnectionState: () =>
+              cadenceConnection.getSnapshot().connectionState,
+          },
+        ],
+        { renewGesture: performInGesture },
+      )
+      setConnectAllSummary(summary)
+    } finally {
+      connectAllBusyRef.current = false
+      setConnectAllBusy(false)
+    }
   }
 
   async function onDisconnectAll(): Promise<void> {
@@ -750,6 +804,7 @@ function App() {
           heartRate={heartRate}
           cadence={cadence}
           connectAllSummary={connectAllSummary}
+          connectAllBusy={connectAllBusy}
           trainer={connectorHandlers.trainer}
           powerMeter={connectorHandlers.powerMeter}
           heartRateLink={connectorHandlers.heartRateLink}

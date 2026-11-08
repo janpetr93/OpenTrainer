@@ -1,6 +1,6 @@
 export { CadenceConnection } from './cadenceConnection'
 export { parseCscMeasurement } from './parseCscMeasurement'
 export { cadenceRpmFromCrankDelta, uint16Delta } from './cadenceFromCrank'
-export { initialCadenceSnapshot } from './types'
+export { CADENCE_WAITING_HINT, initialCadenceSnapshot } from './types'
 export type { CadenceSnapshot } from './types'
 export * from './uuids'

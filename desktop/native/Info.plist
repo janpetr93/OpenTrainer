@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>OpenTrainer</string>
+  <key>CFBundleIdentifier</key>
+  <string>io.github.janpetr93.opentrainer.cadence</string>
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>OpenTrainer connects to your cadence sensor over Bluetooth.</string>
+  <key>NSBluetoothPeripheralUsageDescription</key>
+  <string>OpenTrainer connects to your cadence sensor over Bluetooth.</string>
+</dict>
+</plist>

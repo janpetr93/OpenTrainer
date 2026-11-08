@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BluetoothChooser } from '../src/bluetoothChooser.js'
+import { BluetoothChooser, repairPick } from '../src/bluetoothChooser.js'
 
 describe('BluetoothChooser', () => {
   it('merges repeated scan events and answers the latest callback once', () => {
@@ -36,6 +36,29 @@ describe('BluetoothChooser', () => {
     chooser.update([{ deviceId: 'a', deviceName: 'D100' }], () => {})
     chooser.update([{ deviceId: 'a', deviceName: '' }], () => {})
     expect(chooser.nameOf('a')).toBe('D100')
+  })
+
+  it('picks the single device whose name is the armed re-pair', () => {
+    expect(
+      repairPick(
+        [
+          { id: 'a', name: 'VANRYSEL-HT-fc75' },
+          { id: 'b', name: '' },
+        ],
+        'VANRYSEL-HT-fc75',
+      ),
+    ).toBe('a')
+    expect(
+      repairPick(
+        [
+          { id: 'a', name: 'HRM Belt 32306' },
+          { id: 'b', name: 'HRM Belt 32306' },
+        ],
+        'HRM Belt 32306',
+      ),
+    ).toBeNull()
+    expect(repairPick([{ id: 'a', name: 'other' }], '7678-1')).toBeNull()
+    expect(repairPick([{ id: 'a', name: '7678-1' }], '  ')).toBeNull()
   })
 
   it('cancels with an empty device id', () => {

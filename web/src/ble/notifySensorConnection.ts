@@ -42,7 +42,7 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
   private server: BluetoothRemoteGATTServer | null = null
   private characteristic: BluetoothRemoteGATTCharacteristic | null = null
   private freshnessTimer: ReturnType<typeof setInterval> | null = null
-  private readonly remembered: RememberedDeviceStore
+  protected readonly remembered: RememberedDeviceStore
 
   protected abstract readonly serviceUuid: number
   protected abstract readonly characteristicUuid: number
@@ -208,6 +208,55 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
     }
   }
 
+  /**
+   * Re-pair the remembered sensor from a user-gesture turn.
+   * requestDevice runs before this method awaits.
+   */
+  openRememberedRepair(): Promise<void> {
+    const repairRequest = rememberedDeviceRequest(
+      this.snapshot.rememberedDevice,
+      this.serviceUuid,
+    )
+    if (!this.snapshot.webBluetoothSupported || !repairRequest) {
+      return this.connect()
+    }
+    this.patchFields({
+      connectionState: 'connecting',
+      lastError: null,
+    })
+    let pending: Promise<BluetoothDevice>
+    try {
+      pending = navigator.bluetooth.requestDevice(repairRequest)
+    } catch (error) {
+      this.noteChooserFailure(error)
+      return Promise.resolve()
+    }
+    return pending.then(
+      (device) => this.attachAndConnect(device),
+      (error) => {
+        this.noteChooserFailure(error)
+      },
+    )
+  }
+
+  private noteChooserFailure(error: unknown): void {
+    const raw = error instanceof Error ? error.message : String(error)
+    const message = /cancelled|canceled/i.test(raw)
+      ? `${this.sensorLabel} chooser closed. Wake the sensor, then try again.`
+      : /no devices|not found|chooser|empty/i.test(raw)
+        ? `Chooser empty — wake the ${this.sensorLabel}, quit apps using it, then open chooser or scan all.`
+        : raw
+    this.patchFields({
+      connectionState: this.device
+        ? 'disconnected-with-reconnect'
+        : 'disconnected',
+      lastError:
+        repairChooserError(raw, this.snapshot.rememberedDevice, this.sensorLabel) ??
+        message,
+    })
+    this.stopFreshnessTimer()
+  }
+
   async reconnect(): Promise<void> {
     if (!this.device) {
       await this.connect()
@@ -307,7 +356,7 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
     this.patch(this.onNotify(value))
   }
 
-  private startFreshnessTimer(): void {
+  protected startFreshnessTimer(): void {
     this.stopFreshnessTimer()
     this.freshnessTimer = setInterval(() => {
       const value = this.snapshot[this.valueKey()] as number | null
@@ -322,7 +371,7 @@ export abstract class NotifySensorConnection<T extends SensorLinkSnapshot> {
     }, FRESHNESS_TICK_MS)
   }
 
-  private stopFreshnessTimer(): void {
+  protected stopFreshnessTimer(): void {
     if (this.freshnessTimer !== null) {
       clearInterval(this.freshnessTimer)
       this.freshnessTimer = null

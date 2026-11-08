@@ -10,6 +10,18 @@ export type PickerDevice = {
   name: string
 }
 
+/**
+ * Id to select for an armed Re-pair, or null while that device is absent
+ * or more than one row has its name.
+ */
+export function repairPick(devices: readonly PickerDevice[], armedName: string): string | null {
+  const name = armedName.trim()
+  if (!name) return null
+  const matches = devices.filter((device) => device.name === name)
+  const match = matches.length === 1 ? matches[0] : undefined
+  return match ? match.id : null
+}
+
 type Pending = {
   callback: (deviceId: string) => void
   devices: Map<string, PickerDevice>

@@ -21,6 +21,8 @@ function showDevices(): void {
   const view = byId<HTMLElement>('devices-view')
   const list = byId<HTMLUListElement>('device-list')
   const scanningText = byId<HTMLElement>('scanning-text')
+  const hint = params.get('hint')
+  if (hint) byId<HTMLElement>('chooser-hint').textContent = hint
   view.hidden = false
 
   const render = (devices: PickerDevice[]): void => {

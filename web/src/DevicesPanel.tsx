@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { bulkConnectLabel } from './ble/connectAllKnown'
 import { findRememberedDevice } from './ble/pickKnownDevice'
 import {
   getDevicesAvailable,
@@ -10,7 +11,7 @@ import {
 import { browserStorage } from './ble/rememberedDevices'
 import { BluetoothPersistenceHint } from './BluetoothPersistenceHint'
 import type { PowerMeterSnapshot } from './cps'
-import type { CadenceSnapshot } from './csc'
+import { CADENCE_WAITING_HINT, type CadenceSnapshot } from './csc'
 import type { TrainerSnapshot } from './ftms'
 import type { HeartRateSnapshot } from './hrm'
 import {
@@ -25,6 +26,7 @@ type Props = {
   heartRate: HeartRateSnapshot
   cadence: CadenceSnapshot
   connectAllSummary: string | null
+  connectAllBusy: boolean
   trainer: ConnectorRoleHandlers
   powerMeter: ConnectorRoleHandlers
   heartRateLink: ConnectorRoleHandlers
@@ -50,6 +52,7 @@ export function DevicesPanel({
   heartRate,
   cadence,
   connectAllSummary,
+  connectAllBusy,
   trainer,
   powerMeter,
   heartRateLink,
@@ -72,6 +75,13 @@ export function DevicesPanel({
     loadPersistenceHintDismissed(browserStorage()),
   )
   const links = [snapshot, meter, heartRate, cadence]
+  const bulkLabel = bulkConnectLabel(
+    links.map((link) => ({
+      connectionState: link.connectionState,
+      knownDeviceCount: link.knownDevices.length,
+      rememberedName: link.rememberedDevice?.name ?? null,
+    })),
+  )
   const showPersistenceHint = shouldShowPersistenceHint({
     webBluetoothSupported: snapshot.webBluetoothSupported,
     getDevicesAvailable: getDevicesAvailable(),
@@ -104,7 +114,7 @@ export function DevicesPanel({
                 : `${linkedCount} linked`}
           </p>
         }
-        blurb="Known devices are ones the browser still permits for this app; Connect reconnects them without the chooser. The app also remembers your last device per role, so when that permission is gone after a restart, Re-pair opens the chooser with only that device."
+        blurb="Known devices are ones the browser still permits for this app; Connect reconnects them without the chooser. After a restart, Re-pair all pairs every remembered device from that one click. The desktop app picks them. Chrome still shows each device's chooser, and may ask for another click to continue."
       />
 
       {showPersistenceHint && (
@@ -124,6 +134,9 @@ export function DevicesPanel({
         <p className="banner error">{heartRate.lastError}</p>
       )}
       {cadence.lastError && <p className="banner error">{cadence.lastError}</p>}
+      {cadenceConnected && cadence.rpm === null && !cadence.lastError && (
+        <p className="banner warn">{CADENCE_WAITING_HINT}</p>
+      )}
 
       <section className="panel-block" aria-label="Connectors">
         <div className="connectors-toolbar">
@@ -132,9 +145,14 @@ export function DevicesPanel({
             <button
               type="button"
               className="primary"
+              disabled={connectAllBusy}
               onClick={onConnectAllKnown}
             >
-              Connect all known
+              {connectAllBusy
+                ? bulkLabel === 'Re-pair all'
+                  ? 'Re-pairing…'
+                  : 'Connecting…'
+                : bulkLabel}
             </button>
             <button type="button" onClick={onDisconnectAll}>
               Disconnect all
