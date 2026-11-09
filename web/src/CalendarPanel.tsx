@@ -11,6 +11,7 @@ import {
   type ScheduledRide,
   type Workout,
 } from './api'
+import { activitiesBesideCompletedRides } from './calendar/activitiesBesideCompletedRides'
 import { dayKey, monthCells, monthRangeIso } from './calendar/monthGrid'
 import { ActivityActions } from './ActivityActions'
 import { PageHeader } from './PageHeader'
@@ -103,7 +104,13 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
   }, [activities])
 
   const selectedScheduled = scheduledByDay.get(selectedKey) ?? []
-  const selectedActivities = activitiesByDay.get(selectedKey) ?? []
+  const rawSelectedActivities = activitiesByDay.get(selectedKey) ?? []
+  const selectedActivities = activitiesBesideCompletedRides(
+    rawSelectedActivities,
+    selectedScheduled,
+  )
+  const activitiesHiddenAsCompleted =
+    selectedActivities.length === 0 && rawSelectedActivities.length > 0
 
   function shiftMonth(delta: number): void {
     const d = new Date(year, monthIndex + delta, 1)
@@ -179,8 +186,13 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
                 return <div key={`pad-${index}`} className="cal-cell empty" />
               }
               const key = dayKey(cell)
-              const hasSched = (scheduledByDay.get(key)?.length ?? 0) > 0
-              const hasAct = (activitiesByDay.get(key)?.length ?? 0) > 0
+              const dayScheduled = scheduledByDay.get(key) ?? []
+              const hasSched = dayScheduled.length > 0
+              const hasAct =
+                activitiesBesideCompletedRides(
+                  activitiesByDay.get(key) ?? [],
+                  dayScheduled,
+                ).length > 0
               const selected = key === selectedKey
               const today = key === dayKey(new Date())
               return (
@@ -282,7 +294,11 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
 
         <h3 className="cal-section-title">Activities</h3>
         {selectedActivities.length === 0 ? (
-          <p className="muted">No completed rides this day.</p>
+          <p className="muted">
+            {activitiesHiddenAsCompleted
+              ? 'Already shown above.'
+              : 'No completed rides this day.'}
+          </p>
         ) : (
           <ul className="entity-list">
             {selectedActivities.map((activity) => {
