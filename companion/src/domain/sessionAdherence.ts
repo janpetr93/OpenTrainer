@@ -5,8 +5,9 @@ export type SessionAdherence = {
   /** Achieved duration / planned duration, capped at 1. */
   completionRatio: number
   /**
-   * Fraction of overlapping seconds within the target band, scored against
-   * the ridden targets when the rider changed Ride Intensity.
+   * Fraction of overlapping seconds within the target band. Each second is
+   * scored from a 5s centered average of achieved watts that stops at a
+   * target change, against the ridden targets when Ride Intensity changed.
    */
   targetAdherence: number
   /**
@@ -17,10 +18,55 @@ export type SessionAdherence = {
   intensityPercent?: number
 }
 
+/**
+ * Bump when the On-target formula changes so startup backfill rewrites
+ * stored Session Adherence. Absent on disk means the previous formula.
+ */
+export const SESSION_ADHERENCE_REVISION = 2
+
+/** History chart smooths measured watts over this centered window. */
+const ON_TARGET_AVERAGE_SEC = 5
+const ON_TARGET_AVERAGE_RADIUS_SEC = Math.floor(ON_TARGET_AVERAGE_SEC / 2)
+
 /** On-target when |Δ| ≤ max(15% × planned, 20W). */
 export function isWithinTargetBand(achievedWatts: number, plannedWatts: number): boolean {
   const band = Math.max(0.15 * plannedWatts, 20)
   return Math.abs(achievedWatts - plannedWatts) <= band
+}
+
+/**
+ * Centered average of achieved watts, ±2s, stopping at a target change so a
+ * step does not borrow power from the one before it. Same window the History
+ * chart uses for the measured power line.
+ */
+function smoothedAchievedWatts(
+  achieved: readonly number[],
+  target: readonly (number | null)[],
+  index: number,
+  lastIndex: number,
+): number {
+  const plannedWatts = target[index]
+  let sum = 0
+  let count = 0
+  for (
+    let k = index;
+    k >= 0 && index - k <= ON_TARGET_AVERAGE_RADIUS_SEC;
+    k--
+  ) {
+    if (target[k] !== plannedWatts) break
+    sum += achieved[k]!
+    count += 1
+  }
+  for (
+    let k = index + 1;
+    k <= lastIndex && k - index <= ON_TARGET_AVERAGE_RADIUS_SEC;
+    k++
+  ) {
+    if (target[k] !== plannedWatts) break
+    sum += achieved[k]!
+    count += 1
+  }
+  return sum / count
 }
 
 /**
@@ -79,13 +125,20 @@ export function computeSessionAdherence(
   const target = ridden && ridden.length > 0 ? ridden : planned
 
   const overlap = Math.min(target.length, achieved.length)
+  const lastIndex = overlap - 1
   let scored = 0
   let onTarget = 0
   for (let i = 0; i < overlap; i++) {
     const plannedWatts = target[i]
     if (plannedWatts === null) continue
     scored += 1
-    if (isWithinTargetBand(achieved[i]!, plannedWatts)) onTarget += 1
+    const achievedWatts = smoothedAchievedWatts(
+      achieved,
+      target,
+      i,
+      lastIndex,
+    )
+    if (isWithinTargetBand(achievedWatts, plannedWatts)) onTarget += 1
   }
 
   const adherence: SessionAdherence = {

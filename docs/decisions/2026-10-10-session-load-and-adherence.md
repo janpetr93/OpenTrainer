@@ -12,7 +12,7 @@ AI week planning could read **Activity** Power Profiles but lacked coach-grade l
 ## Decision
 
 - Persist **Session Load** (Coggan NP, IF, TSS, time-in-zone seconds, `ftpWattsAtSave`) and **Session Adherence** (`completionRatio`, `targetAdherence`) on each **Activity** at save.
-- Target band: on-target when `|achieved − planned| ≤ max(15% × planned, 20W)`.
+- Target band: on-target when `|achieved − planned| ≤ max(15% × planned, 20W)`. As of [2026-11-09](./2026-11-09-on-target-five-second-average.md), achieved watts are a 5-second average, not each raw second.
 - Sparse planned step-corner profiles are expanded to 1 Hz step-hold before scoring (see [2026-10-13-ride-review-adherence-and-erg-adapt](./2026-10-13-ride-review-adherence-and-erg-adapt.md)).
 - Free Ride: adherence null; load + zones still computed when FTP is set.
 - NP/IF/TSS null when fewer than 30 samples; load null when FTP unset.

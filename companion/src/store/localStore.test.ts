@@ -400,6 +400,53 @@ describe('LocalStore', () => {
     expect(activity?.averageAlignmentDeltaWatts).toBe(10)
   })
 
+  it('backfillActivityMetrics rescores On-target from the 5s average', async () => {
+    const { writeFile, mkdir, readFile } = await import('node:fs/promises')
+    const activitiesDir = join(root, 'activities')
+    await mkdir(activitiesDir, { recursive: true })
+    const id = 'legacy-adherence-1'
+    const achievedPowerProfile = Array.from({ length: 30 }, (_, tSec) => ({
+      tSec,
+      watts: 137 + (tSec % 2 === 0 ? 25 : -25),
+    }))
+    const plannedPowerProfile = Array.from({ length: 30 }, (_, tSec) => ({
+      tSec,
+      watts: 137,
+    }))
+    await writeFile(
+      join(activitiesDir, `${id}.json`),
+      JSON.stringify({
+        schemaVersion: 1,
+        id,
+        startedAt: '2026-11-09T17:00:00.000Z',
+        durationSec: 30,
+        averagePowerWatts: 137,
+        maxPowerWatts: 162,
+        achievedPowerProfile,
+        plannedPowerProfile,
+        workoutId: null,
+        scheduledRideId: null,
+        purpose: null,
+        sessionLoad: null,
+        sessionAdherence: { completionRatio: 1, targetAdherence: 0 },
+        averageAlignmentDeltaWatts: null,
+        createdAt: '2026-11-09T17:00:30.000Z',
+      }),
+    )
+
+    expect(await store.backfillActivityMetrics()).toBe(1)
+    const activity = await store.getActivity(id)
+    expect(activity?.sessionAdherence).toEqual({
+      completionRatio: 1,
+      targetAdherence: 1,
+    })
+    const stored = JSON.parse(
+      await readFile(join(activitiesDir, `${id}.json`), 'utf8'),
+    ) as { sessionAdherenceRevision?: number }
+    expect(stored.sessionAdherenceRevision).toBe(2)
+    expect(await store.backfillActivityMetrics()).toBe(0)
+  })
+
   it('clearScheduledRides deletes orphan Workouts with no remaining rides or Activities', async () => {
     const workout = await store.createWorkout({
       name: 'Week plan intervals',

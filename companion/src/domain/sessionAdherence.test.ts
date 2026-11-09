@@ -47,16 +47,54 @@ describe('computeSessionAdherence', () => {
 
   it('counts on-target within max(15% of planned, 20W) band', () => {
     // planned 200 → band = max(30, 20) = 30W; 225 is inside, 240 is outside
-    const planned = profile(200, 100)
-    const achieved = [
-      ...Array.from({ length: 50 }, (_, tSec) => ({ tSec, watts: 225 })),
-      ...Array.from({ length: 50 }, (_, tSec) => ({
-        tSec: tSec + 50,
-        watts: 240,
-      })),
+    expect(
+      computeSessionAdherence(profile(225, 40), profile(200, 40))!
+        .targetAdherence,
+    ).toBe(1)
+    expect(
+      computeSessionAdherence(profile(240, 40), profile(200, 40))!
+        .targetAdherence,
+    ).toBe(0)
+  })
+
+  it('scores a 5s average so wobble around the target counts as on target', () => {
+    // 137 W → band 20.55 W. Raw ±25 W is outside the band; the 5s mean is the target.
+    const achieved = Array.from({ length: 30 }, (_, tSec) => ({
+      tSec,
+      watts: 137 + (tSec % 2 === 0 ? 25 : -25),
+    }))
+    expect(
+      computeSessionAdherence(achieved, profile(137, 30))!.targetAdherence,
+    ).toBe(1)
+  })
+
+  it('does not average achieved watts across a target change', () => {
+    const planned: PowerProfilePoint[] = [
+      { tSec: 0, watts: 50 },
+      { tSec: 5, watts: 50 },
+      { tSec: 5, watts: 200 },
+      { tSec: 10, watts: 200 },
     ]
-    const a = computeSessionAdherence(achieved, planned)
-    expect(a!.targetAdherence).toBe(0.5)
+    const achieved = [
+      ...Array.from({ length: 5 }, (_, tSec) => ({ tSec, watts: 50 })),
+      ...Array.from({ length: 6 }, (_, i) => ({ tSec: 5 + i, watts: 200 })),
+    ]
+    expect(computeSessionAdherence(achieved, planned)!.targetAdherence).toBe(1)
+  })
+
+  it('does not smooth a target that changes every second', () => {
+    const points = Array.from({ length: 20 }, (_, tSec) => ({
+      tSec,
+      watts: tSec % 2 === 0 ? 50 : 300,
+    }))
+    expect(computeSessionAdherence(points, points)!.targetAdherence).toBe(1)
+  })
+
+  it('still misses a sustained hold outside the band', () => {
+    expect(
+      computeSessionAdherence(profile(160, 40), profile(200, 40))!
+        .targetAdherence,
+    ).toBe(0)
   })
 
   it('uses 20W floor when planned is low', () => {

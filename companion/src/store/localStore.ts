@@ -15,7 +15,10 @@ import {
   toScheduledRideView,
 } from '../domain/scheduledRideOutcome.js'
 import { computeAverageAlignmentDeltaWatts } from '../domain/powerAlignment.js'
-import { computeSessionAdherence } from '../domain/sessionAdherence.js'
+import {
+  SESSION_ADHERENCE_REVISION,
+  computeSessionAdherence,
+} from '../domain/sessionAdherence.js'
 import { computeSessionLoad } from '../domain/sessionLoad.js'
 import {
   STORE_SCHEMA_VERSION,
@@ -87,7 +90,10 @@ type StoredActivity = Omit<
       Activity,
       'sessionLoad' | 'sessionAdherence' | 'averageAlignmentDeltaWatts'
     >
-  >
+  > & {
+    /** Absent on Activities scored before the 5s On-target average. */
+    sessionAdherenceRevision?: number
+  }
 
 export type RiderProfileView = RiderProfile & {
   zones: ReturnType<typeof zonesFromFtp> | null
@@ -146,11 +152,18 @@ function withPurposeField<T extends { purpose?: string | null }>(
 }
 
 function needsActivityMetricsBackfill(raw: StoredActivity): boolean {
-  return !(
-    'sessionLoad' in raw &&
-    'sessionAdherence' in raw &&
-    'averageAlignmentDeltaWatts' in raw
+  return (
+    !('sessionLoad' in raw) ||
+    !('sessionAdherence' in raw) ||
+    !('averageAlignmentDeltaWatts' in raw) ||
+    raw.sessionAdherenceRevision !== SESSION_ADHERENCE_REVISION
   )
+}
+
+function withoutAdherenceRevision(raw: StoredActivity): Activity {
+  const { sessionAdherenceRevision: _revision, ...activity } =
+    withPurposeField(raw)
+  return activity
 }
 
 function normalizeStep(raw: WorkoutStep): WorkoutStep {
@@ -473,7 +486,10 @@ export class LocalStore {
       createdAt: now,
       stravaUpload: null,
     }
-    await this.writeJson(join(this.activitiesDir, `${activity.id}.json`), activity)
+    await this.writeJson(join(this.activitiesDir, `${activity.id}.json`), {
+      ...activity,
+      sessionAdherenceRevision: SESSION_ADHERENCE_REVISION,
+    })
     if (scheduledRideId) {
       await this.markScheduledRideCompleted(scheduledRideId, activity.id)
     }
@@ -495,7 +511,8 @@ export class LocalStore {
 
   /**
    * Persist Session Load / Adherence / Average Alignment Delta for Activities
-   * that predate those fields. Safe to call on companion / MCP startup.
+   * that predate those fields, and rescore On-target when the formula changes.
+   * Safe to call on companion / MCP startup.
    */
   async backfillActivityMetrics(): Promise<number> {
     const profile = await this.getRiderProfile()
@@ -517,12 +534,14 @@ export class LocalStore {
     ftpWatts: number | null,
     persist: boolean,
   ): Promise<Activity> {
-    const base = withPurposeField(raw)
+    const activity = withoutAdherenceRevision(raw)
     const hasLoad = 'sessionLoad' in raw && 'sessionAdherence' in raw
     const hasAlignment = 'averageAlignmentDeltaWatts' in raw
-    if (hasLoad && hasAlignment) {
+    const adherenceCurrent =
+      raw.sessionAdherenceRevision === SESSION_ADHERENCE_REVISION
+    if (hasLoad && hasAlignment && adherenceCurrent) {
       return {
-        ...base,
+        ...activity,
         scheduledRideId: raw.scheduledRideId ?? null,
         sessionLoad: raw.sessionLoad ?? null,
         sessionAdherence: raw.sessionAdherence ?? null,
@@ -530,24 +549,28 @@ export class LocalStore {
       }
     }
     const next: Activity = {
-      ...base,
-      scheduledRideId: base.scheduledRideId ?? null,
+      ...activity,
+      scheduledRideId: activity.scheduledRideId ?? null,
       sessionLoad: hasLoad
         ? (raw.sessionLoad ?? null)
-        : computeSessionLoad(base.achievedPowerProfile, ftpWatts),
-      sessionAdherence: hasLoad
-        ? (raw.sessionAdherence ?? null)
-        : computeSessionAdherence(
-            base.achievedPowerProfile,
-            base.plannedPowerProfile,
-            base.targetPowerProfile ?? null,
-          ),
+        : computeSessionLoad(activity.achievedPowerProfile, ftpWatts),
+      sessionAdherence:
+        hasLoad && adherenceCurrent
+          ? (raw.sessionAdherence ?? null)
+          : computeSessionAdherence(
+              activity.achievedPowerProfile,
+              activity.plannedPowerProfile,
+              activity.targetPowerProfile ?? null,
+            ),
       averageAlignmentDeltaWatts: hasAlignment
         ? (raw.averageAlignmentDeltaWatts ?? null)
-        : computeAverageAlignmentDeltaWatts(base.achievedPowerProfile),
+        : computeAverageAlignmentDeltaWatts(activity.achievedPowerProfile),
     }
     if (persist) {
-      await this.writeJson(join(this.activitiesDir, `${next.id}.json`), next)
+      await this.writeJson(join(this.activitiesDir, `${next.id}.json`), {
+        ...next,
+        sessionAdherenceRevision: SESSION_ADHERENCE_REVISION,
+      })
     }
     return next
   }
@@ -561,7 +584,10 @@ export class LocalStore {
       throw new Error(`Activity not found: ${id}`)
     }
     const next: Activity = { ...activity, stravaUpload: upload }
-    await this.writeJson(join(this.activitiesDir, `${id}.json`), next)
+    await this.writeJson(join(this.activitiesDir, `${id}.json`), {
+      ...next,
+      sessionAdherenceRevision: SESSION_ADHERENCE_REVISION,
+    })
     return next
   }
 

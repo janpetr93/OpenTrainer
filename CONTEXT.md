@@ -179,7 +179,7 @@ Coggan Normalized Power, Intensity Factor, Training Stress Score, and time-in-zo
 _Avoid_: CTL/ATL/TSB (deferred), live mid-ride TSS
 
 **Session Adherence**:
-How closely an **Activity** followed its planned **Power Profile**: completion ratio and target-adherence fraction within `|Δ| ≤ max(15% × planned, 20W)`, scored against the ridden targets when **Ride Intensity** changed, plus `intensityPercent` (Σ ridden ÷ Σ planned watts over the seconds ridden; absent = 100%); null for a **Free Ride**.
+How closely an **Activity** followed its planned **Power Profile**: completion ratio and target-adherence fraction. Each scored second uses a 5-second centered average of achieved watts (±2 s, stopping at a target change) and is on target within `|Δ| ≤ max(15% × target, 20W)`, scored against the ridden targets when **Ride Intensity** changed, plus `intensityPercent` (Σ ridden ÷ Σ planned watts over the seconds ridden; absent = 100%); null for a **Free Ride**.
 _Avoid_: Compliance score (synonym — use this term), TSS
 
 **Mean Maximal Power** (MMP):
@@ -238,7 +238,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - Live HR/cadence from dedicated sensors are recorded onto achieved **Power Profile** samples when fresh, then available via Local Store / MCP / FIT.
 - **Power Source Mode** is fixed at **Start** from whether a **Power Meter** is connected and fresh; trainer-only riders stay **trainer-primary**.
 - In **meter-primary**, **Live Power** / achieved `watts` / FIT follow **Meter Power**; **Trainer** ERG uses **ERG Calibration** (hybrid open-loop + Assioma trim, default gain 0.7 / max ±25 W; watt offset EMA once per elapsed second from settled meter 70–450 W paired samples, scale held at 1); secondary stream is `trainerWatts`.
-- **Session Adherence** expands sparse planned step-corner **Power Profile**s to 1 Hz step-hold before scoring against achieved.
+- **Session Adherence** expands sparse planned step-corner **Power Profile**s to 1 Hz step-hold before scoring against achieved. On-target uses a 5-second centered average of achieved watts (±2 s) that stops at a target change, inside `|Δ| ≤ max(15% × target, 20W)` (see `docs/decisions/2026-11-09-on-target-five-second-average.md`).
 - **Ride Intensity** never rewrites the planned **Power Profile**; the **Activity** keeps the plan and adds `targetPowerProfile`. `lastHard.work` in the **Training Summary** still compares held watts with the original plan (see `docs/decisions/2026-11-04-ride-intensity-and-free-ride-targets.md`).
 - If **Meter Power** goes stale mid-ride, ERG holds the calibration map (no trim) and primary does not flip to the **Trainer** for that session.
 - **Live Power** is stale when the active primary source stops notifying within the freshness window; **Trainer Power** / **Meter Power** each have their own freshness for alignment and trim.
