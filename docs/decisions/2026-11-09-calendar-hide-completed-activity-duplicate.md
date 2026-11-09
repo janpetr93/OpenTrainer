@@ -1,9 +1,11 @@
 ---
 date: 2026-11-09
-status: active
+status: superseded
 ---
 
 # Calendar day hides an Activity already shown as a completed Scheduled Ride
+
+> Superseded by [2026-11-09-calendar-show-completed-activity.md](2026-11-09-calendar-show-completed-activity.md) — keep the Activity with ridden stats; drop the prescribed Scheduled Ride.
 
 ## Context
 

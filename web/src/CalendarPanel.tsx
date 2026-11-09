@@ -11,7 +11,7 @@ import {
   type ScheduledRide,
   type Workout,
 } from './api'
-import { activitiesBesideCompletedRides } from './calendar/activitiesBesideCompletedRides'
+import { scheduledRidesBesideCompletedActivity } from './calendar/scheduledRidesBesideCompletedActivity'
 import { dayKey, monthCells, monthRangeIso } from './calendar/monthGrid'
 import { ActivityActions } from './ActivityActions'
 import { PageHeader } from './PageHeader'
@@ -103,14 +103,11 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
     return map
   }, [activities])
 
-  const selectedScheduled = scheduledByDay.get(selectedKey) ?? []
-  const rawSelectedActivities = activitiesByDay.get(selectedKey) ?? []
-  const selectedActivities = activitiesBesideCompletedRides(
-    rawSelectedActivities,
-    selectedScheduled,
+  const selectedActivities = activitiesByDay.get(selectedKey) ?? []
+  const selectedScheduled = scheduledRidesBesideCompletedActivity(
+    scheduledByDay.get(selectedKey) ?? [],
+    selectedActivities,
   )
-  const activitiesHiddenAsCompleted =
-    selectedActivities.length === 0 && rawSelectedActivities.length > 0
 
   function shiftMonth(delta: number): void {
     const d = new Date(year, monthIndex + delta, 1)
@@ -186,13 +183,13 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
                 return <div key={`pad-${index}`} className="cal-cell empty" />
               }
               const key = dayKey(cell)
-              const dayScheduled = scheduledByDay.get(key) ?? []
-              const hasSched = dayScheduled.length > 0
-              const hasAct =
-                activitiesBesideCompletedRides(
-                  activitiesByDay.get(key) ?? [],
-                  dayScheduled,
+              const dayActivities = activitiesByDay.get(key) ?? []
+              const hasSched =
+                scheduledRidesBesideCompletedActivity(
+                  scheduledByDay.get(key) ?? [],
+                  dayActivities,
                 ).length > 0
+              const hasAct = dayActivities.length > 0
               const selected = key === selectedKey
               const today = key === dayKey(new Date())
               return (
@@ -294,11 +291,7 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
 
         <h3 className="cal-section-title">Activities</h3>
         {selectedActivities.length === 0 ? (
-          <p className="muted">
-            {activitiesHiddenAsCompleted
-              ? 'Already shown above.'
-              : 'No completed rides this day.'}
-          </p>
+          <p className="muted">No completed rides this day.</p>
         ) : (
           <ul className="entity-list">
             {selectedActivities.map((activity) => {
