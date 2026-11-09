@@ -8,19 +8,43 @@
   padding: 1.1rem 1.15rem 2.5rem;
 }
 
-/* Near full-bleed layout while a Workout is in progress on the Ride tab. */
+/* Near full-bleed layout while a Workout is in progress on the Ride tab.
+   The chart stack grows into leftover viewport height so a tall window
+   does not leave an empty band under Pause / Stop. */
 .app-riding {
   --content-width: min(120rem, calc(100vw - 1.25rem));
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 0.65rem;
-  padding: 0.55rem 0.5rem 1.25rem;
+  padding: 0.55rem 0.5rem 0.75rem;
+  overflow: auto;
 }
 
 .app-riding .live-display {
   width: var(--content-width);
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-riding .power-panel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-riding .ride-chart-hero {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-riding .ride-chart-stack {
-  height: clamp(22rem, 56vh, 40rem);
+  flex: 1 1 22rem;
+  height: auto;
+  min-height: 22rem;
 }
 
 .tabs {

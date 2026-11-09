@@ -203,7 +203,7 @@ Chart swatches only, one per Coggan zone, as a 2px-corner square beside the axis
 
 One centered column. At rest the content width is `min(72rem, 100%)`, with page padding `1.1rem 1.15rem 2.5rem` and a 1rem gap under the tab bar. Panels stack at 0.85rem. Panel padding is `0.85rem 1rem`. History uses a looser block: `1.5rem 1.6rem`, with session cards inside it.
 
-The tab bar is the only app navigation. It spans the content width: Ride, Devices, History, Calendar, Profile. While a workout is running the column opens to `min(120rem, calc(100vw - 1.25rem))`, padding drops to `0.55rem 0.5rem 1.25rem`, the stack gap drops to 0.65rem, and the chart grows to `clamp(22rem, 56vh, 40rem)`. The tab bar fades to 80% opacity.
+The tab bar is the only app navigation. It spans the content width: Ride, Devices, History, Calendar, Profile. While a workout is running the column opens to `min(120rem, calc(100vw - 1.25rem))`, the page fills the viewport, padding drops to `0.55rem 0.5rem 0.75rem`, the stack gap drops to 0.65rem, and the chart grows into the height left under the tab bar and the live readout (floor `22rem`). The tab bar fades to 80% opacity.
 
 The live readout is three columns: body metrics, the watt figure, session metrics. Below 28rem the watts span the row and the rails drop underneath. From 40rem the device toolbar splits into a title and actions. The page’s minimum width is 320px.
 
