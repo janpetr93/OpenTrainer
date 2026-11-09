@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { interpretControlPointResponse } from './controlProbe'
+import {
+  buildFlatSimulationCommand,
+  interpretControlPointResponse,
+} from './controlProbe'
 
 describe('interpretControlPointResponse', () => {
   it('reports success for Result Code Success', () => {
@@ -19,5 +22,12 @@ describe('interpretControlPointResponse', () => {
     expect(result.ok).toBe(false)
     expect(result.requestOpcode).toBe(0x05)
     expect(result.message).toMatch(/not supported/i)
+  })
+})
+
+describe('buildFlatSimulationCommand', () => {
+  it('encodes flat indoor-bike simulation at 0% grade', () => {
+    const bytes = new Uint8Array(buildFlatSimulationCommand())
+    expect([...bytes]).toEqual([0x11, 0, 0, 0, 0, 40, 51])
   })
 })

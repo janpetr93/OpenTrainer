@@ -23,7 +23,7 @@ import { LocalStore } from '../store/localStore.js'
 import { resolveDataDir } from '../paths.js'
 
 const stepSchema = z.object({
-  type: z.enum(['warmup', 'steady', 'recovery', 'cooldown']),
+  type: z.enum(['warmup', 'steady', 'recovery', 'cooldown', 'open']),
   durationSec: z.number().positive(),
   targetWatts: z.number().nonnegative().nullable().optional(),
   percentFtp: z
@@ -57,7 +57,7 @@ const repeatSchema = z.object({
 const workoutItemSchema = z.union([repeatSchema, stepSchema])
 
 function mcpFlatStep(step: {
-  type: 'warmup' | 'steady' | 'recovery' | 'cooldown'
+  type: 'warmup' | 'steady' | 'recovery' | 'cooldown' | 'open'
   durationSec: number
   targetWatts?: number | null
   percentFtp?: number | null
@@ -73,10 +73,10 @@ function mcpFlatStep(step: {
 }
 
 function mcpWorkoutItem(item: {
-  type: 'repeat' | 'warmup' | 'steady' | 'recovery' | 'cooldown'
+  type: 'repeat' | 'warmup' | 'steady' | 'recovery' | 'cooldown' | 'open'
   count?: number
   steps?: Array<{
-    type: 'warmup' | 'steady' | 'recovery' | 'cooldown'
+    type: 'warmup' | 'steady' | 'recovery' | 'cooldown' | 'open'
     durationSec: number
     targetWatts?: number | null
     percentFtp?: number | null

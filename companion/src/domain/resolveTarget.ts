@@ -6,6 +6,7 @@ export function resolveStepWatts(
   step: WorkoutStep,
   ftpWatts: number | null,
 ): number | null {
+  if (step.type === 'open') return null
   if (step.targetWatts !== null && step.targetWatts !== undefined) {
     return Math.round(step.targetWatts)
   }
@@ -35,6 +36,12 @@ export function assertStepPrescription(step: WorkoutStep): void {
   const hasWatts = step.targetWatts !== null && step.targetWatts !== undefined
   const hasPct = step.percentFtp !== null && step.percentFtp !== undefined
   const hasZone = step.zone !== null && step.zone !== undefined
+  if (step.type === 'open') {
+    if (hasWatts || hasPct || hasZone) {
+      throw new Error('Open Step cannot have a target')
+    }
+    return
+  }
   // All null is allowed (free-spin step).
   if (hasPct && (step.percentFtp! < 0 || step.percentFtp! > 300)) {
     throw new Error('percentFtp must be between 0 and 300')

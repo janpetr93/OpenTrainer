@@ -10,7 +10,10 @@ import {
 import {
   SERIES_TONE_LABEL,
   bodyChartAxisSides,
+  chartRuns,
   chartScaleDomain,
+  openSpans,
+  openWavePoints,
   type ChartPoint,
   type ChartScale,
   type ChartSeries,
@@ -105,7 +108,10 @@ function normalizeSeries(
       tone,
       label: SERIES_TONE_LABEL[tone],
       scale: 'watts' as const,
-      points: s.points.map((p) => ({ tSec: p.tSec, value: p.watts })),
+      points: s.points.map((p) => ({
+        tSec: p.tSec,
+        value: p.watts == null ? Number.NaN : p.watts,
+      })),
     }
   })
 }
@@ -257,7 +263,9 @@ export function PowerProfileLine({
   const allPoints = normalized.flatMap((s) => s.points)
   const maxT = Math.max(maxTSec ?? 0, ...allPoints.map((p) => p.tSec), 1)
   const wattsSeries = normalized.filter((s) => s.scale === 'watts')
-  const wattsValues = wattsSeries.flatMap((s) => s.points.map((p) => p.value))
+  const wattsValues = wattsSeries
+    .flatMap((s) => s.points.map((p) => p.value))
+    .filter((value) => Number.isFinite(value))
   const wattsDataMax = Math.max(1, ...wattsValues)
   const wattsDataMin = wattsValues.length > 0 ? Math.min(...wattsValues) : 0
 
@@ -383,50 +391,76 @@ export function PowerProfileLine({
             />
           )
         })}
-      {painted.map((s) => {
-        const points = displayPoints(s)
+      {painted.flatMap((s) => {
+        const drawn = displayPoints(s)
         const fixed = chartScaleDomain(s.scale)
         const minV = s.scale === 'watts' ? wattsMin : (fixed?.min ?? 0)
+        const finite = drawn.filter((point) => Number.isFinite(point.value))
         const maxV =
           s.scale === 'watts'
             ? wattsMax
-            : (fixed?.max ?? Math.max(...points.map((p) => p.value), 1))
-        const linePoints = toPoints(
-          points,
-          maxT,
-          minV,
-          maxV,
-          width,
-          height,
-          pad,
-        )
-        return (
-          <g key={`${s.tone}-${s.label}`}>
-            {s.tone === 'planned' && (
+            : (fixed?.max ?? Math.max(...finite.map((point) => point.value), 1))
+        const runs = chartRuns(drawn).map((points, runIndex) => {
+          const linePoints = toPoints(
+            points,
+            maxT,
+            minV,
+            maxV,
+            width,
+            height,
+            pad,
+          )
+          return (
+            <g key={`${s.tone}-${s.label}-${runIndex}`}>
+              {s.tone === 'planned' && (
+                <path
+                  className="profile-series-area profile-series-area-planned"
+                  d={toAreaPath(
+                    points,
+                    maxT,
+                    minV,
+                    maxV,
+                    width,
+                    height,
+                    pad,
+                  )}
+                />
+              )}
+              <polyline
+                className={`profile-series profile-series-${s.tone}`}
+                fill="none"
+                strokeWidth={strokeWidth(s.tone)}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                vectorEffect="nonScalingStroke"
+                points={linePoints}
+              />
+            </g>
+          )
+        })
+        if (s.tone !== 'planned' || s.scale !== 'watts') return runs
+        const waves = openSpans(drawn).map((span, waveIndex) => {
+          const points = openWavePoints(span, minV, maxV)
+          if (points.length < 2) return null
+          return (
+            <g key={`${s.tone}-${s.label}-wave-${waveIndex}`}>
               <path
                 className="profile-series-area profile-series-area-planned"
-                d={toAreaPath(
-                  points,
-                  maxT,
-                  minV,
-                  maxV,
-                  width,
-                  height,
-                  pad,
-                )}
+                d={toAreaPath(points, maxT, minV, maxV, width, height, pad)}
               />
-            )}
-            <polyline
-              className={`profile-series profile-series-${s.tone}`}
-              fill="none"
-              strokeWidth={strokeWidth(s.tone)}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              vectorEffect="nonScalingStroke"
-              points={linePoints}
-            />
-          </g>
-        )
+              <polyline
+                className="profile-series profile-series-planned"
+                fill="none"
+                strokeWidth={strokeWidth('planned')}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                vectorEffect="nonScalingStroke"
+                points={toPoints(points, maxT, minV, maxV, width, height, pad)}
+              />
+            </g>
+          )
+        })
+        return [...runs, ...waves.filter((wave) => wave !== null)]
       })}
       {cursorX !== null && (
         <g className="profile-cursor-group">

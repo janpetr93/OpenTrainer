@@ -163,6 +163,43 @@ function App() {
   const pushErgTarget = useCallback(
     async (force: boolean) => {
       const snap = runner.getSnapshot()
+      if (snap.stepType === 'open') {
+        if (!snapshot.ergControlAvailable) {
+          if (snap.targetChanged) {
+            runner.clearTargetChanged()
+            setRunnerSnap(runner.getSnapshot())
+          }
+          return
+        }
+        if (ergPushInFlightRef.current) return
+        const openSec = Math.floor(snap.elapsedSec)
+        if (
+          !force &&
+          !snap.targetChanged &&
+          openSec === lastErgPushSecRef.current
+        ) {
+          return
+        }
+        lastErgPushSecRef.current = openSec
+        if (snap.targetChanged) {
+          runner.clearTargetChanged()
+          setRunnerSnap(runner.getSnapshot())
+        }
+        ergPushInFlightRef.current = true
+        try {
+          const ok = await connection.setIndoorBikeSimulation()
+          if (!ok) {
+            runner.markSimulationRejected()
+            runner.pause(Date.now())
+            setRunnerSnap(runner.getSnapshot())
+          } else {
+            runner.clearSimulationRejected()
+          }
+        } finally {
+          ergPushInFlightRef.current = false
+        }
+        return
+      }
       if (snap.stepTargetWatts === null || !snapshot.ergControlAvailable) {
         if (snap.targetChanged) {
           runner.clearTargetChanged()
@@ -444,6 +481,7 @@ function App() {
     (action: RideKeyAction) => {
       const snap = runner.getSnapshot()
       if (snap.status !== 'running' && snap.status !== 'paused') return
+      if (snap.stepType === 'open') return
       const now = Date.now()
       if (snap.workoutId !== null) {
         runner.setIntensity(

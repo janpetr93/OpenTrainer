@@ -319,4 +319,82 @@ describe('WorkoutRunner Free Ride targets', () => {
     runner.setFreeRideTarget(300, 0)
     expect(runner.getSnapshot().stepTargetWatts).toBe(100)
   })
+
+  it('holds no target during an Open Step and ignores Ride Intensity there', () => {
+    const runner = new WorkoutRunner()
+    runner.start(
+      {
+        id: 'ftp',
+        name: '20 min test',
+        steps: [
+          {
+            type: 'warmup',
+            durationSec: 10,
+            targetWatts: 100,
+            percentFtp: null,
+            zone: null,
+          },
+          {
+            type: 'open',
+            durationSec: 20,
+            targetWatts: null,
+            percentFtp: null,
+            zone: null,
+          },
+          {
+            type: 'cooldown',
+            durationSec: 10,
+            targetWatts: 80,
+            percentFtp: null,
+            zone: null,
+          },
+        ],
+        plannedPowerProfile: [],
+        createdAt: '',
+      },
+      0,
+    )
+    runner.setIntensity(80, 0)
+    expect(runner.getSnapshot().stepTargetWatts).toBe(80)
+
+    runner.tick(10_000)
+    const open = runner.getSnapshot()
+    expect(open.stepType).toBe('open')
+    expect(open.stepTargetWatts).toBeNull()
+    runner.setIntensity(90, 10_000)
+    expect(runner.getSnapshot().intensityPercent).toBe(80)
+
+    runner.tick(30_000)
+    expect(runner.getSnapshot().stepType).toBe('cooldown')
+    expect(runner.getSnapshot().stepTargetWatts).toBe(64)
+  })
+
+  it('retries simulation when an Open Step resumes', () => {
+    const runner = new WorkoutRunner()
+    runner.start(
+      {
+        id: 'ftp',
+        name: '20 min test',
+        steps: [
+          {
+            type: 'open',
+            durationSec: 20,
+            targetWatts: null,
+            percentFtp: null,
+            zone: null,
+          },
+        ],
+        plannedPowerProfile: [],
+        createdAt: '',
+      },
+      0,
+    )
+    runner.clearTargetChanged()
+    runner.markSimulationRejected()
+    runner.pause(1_000)
+    expect(runner.getSnapshot().openStepBlocked).toBe(true)
+    runner.resume(2_000)
+    expect(runner.getSnapshot().targetChanged).toBe(true)
+    expect(runner.getSnapshot().status).toBe('running')
+  })
 })

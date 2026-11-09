@@ -6,7 +6,7 @@ export const STORE_SCHEMA_VERSION = 1 as const
 
 export type { SessionAdherence, SessionLoad }
 
-export type WorkoutStepType = 'warmup' | 'steady' | 'recovery' | 'cooldown'
+export type WorkoutStepType = 'warmup' | 'steady' | 'recovery' | 'cooldown' | 'open'
 
 export type WorkoutStep = {
   type: WorkoutStepType
@@ -32,7 +32,8 @@ export type WorkoutItem = WorkoutStep | WorkoutRepeat
 /** Watts over elapsed time (Power Profile). Achieved rides may also carry sensors. */
 export type PowerProfilePoint = {
   tSec: number
-  watts: number
+  /** Null on an Open Step: a gap in the planned profile, not 0 W. */
+  watts: number | null
   /** Present when a Heart Rate Monitor was fresh at sample time. */
   hrBpm?: number | null
   /** Present when a Cadence Sensor (or trainer cadence) was fresh at sample time. */

@@ -31,10 +31,10 @@ export function isWithinTargetBand(achievedWatts: number, plannedWatts: number):
  */
 export function expandStepHoldWattSeries(
   points: PowerProfilePoint[],
-): number[] {
+): (number | null)[] {
   if (points.length === 0) return []
   const sorted = [...points].sort((a, b) => a.tSec - b.tSec)
-  const events: { tSec: number; watts: number }[] = []
+  const events: { tSec: number; watts: number | null }[] = []
   for (const p of sorted) {
     const last = events[events.length - 1]
     if (last && last.tSec === p.tSec) {
@@ -46,7 +46,7 @@ export function expandStepHoldWattSeries(
   const maxT = events[events.length - 1]!.tSec
   if (maxT < 0) return []
 
-  const out: number[] = []
+  const out: (number | null)[] = []
   let ei = 0
   for (let t = 0; t <= maxT; t++) {
     while (ei + 1 < events.length && events[ei + 1]!.tSec <= t) {
@@ -79,15 +79,19 @@ export function computeSessionAdherence(
   const target = ridden && ridden.length > 0 ? ridden : planned
 
   const overlap = Math.min(target.length, achieved.length)
+  let scored = 0
   let onTarget = 0
   for (let i = 0; i < overlap; i++) {
-    if (isWithinTargetBand(achieved[i]!, target[i]!)) onTarget += 1
+    const plannedWatts = target[i]
+    if (plannedWatts === null) continue
+    scored += 1
+    if (isWithinTargetBand(achieved[i]!, plannedWatts)) onTarget += 1
   }
 
   const adherence: SessionAdherence = {
     completionRatio: Math.round(completionRatio * 1000) / 1000,
     targetAdherence:
-      overlap === 0 ? 0 : Math.round((onTarget / overlap) * 1000) / 1000,
+      scored === 0 ? 1 : Math.round((onTarget / scored) * 1000) / 1000,
   }
   if (target !== planned) {
     adherence.intensityPercent = rideIntensityPercent(
@@ -101,16 +105,19 @@ export function computeSessionAdherence(
 
 /** Watts-weighted share of the plan the rider asked for while riding. */
 function rideIntensityPercent(
-  planned: number[],
-  target: number[],
+  planned: readonly (number | null)[],
+  target: readonly (number | null)[],
   riddenSec: number,
 ): number {
   const n = Math.min(planned.length, target.length, riddenSec)
   let plannedSum = 0
   let targetSum = 0
   for (let i = 0; i < n; i++) {
-    plannedSum += planned[i]!
-    targetSum += target[i]!
+    const plannedWatts = planned[i]
+    const targetWatts = target[i]
+    if (plannedWatts === null || targetWatts === null) continue
+    plannedSum += plannedWatts
+    targetSum += targetWatts
   }
   if (plannedSum <= 0) return 100
   return Math.round((targetSum / plannedSum) * 100)

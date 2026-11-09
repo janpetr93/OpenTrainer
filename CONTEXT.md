@@ -150,6 +150,10 @@ _Avoid_: list of raw samples, CTL/ATL
 How a **Workout** step expresses load: absolute watts, percent of **FTP**, and/or a **Power Zone** — resolved to watts using the current **Rider Profile** when riding or charting.
 _Avoid_: Frozen-only watts (unless the step is absolute-watts-only)
 
+**Open Step**:
+A **Workout** step with a duration and no **Target Prescription**; while it runs the **Trainer** leaves ERG for flat indoor-bike simulation (0% grade), and the next step that has a **Target Prescription** returns to ERG.
+_Avoid_: Free Ride, free-spin, Free Ride Target
+
 **Scheduled Ride**:
 A **Workout** placed on a calendar date/time for planned training, optionally with a **Session Purpose**, with status `planned` / `completed` / `skipped` (derived **missed** when still planned and `startsAt` is past).
 _Avoid_: Session, event, booking
@@ -248,6 +252,10 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - **Session Purpose** is not **Training Intent**; Intent is durable rider direction, Purpose is per-session coaching rationale.
 - MCP never opens a **Connection** or invents an **Activity**; v2 adds profile + calendar tools for week planning.
 - A **Workout** always has a planned **Power Profile** (resolved from **Target Prescription** + current **FTP** when charted/ridden).
+- An **Open Step** has no **Target Prescription**. For its duration the **Trainer** is in flat simulation; the following prescribed step returns to ERG. If the **Trainer** rejects simulation, the ride pauses on that step and stays in ERG.
+- An **Open Step** stores no watts in the planned **Power Profile** (no 0 W segment). The chart draws a wave across that span. **Session Adherence** scores targets only on prescribed seconds; completion still includes the open time. **Session Load** uses achieved power for the whole **Activity**.
+- An **Open Step** does not change session kind. `check_training_week` and `sessionKind` stay based on prescribed steady targets; the planning model reads the step and **Session Purpose**.
+- **Ride Intensity** and its keys do nothing during an **Open Step**. An intensity set earlier still applies when ERG resumes.
 - A **Scheduled Ride** on the **Training Calendar** day detail and Ride panel shows that **Workout**’s duration and planned **Power Profile** (current **FTP**; `%FTP`/zone plans need FTP set to preview).
 - A **Free Ride** is an **Activity** with no planned **Power Profile**.
 - The **Training Calendar** shows **Scheduled Ride**s (future) and **Activity**s (past).
@@ -291,6 +299,9 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 >
 > **Dev:** "If **FTP** changes after a plan is written, do we keep old watts?"
 > **Rider:** "Keep the **Target Prescription**; resolve watts from current **FTP** when I ride."
+>
+> **Dev:** "The 20-minute piece of this test has no target. Is that a **Free Ride**?"
+> **Rider:** "It's an **Open Step** inside the **Workout**. **Free Ride** is the whole **Activity** when I start with no plan."
 >
 > **Dev:** "Is connecting Strava the same as a **Connection**?"
 > **Rider:** "No — **Connection** is Bluetooth to the **Trainer**. **Strava Link** is OAuth so I can one-click upload an **Activity**."
@@ -341,6 +352,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Training Summary** / week check | `companion/src/domain/trainingSummary.ts`; MCP `get_training_summary`, `check_training_week` |
 | **Workout Repeat** | `companion/src/domain/workoutItems.ts` and `web/src/domain/workoutItems.ts` — expanded for the planned **Power Profile** and the **Workout** runner |
 | **Workout** runner | `web/src/workout/workoutRunner.ts` — start/pause/resume/skip/stop + ERG targets |
+| **Open Step** | Step type `open` on a **Workout**; flat simulation `web/src/ftms/controlProbe.ts`; runner ignores **Ride Intensity** while it is current |
 | **Ride Intensity** / **Free Ride Target** | `web/src/domain/rideIntensity.ts` (scaling, ridden-target profile, keys); runner `setIntensity` / `setFreeRideTarget`; UI `web/src/RideIntensityControl.tsx`; app-wide keys in `App.tsx` |
 | MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`) |
 | **Rider Profile** | `companion/data/profile.json`; GET `/api/profile`; UI Profile tab (read-only); MCP `set_ftp` / `get_rider_profile`; resolve `web/src/domain/resolveTarget.ts` |
@@ -355,6 +367,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - "Session" — resolved: do not use; say **Workout**, **Scheduled Ride**, or **Activity**.
 - "Power curve" — session chart is **Power Profile**; lifetime bests are **Mean Maximal Power** (Profile).
 - **Free Ride** — resolved: allowed; planned **Power Profile** omitted.
+- "free ride block" inside a **Workout** — resolved: **Open Step** (flat simulation for that step). **Free Ride** stays a whole **Activity** with no plan.
 - **Training Calendar** — resolved: app-local view; future Scheduled Rides + past Activities. Outbound **Calendar Mirror** is separate (see `docs/decisions/2026-10-19-google-calendar-one-way-mirror.md`).
 - Build order — resolved: slice1 Bluetooth proof → slice2 local store+MCP → slice3 runner/recording → slice4 export/Power Profile UI → slice5 Training Calendar.
 - **Local Companion** + JSON **Local Store** — resolved in [ADR 0001](docs/adr/0001-local-companion-json-store.md).

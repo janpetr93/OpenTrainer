@@ -39,6 +39,7 @@ const STEP_TYPES = new Set<WorkoutStepType>([
   'steady',
   'recovery',
   'cooldown',
+  'open',
 ])
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -93,10 +94,16 @@ function parseProfilePoints(value: unknown, field: string): PowerProfilePoint[] 
       throw new Error(`${field}[${index}] must be an object`)
     }
     const p = point as Record<string, unknown>
-    if (typeof p.tSec !== 'number' || typeof p.watts !== 'number') {
-      throw new Error(`${field}[${index}] needs numeric tSec and watts`)
+    if (
+      typeof p.tSec !== 'number' ||
+      (p.watts !== null && typeof p.watts !== 'number')
+    ) {
+      throw new Error(`${field}[${index}] needs numeric tSec and watts or null`)
     }
-    const parsed: PowerProfilePoint = { tSec: p.tSec, watts: p.watts }
+    const parsed: PowerProfilePoint = {
+      tSec: p.tSec,
+      watts: p.watts === null ? null : p.watts,
+    }
     const hrBpm = optionalMetric(p.hrBpm, field, index, 'hrBpm')
     const cadenceRpm = optionalMetric(p.cadenceRpm, field, index, 'cadenceRpm')
     const meterWatts = optionalMetric(p.meterWatts, field, index, 'meterWatts')

@@ -27,6 +27,24 @@ describe('computeSessionAdherence', () => {
     expect(a!.completionRatio).toBe(1)
   })
 
+  it('scores prescribed seconds only and still counts Open Step time toward completion', () => {
+    const planned: PowerProfilePoint[] = [
+      { tSec: 0, watts: 200 },
+      { tSec: 10, watts: 200 },
+      { tSec: 10, watts: null },
+      { tSec: 20, watts: null },
+      { tSec: 20, watts: 100 },
+      { tSec: 30, watts: 100 },
+    ]
+    const achieved = [
+      ...Array.from({ length: 10 }, (_, tSec) => ({ tSec, watts: 200 })),
+      ...Array.from({ length: 10 }, (_, i) => ({ tSec: 10 + i, watts: 999 })),
+      ...Array.from({ length: 11 }, (_, i) => ({ tSec: 20 + i, watts: 100 })),
+    ]
+    const adherence = computeSessionAdherence(achieved, planned)
+    expect(adherence).toEqual({ completionRatio: 1, targetAdherence: 1 })
+  })
+
   it('counts on-target within max(15% of planned, 20W) band', () => {
     // planned 200 → band = max(30, 20) = 30W; 225 is inside, 240 is outside
     const planned = profile(200, 100)

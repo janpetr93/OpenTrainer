@@ -61,7 +61,7 @@ export class PowerSampler {
     if (this.samples.length === 0) {
       return { averagePowerWatts: null, maxPowerWatts: null, durationSec: 0 }
     }
-    const watts = this.samples.map((p) => p.watts)
+    const watts = this.samples.map((p) => p.watts ?? 0)
     const sum = watts.reduce((a, b) => a + b, 0)
     const durationSec = this.samples[this.samples.length - 1]!.tSec
     return {

@@ -15,11 +15,15 @@ export function buildPlannedPowerProfile(
   let t = 0
 
   for (const step of expandWorkoutItems(steps)) {
-    let watts = 0
-    try {
-      watts = resolveStepWatts(step, ftpWatts) ?? 0
-    } catch {
-      watts = 0
+    let watts: number | null = 0
+    if (step.type === 'open') {
+      watts = null
+    } else {
+      try {
+        watts = resolveStepWatts(step, ftpWatts) ?? 0
+      } catch {
+        watts = 0
+      }
     }
     points.push({ tSec: t, watts })
     t += step.durationSec

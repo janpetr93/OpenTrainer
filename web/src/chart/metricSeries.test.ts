@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   bodyChartAxisSides,
   buildRideChartSeries,
+  chartRuns,
   chartScaleDomain,
+  openWavePoints,
   splitRideChartSeries,
 } from './metricSeries'
 
@@ -108,6 +110,44 @@ describe('splitRideChartSeries', () => {
     ])
     expect(power).toHaveLength(1)
     expect(body).toEqual([])
+  })
+})
+
+describe('chartRuns', () => {
+  it('breaks the plan line across an Open Step', () => {
+    const series = buildRideChartSeries({
+      planned: [
+        { tSec: 0, watts: 100 },
+        { tSec: 60, watts: 100 },
+        { tSec: 60, watts: null },
+        { tSec: 180, watts: null },
+        { tSec: 180, watts: 80 },
+        { tSec: 240, watts: 80 },
+      ],
+      achieved: [],
+    })
+    const planned = series.find((s) => s.tone === 'planned')
+    expect(chartRuns(planned!.points)).toEqual([
+      [
+        { tSec: 0, value: 100 },
+        { tSec: 60, value: 100 },
+      ],
+      [
+        { tSec: 180, value: 80 },
+        { tSec: 240, value: 80 },
+      ],
+    ])
+  })
+
+  it('draws an Open Step as a wave instead of a flat watt line', () => {
+    const points = openWavePoints({ t0: 60, t1: 210 }, 0, 200)
+    const values = points.map((point) => point.value)
+    expect(points[0]?.tSec).toBe(60)
+    expect(points.at(-1)?.tSec).toBe(210)
+    const swing = Math.max(...values) - Math.min(...values)
+    expect(swing).toBeGreaterThan(30)
+    expect(swing).toBeLessThan(50)
+    expect(new Set(values.map((value) => Math.round(value))).size).toBeGreaterThan(4)
   })
 })
 

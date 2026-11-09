@@ -121,6 +121,10 @@ export function applyIntensityToProfile(
       const from = cuts[c]!
       const to = cuts[c + 1]!
       if (to <= from) continue
+      if (start.watts === null) {
+        out.push({ tSec: from, watts: null }, { tSec: to, watts: null })
+        continue
+      }
       const watts = scaleTargetWatts(start.watts, percentAt(ordered, from))
       out.push({ tSec: from, watts }, { tSec: to, watts })
     }

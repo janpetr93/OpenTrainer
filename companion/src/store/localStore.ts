@@ -41,7 +41,13 @@ import {
   type WorkoutStepType,
 } from '../domain/types.js'
 
-const STEP_TYPES: WorkoutStepType[] = ['warmup', 'steady', 'recovery', 'cooldown']
+const STEP_TYPES: WorkoutStepType[] = [
+  'warmup',
+  'steady',
+  'recovery',
+  'cooldown',
+  'open',
+]
 const PROFILE_FILE = 'profile.json'
 const STRAVA_LINK_FILE = 'strava-link.json'
 const GOOGLE_CALENDAR_LINK_FILE = 'google-calendar-link.json'

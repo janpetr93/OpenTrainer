@@ -42,4 +42,38 @@ describe('buildPlannedPowerProfile', () => {
     )
     expect(points[0]?.watts).toBe(250)
   })
+
+  it('leaves a gap for an Open Step', () => {
+    const points = buildPlannedPowerProfile([
+      {
+        type: 'warmup',
+        durationSec: 60,
+        targetWatts: 100,
+        percentFtp: null,
+        zone: null,
+      },
+      {
+        type: 'open',
+        durationSec: 120,
+        targetWatts: null,
+        percentFtp: null,
+        zone: null,
+      },
+      {
+        type: 'cooldown',
+        durationSec: 60,
+        targetWatts: 80,
+        percentFtp: null,
+        zone: null,
+      },
+    ])
+    expect(points).toEqual([
+      { tSec: 0, watts: 100 },
+      { tSec: 60, watts: 100 },
+      { tSec: 60, watts: null },
+      { tSec: 180, watts: null },
+      { tSec: 180, watts: 80 },
+      { tSec: 240, watts: 80 },
+    ])
+  })
 })

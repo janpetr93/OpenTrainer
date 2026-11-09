@@ -22,9 +22,12 @@ function formatDuration(durationSec: number): string {
   return `${minutes}m ${seconds}s`
 }
 
-type PlannedSegment = { durationSec: number; watts: number }
+type PlannedSegment = { durationSec: number; watts: number | null }
 
 function formatSegment(segment: PlannedSegment): string {
+  if (segment.watts === null) {
+    return `${formatDuration(segment.durationSec)} - open`
+  }
   return `${formatDuration(segment.durationSec)} - ${segment.watts}W`
 }
 
@@ -113,9 +116,9 @@ function formatPlannedStructure(
   const ordered = points.map((point, index) => ({ ...point, index }))
   ordered.sort((a, b) => a.tSec - b.tSec || a.index - b.index)
 
-  const events: { tSec: number; watts: number }[] = []
+  const events: { tSec: number; watts: number | null }[] = []
   for (const point of ordered) {
-    const watts = Math.round(point.watts)
+    const watts = point.watts === null ? null : Math.round(point.watts)
     const last = events[events.length - 1]
     if (last && last.tSec === point.tSec) last.watts = watts
     else events.push({ tSec: point.tSec, watts })

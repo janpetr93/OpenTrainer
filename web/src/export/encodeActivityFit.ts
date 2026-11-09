@@ -21,14 +21,14 @@ export function expandFitSamples(
   const sorted = [...profile].sort((a, b) => a.tSec - b.tSec)
   const out: FitSample[] = []
   let i = 0
-  let watts = Math.round(sorted[0]!.watts)
+  let watts = Math.round(sorted[0]!.watts ?? 0)
   for (let t = 0; t <= durationSec; t++) {
     while (i + 1 < sorted.length && sorted[i + 1]!.tSec <= t) {
       i++
-      watts = Math.round(sorted[i]!.watts)
+      watts = Math.round(sorted[i]!.watts ?? 0)
     }
     if (sorted[i]!.tSec <= t) {
-      watts = Math.round(sorted[i]!.watts)
+      watts = Math.round(sorted[i]!.watts ?? 0)
     }
     const at = sorted[i]!
     const exact = at.tSec === t

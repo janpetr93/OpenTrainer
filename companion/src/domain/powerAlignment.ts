@@ -2,6 +2,7 @@ import type { PowerProfilePoint } from './types.js'
 
 /** Meter − Trainer for one sample, or null when unpaired. */
 function sampleAlignmentDelta(point: PowerProfilePoint): number | null {
+  if (point.watts === null) return null
   if (point.trainerWatts !== null && point.trainerWatts !== undefined) {
     return point.watts - point.trainerWatts
   }

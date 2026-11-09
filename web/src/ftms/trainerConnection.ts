@@ -10,6 +10,7 @@ import {
   type RememberedDeviceStore,
 } from '../ble/rememberedDevices'
 import {
+  buildFlatSimulationCommand,
   buildRequestControlCommand,
   buildSetTargetPowerCommand,
   interpretControlPointResponse,
@@ -512,6 +513,34 @@ export class TrainerConnection {
         `Control Probe error: ${error instanceof Error ? error.message : String(error)}`,
       )
       this.patch({ ergControlAvailable: false })
+    }
+  }
+
+  /** Flat indoor-bike simulation for an Open Step. False when the trainer rejects it. */
+  async setIndoorBikeSimulation(): Promise<boolean> {
+    if (!this.controlPointChar || !this.snapshot.ergControlAvailable) {
+      return false
+    }
+    try {
+      await this.controlPointChar.writeValueWithResponse(
+        buildFlatSimulationCommand(),
+      )
+      const response = interpretControlPointResponse(
+        await this.waitForControlResponse(),
+      )
+      if (!response.ok) {
+        this.patch({
+          lastError: `Simulation failed: ${response.message}`,
+        })
+        return false
+      }
+      return true
+    } catch (error) {
+      this.patch({
+        lastError:
+          error instanceof Error ? error.message : String(error),
+      })
+      return false
     }
   }
 

@@ -46,6 +46,8 @@ export type RunnerSnapshot = {
   totalSec: number
   /** True when the active step target changed (start / skip / auto-advance). */
   targetChanged: boolean
+  /** Simulation was rejected on the current Open Step, so the trainer stayed in ERG. */
+  openStepBlocked: boolean
 }
 
 type FlatWorkout = Omit<Workout, 'steps'> & { steps: WorkoutStep[] }
@@ -70,6 +72,7 @@ type Internal = {
   intensityChanges: IntensityChange[]
   freeRideTargetWatts: number | null
   freeRideTargetChanges: FreeRideTargetChange[]
+  simulationRejected: boolean
 }
 
 function totalDuration(steps: WorkoutStep[]): number {
@@ -112,6 +115,7 @@ function idleState(): Internal {
     intensityChanges: [],
     freeRideTargetWatts: null,
     freeRideTargetChanges: [],
+    simulationRejected: false,
   }
 }
 
@@ -129,6 +133,7 @@ const IDLE_SNAPSHOT: RunnerSnapshot = {
   elapsedSec: 0,
   totalSec: 0,
   targetChanged: false,
+  openStepBlocked: false,
 }
 
 /** Record a change at an elapsed second; a second change in that second wins. */
@@ -189,6 +194,8 @@ export class WorkoutRunner {
       stepPlannedWatts: planned,
       stepTargetWatts: target,
       intensityPercent,
+      openStepBlocked:
+        this.state.simulationRejected && step.type === 'open',
       totalSec,
     }
     if (finished) {
@@ -238,6 +245,8 @@ export class WorkoutRunner {
     const { status, freeRide, workout } = this.state
     if (status !== 'running' && status !== 'paused') return
     if (freeRide || !workout) return
+    const step = stepBounds(workout.steps, this.state.stepIndex).step
+    if (step.type === 'open') return
     const next = clampIntensityPercent(percent)
     if (next === this.state.intensityPercent) return
     this.syncElapsed(nowMs)
@@ -268,6 +277,15 @@ export class WorkoutRunner {
   /** Consume the targetChanged flag after the UI applies ERG. */
   clearTargetChanged(): void {
     this.state.targetChanged = false
+  }
+
+  /** Open Step could not leave ERG. The ride should pause on this step. */
+  markSimulationRejected(): void {
+    this.state.simulationRejected = true
+  }
+
+  clearSimulationRejected(): void {
+    this.state.simulationRejected = false
   }
 
   start(
@@ -318,6 +336,13 @@ export class WorkoutRunner {
     this.state.status = 'running'
     this.state.segmentStartedAtMs = nowMs
     this.state.elapsedAtSegmentStart = this.state.elapsedSec
+    const workout = this.state.workout
+    if (
+      workout &&
+      stepBounds(workout.steps, this.state.stepIndex).step.type === 'open'
+    ) {
+      this.state.targetChanged = true
+    }
   }
 
   skip(nowMs: number): void {
@@ -338,6 +363,7 @@ export class WorkoutRunner {
     this.state.segmentStartedAtMs = nowMs
     this.state.status = 'running'
     this.state.targetChanged = true
+    this.state.simulationRejected = false
   }
 
   stop(nowMs: number): void {
@@ -381,6 +407,7 @@ export class WorkoutRunner {
       }
       this.state.stepIndex = next
       this.state.targetChanged = true
+      this.state.simulationRejected = false
       this.state.elapsedAtSegmentStart = this.state.elapsedSec
       this.state.segmentStartedAtMs = nowMs
     }

@@ -99,10 +99,16 @@ function TargetTile({ runner }: { runner: RunnerSnapshot }) {
       data-intensity={scaled ? 'changed' : undefined}
     >
       <span className="live-metric-label">Target</span>
-      <span className="live-metric-value">
-        {runner.stepTargetWatts === null ? '—' : runner.stepTargetWatts}
-      </span>
-      <span className="live-metric-unit">W</span>
+      {runner.stepType === 'open' ? (
+        <span className="live-metric-value">Open</span>
+      ) : (
+        <>
+          <span className="live-metric-value">
+            {runner.stepTargetWatts === null ? '—' : runner.stepTargetWatts}
+          </span>
+          <span className="live-metric-unit">W</span>
+        </>
+      )}
       {scaled && (
         <span className="live-metric-original">
           of {runner.stepPlannedWatts} W · {runner.intensityPercent}%
@@ -550,9 +556,11 @@ export function LiveDisplay({
                       <span>
                         Target{' '}
                         <strong>
-                          {runner.stepTargetWatts === null
-                            ? '—'
-                            : `${runner.stepTargetWatts} W`}
+                          {runner.stepType === 'open'
+                            ? 'Open'
+                            : runner.stepTargetWatts === null
+                              ? '—'
+                              : `${runner.stepTargetWatts} W`}
                         </strong>
                         {runner.intensityPercent !== DEFAULT_INTENSITY_PERCENT &&
                           runner.stepPlannedWatts !== null && (
@@ -572,6 +580,12 @@ export function LiveDisplay({
                         <strong>{formatClock(runner.elapsedSec)}</strong>
                       </span>
                     </p>
+                    {runner.openStepBlocked && (
+                      <p className="muted">
+                        Trainer stayed in ERG. Resume tries flat simulation
+                        again.
+                      </p>
+                    )}
                     {!snapshot.ergControlAvailable && (
                       <p className="muted">
                         Display-only targets — trainer ERG not available on this
@@ -594,6 +608,7 @@ export function LiveDisplay({
       </section>
 
       {riding &&
+        runner.stepType !== 'open' &&
         (isFreeRide || runner.stepCount === 0 ? (
           <RideIntensityControl
             mode="freeRide"

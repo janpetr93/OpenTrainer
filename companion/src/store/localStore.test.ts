@@ -65,6 +65,37 @@ describe('LocalStore', () => {
     expect(loaded?.steps[1]).toMatchObject({ type: 'repeat', count: 3 })
   })
 
+  it('stores an Open Step as a gap in the planned Power Profile', async () => {
+    const workout = await store.createWorkout({
+      name: '20 min FTP test',
+      steps: [
+        { type: 'warmup', durationSec: 300, targetWatts: 120, percentFtp: null, zone: null },
+        { type: 'open', durationSec: 1200, targetWatts: null, percentFtp: null, zone: null },
+        { type: 'cooldown', durationSec: 300, targetWatts: 80, percentFtp: null, zone: null },
+      ],
+    })
+
+    expect(workout.plannedPowerProfile).toEqual([
+      { tSec: 0, watts: 120 },
+      { tSec: 300, watts: 120 },
+      { tSec: 300, watts: null },
+      { tSec: 1500, watts: null },
+      { tSec: 1500, watts: 80 },
+      { tSec: 1800, watts: 80 },
+    ])
+  })
+
+  it('rejects a target on an Open Step', async () => {
+    await expect(
+      store.createWorkout({
+        name: 'bad open',
+        steps: [
+          { type: 'open', durationSec: 60, targetWatts: 200, percentFtp: null, zone: null },
+        ],
+      }),
+    ).rejects.toThrow(/Open Step cannot have a target/)
+  })
+
   it('listActivities returns empty when none exist', async () => {
     const activities = await store.listActivities({ pastDays: 14 })
     expect(activities).toEqual([])

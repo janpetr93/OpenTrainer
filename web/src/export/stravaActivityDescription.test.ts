@@ -192,6 +192,22 @@ describe('stravaActivityDescription', () => {
     ).toBe('TSS 42')
   })
 
+  it('writes an Open Step as open instead of 0 W', () => {
+    expect(
+      stravaActivityDescription({
+        sessionLoad: null,
+        plannedPowerProfile: [
+          { tSec: 0, watts: 120 },
+          { tSec: 300, watts: 120 },
+          { tSec: 300, watts: null },
+          { tSec: 1500, watts: null },
+          { tSec: 1500, watts: 80 },
+          { tSec: 1800, watts: 80 },
+        ],
+      }),
+    ).toBe('5m - 120W\n20m - open\n5m - 80W')
+  })
+
   it('omits a planned profile that never resolved above 0 W', () => {
     expect(
       stravaActivityDescription({

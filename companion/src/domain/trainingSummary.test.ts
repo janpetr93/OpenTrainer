@@ -179,6 +179,26 @@ describe('sessionKind', () => {
       ),
     ).toBe('easy')
   })
+
+  it('does not treat a long Open Step as a hard session', () => {
+    expect(
+      sessionKind(
+        [
+          step('warmup', 300, 50),
+          {
+            type: 'open',
+            durationSec: 1200,
+            targetWatts: null,
+            percentFtp: null,
+            zone: null,
+          },
+          step('cooldown', 300, 40),
+        ],
+        null,
+        250,
+      ),
+    ).toBe('easy')
+  })
 })
 
 describe('checkTrainingWeek', () => {

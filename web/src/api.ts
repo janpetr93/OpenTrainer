@@ -1,4 +1,4 @@
-export type WorkoutStepType = 'warmup' | 'steady' | 'recovery' | 'cooldown'
+export type WorkoutStepType = 'warmup' | 'steady' | 'recovery' | 'cooldown' | 'open'
 
 export type PowerZoneId = 1 | 2 | 3 | 4 | 5 | 6 | 7
 
@@ -48,7 +48,8 @@ export type RiderProfile = {
 
 export type PowerProfilePoint = {
   tSec: number
-  watts: number
+  /** Null on an Open Step: a gap in the planned profile, not 0 W. */
+  watts: number | null
   /** Present when a Heart Rate Monitor was fresh at sample time. */
   hrBpm?: number | null
   /** Present when a Cadence Sensor (or trainer cadence) was fresh at sample time. */

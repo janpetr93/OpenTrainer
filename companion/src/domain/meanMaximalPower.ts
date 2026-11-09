@@ -34,13 +34,13 @@ export function mmpSourceWatts(point: PowerProfilePoint): number {
   if (point.meterWatts !== null && point.meterWatts !== undefined) {
     return point.meterWatts
   }
-  return point.watts
+  return point.watts ?? 0
 }
 
 /** Contiguous 1s watt runs; gaps (non-consecutive tSec) start a new segment. */
 export function contiguousWattSegments(
   points: PowerProfilePoint[],
-  wattsOf: (point: PowerProfilePoint) => number = (p) => p.watts,
+  wattsOf: (point: PowerProfilePoint) => number = (p) => p.watts ?? 0,
 ): number[][] {
   if (points.length === 0) return []
   const sorted = [...points].sort((a, b) => a.tSec - b.tSec)

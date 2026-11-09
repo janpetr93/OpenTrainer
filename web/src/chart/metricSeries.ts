@@ -57,8 +57,83 @@ export function wattsSeries(
     tone,
     label,
     scale: 'watts',
-    points: points.map((p) => ({ tSec: p.tSec, value: p.watts })),
+    points: points.map((p) => ({
+      tSec: p.tSec,
+      value: p.watts == null ? Number.NaN : p.watts,
+    })),
   }
+}
+
+/** Time span of an Open Step, where the plan has no watts. */
+export type OpenSpan = { t0: number; t1: number }
+
+/** A few broad humps across the block, tall enough to read as a wave. */
+const OPEN_WAVE_SECONDS_PER_HUMP = 300
+const OPEN_WAVE_MIN_HUMPS = 2
+const OPEN_WAVE_MAX_HUMPS = 5
+const OPEN_WAVE_AMPLITUDE = 0.18
+
+/** Split a line wherever a sample has no watts, so prescribed steps stay flat. */
+export function chartRuns(points: readonly ChartPoint[]): ChartPoint[][] {
+  const runs: ChartPoint[][] = []
+  let current: ChartPoint[] = []
+  for (const point of points) {
+    if (!Number.isFinite(point.value)) {
+      if (current.length >= 2) runs.push(current)
+      current = []
+      continue
+    }
+    current.push(point)
+  }
+  if (current.length >= 2) runs.push(current)
+  return runs
+}
+
+/** Open Step spans in a series. Null watts stay out of the stored plan. */
+export function openSpans(points: readonly ChartPoint[]): OpenSpan[] {
+  const spans: OpenSpan[] = []
+  let start: number | null = null
+  let end = 0
+  for (const point of points) {
+    if (!Number.isFinite(point.value)) {
+      if (start === null) start = point.tSec
+      end = point.tSec
+      continue
+    }
+    if (start !== null && end > start) spans.push({ t0: start, t1: end })
+    start = null
+  }
+  if (start !== null && end > start) spans.push({ t0: start, t1: end })
+  return spans
+}
+
+/**
+ * Display-only sine across an Open Step. Centered in the watt axis so it
+ * does not read as a prescribed target.
+ */
+export function openWavePoints(
+  span: OpenSpan,
+  minV: number,
+  maxV: number,
+): ChartPoint[] {
+  const duration = span.t1 - span.t0
+  if (duration <= 0 || maxV <= minV) return []
+  const mid = (minV + maxV) / 2
+  const amp = ((maxV - minV) / 2) * OPEN_WAVE_AMPLITUDE
+  const humps = Math.min(
+    OPEN_WAVE_MAX_HUMPS,
+    Math.max(OPEN_WAVE_MIN_HUMPS, duration / OPEN_WAVE_SECONDS_PER_HUMP),
+  )
+  const period = duration / humps
+  const samples = Math.max(48, Math.round(duration / 3))
+  const points: ChartPoint[] = []
+  for (let i = 0; i <= samples; i++) {
+    const tSec = span.t0 + (duration * i) / samples
+    const value =
+      mid + amp * Math.sin((2 * Math.PI * (tSec - span.t0)) / period)
+    points.push({ tSec, value })
+  }
+  return points
 }
 
 function scaleForMetric(

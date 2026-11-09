@@ -1,5 +1,6 @@
 export const CONTROL_OP_REQUEST_CONTROL = 0x00
 export const CONTROL_OP_SET_TARGET_POWER = 0x05
+export const CONTROL_OP_SET_INDOOR_BIKE_SIMULATION = 0x11
 export const CONTROL_OP_RESPONSE = 0x80
 
 export const RESULT_SUCCESS = 0x01
@@ -50,6 +51,21 @@ export function interpretControlPointResponse(
 
 export function buildRequestControlCommand(): BufferSource {
   return new Uint8Array([CONTROL_OP_REQUEST_CONTROL]).buffer
+}
+
+/**
+ * Flat indoor-bike simulation: 0% grade, no wind, Crr 0.004, Cw 0.51 kg/m.
+ * FTMS opcode 0x11, little-endian wind (0.001 m/s) and grade (0.01%).
+ */
+export function buildFlatSimulationCommand(): ArrayBuffer {
+  const buffer = new ArrayBuffer(7)
+  const view = new DataView(buffer)
+  view.setUint8(0, CONTROL_OP_SET_INDOOR_BIKE_SIMULATION)
+  view.setInt16(1, 0, true)
+  view.setInt16(3, 0, true)
+  view.setUint8(5, 40)
+  view.setUint8(6, 51)
+  return buffer
 }
 
 export function buildSetTargetPowerCommand(watts: number): BufferSource {

@@ -200,7 +200,9 @@ export function hardWorkHeld(
   for (const range of chosen) {
     const end = Math.min(range.end, series.length)
     for (let t = range.start; t < end; t++) {
-      sum += series[t]!
+      const watts = series[t]
+      if (watts === null || watts === undefined) continue
+      sum += watts
       count += 1
     }
   }

@@ -31,6 +31,28 @@ describe('buildPlannedPowerProfile', () => {
     ])
   })
 
+  it('leaves a gap for an Open Step instead of 0 W', () => {
+    const profile = buildPlannedPowerProfile([
+      watts('warmup', 60, 100),
+      {
+        type: 'open',
+        durationSec: 120,
+        targetWatts: null,
+        percentFtp: null,
+        zone: null,
+      },
+      watts('cooldown', 60, 80),
+    ])
+    expect(profile).toEqual([
+      { tSec: 0, watts: 100 },
+      { tSec: 60, watts: 100 },
+      { tSec: 60, watts: null },
+      { tSec: 180, watts: null },
+      { tSec: 180, watts: 80 },
+      { tSec: 240, watts: 80 },
+    ])
+  })
+
   it('uses 0 W when targetWatts is null', () => {
     const profile = buildPlannedPowerProfile([watts('recovery', 30, null)])
     expect(profile).toEqual([
