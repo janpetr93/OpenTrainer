@@ -10,6 +10,7 @@ import {
   fingerprintsMatch,
   mmpFingerprint,
 } from '../domain/meanMaximalPower.js'
+import { blockerFromInput, isBlockerKind } from '../domain/blocker.js'
 import {
   hydrateScheduledRide,
   toScheduledRideView,
@@ -24,18 +25,22 @@ import {
   STORE_SCHEMA_VERSION,
   type Activity,
   type ActivityStravaUpload,
+  type Blocker,
+  type CreateBlockerInput,
   type CreateScheduledRideInput,
   type CreateWorkoutInput,
   type ErgCalibration,
   type GoogleCalendarEventIndex,
   type GoogleCalendarLink,
   type ListActivitiesQuery,
+  type ListBlockersQuery,
   type ListScheduledRidesQuery,
   type MmpCache,
   type PowerSourceMode,
   type RiderProfile,
   type ScheduledRide,
   type ScheduledRideView,
+  type UpdateBlockerInput,
   type StravaLink,
   type TrainingIntent,
   type Workout,
@@ -100,6 +105,33 @@ export type RiderProfileView = RiderProfile & {
 }
 
 const PURPOSE_MAX_LEN = 500
+
+function readEventIdMap(raw: unknown): Record<string, string> {
+  const map: Record<string, string> = {}
+  if (!raw || typeof raw !== 'object') return map
+  for (const [id, eventId] of Object.entries(raw)) {
+    if (typeof eventId === 'string' && eventId.trim()) map[id] = eventId
+  }
+  return map
+}
+
+function hydrateBlocker(raw: Blocker): Blocker {
+  if (!isBlockerKind(raw.kind)) {
+    throw new Error('kind must be social, run, gym, or swim')
+  }
+  return blockerFromInput(
+    {
+      kind: raw.kind,
+      startsAt: raw.startsAt,
+      allDay: raw.allDay === true,
+      durationMin: raw.durationMin,
+      label: raw.label,
+    },
+    raw.id,
+    raw.createdAt,
+    STORE_SCHEMA_VERSION,
+  )
+}
 
 function parseMaxHardDays(value: unknown): number | null {
   if (value === undefined || value === null) return null
@@ -191,6 +223,7 @@ export class LocalStore {
   private readonly workoutsDir: string
   private readonly activitiesDir: string
   private readonly scheduledDir: string
+  private readonly blockersDir: string
   private readonly profilePath: string
   private readonly stravaLinkPath: string
   private readonly googleCalendarLinkPath: string
@@ -202,6 +235,7 @@ export class LocalStore {
     this.workoutsDir = join(rootDir, 'workouts')
     this.activitiesDir = join(rootDir, 'activities')
     this.scheduledDir = join(rootDir, 'scheduled')
+    this.blockersDir = join(rootDir, 'blockers')
     this.profilePath = join(rootDir, PROFILE_FILE)
     this.stravaLinkPath = join(rootDir, STRAVA_LINK_FILE)
     this.googleCalendarLinkPath = join(rootDir, GOOGLE_CALENDAR_LINK_FILE)
@@ -214,6 +248,7 @@ export class LocalStore {
     await mkdir(this.workoutsDir, { recursive: true })
     await mkdir(this.activitiesDir, { recursive: true })
     await mkdir(this.scheduledDir, { recursive: true })
+    await mkdir(this.blockersDir, { recursive: true })
   }
 
   async getRiderProfile(): Promise<RiderProfileView> {
@@ -644,17 +679,15 @@ export class LocalStore {
       const raw = await this.readJson<Partial<GoogleCalendarEventIndex>>(
         this.googleCalendarEventsPath,
       )
-      const byRideId: Record<string, string> = {}
-      if (raw.byRideId && typeof raw.byRideId === 'object') {
-        for (const [rideId, eventId] of Object.entries(raw.byRideId)) {
-          if (typeof eventId === 'string' && eventId.trim()) {
-            byRideId[rideId] = eventId
-          }
-        }
-      }
-      return { schemaVersion: STORE_SCHEMA_VERSION, byRideId }
+      const byRideId = readEventIdMap(raw.byRideId)
+      const byBlockerId = readEventIdMap(raw.byBlockerId)
+      return { schemaVersion: STORE_SCHEMA_VERSION, byRideId, byBlockerId }
     } catch {
-      return { schemaVersion: STORE_SCHEMA_VERSION, byRideId: {} }
+      return {
+        schemaVersion: STORE_SCHEMA_VERSION,
+        byRideId: {},
+        byBlockerId: {},
+      }
     }
   }
 
@@ -875,6 +908,104 @@ export class LocalStore {
     await unlink(path)
     await this.deleteWorkoutIfOrphaned(ride.workoutId)
     return true
+  }
+
+  async createBlocker(input: CreateBlockerInput): Promise<Blocker> {
+    const now = new Date().toISOString()
+    const blocker = blockerFromInput(
+      input,
+      randomUUID(),
+      now,
+      STORE_SCHEMA_VERSION,
+    )
+    await this.writeJson(join(this.blockersDir, `${blocker.id}.json`), blocker)
+    return blocker
+  }
+
+  async getBlocker(id: string): Promise<Blocker | null> {
+    try {
+      return hydrateBlocker(
+        await this.readJson<Blocker>(join(this.blockersDir, `${id}.json`)),
+      )
+    } catch {
+      return null
+    }
+  }
+
+  async listBlockers(query: ListBlockersQuery = {}): Promise<Blocker[]> {
+    const sinceMs = query.since ? Date.parse(query.since) : null
+    const untilMs = query.until ? Date.parse(query.until) : null
+    if (sinceMs !== null && Number.isNaN(sinceMs)) {
+      throw new Error('Invalid since timestamp')
+    }
+    if (untilMs !== null && Number.isNaN(untilMs)) {
+      throw new Error('Invalid until timestamp')
+    }
+
+    const files = await this.listJsonFiles(this.blockersDir)
+    const blockers: Blocker[] = []
+    for (const file of files) {
+      let blocker: Blocker
+      try {
+        blocker = hydrateBlocker(
+          await this.readJson<Blocker>(join(this.blockersDir, file)),
+        )
+      } catch {
+        continue
+      }
+      const starts = Date.parse(blocker.startsAt)
+      if (Number.isNaN(starts)) continue
+      if (sinceMs !== null && starts < sinceMs) continue
+      if (untilMs !== null && starts > untilMs) continue
+      blockers.push(blocker)
+    }
+    return blockers.sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  }
+
+  async updateBlocker(id: string, patch: UpdateBlockerInput): Promise<Blocker> {
+    const current = await this.getBlocker(id)
+    if (!current) throw new Error(`Blocker not found: ${id}`)
+    const allDay = patch.allDay ?? current.allDay
+    const durationMin =
+      patch.allDay === true
+        ? null
+        : patch.durationMin !== undefined
+          ? patch.durationMin
+          : current.durationMin
+    const next = blockerFromInput(
+      {
+        kind: patch.kind ?? current.kind,
+        startsAt: patch.startsAt ?? current.startsAt,
+        allDay,
+        durationMin,
+        label: patch.label !== undefined ? patch.label : current.label,
+      },
+      current.id,
+      current.createdAt,
+      STORE_SCHEMA_VERSION,
+    )
+    await this.writeJson(join(this.blockersDir, `${id}.json`), next)
+    return next
+  }
+
+  async deleteBlocker(id: string): Promise<boolean> {
+    const path = join(this.blockersDir, `${id}.json`)
+    try {
+      await this.readJson<Blocker>(path)
+    } catch {
+      return false
+    }
+    await unlink(path)
+    return true
+  }
+
+  async clearBlockers(query: { since: string; until: string }): Promise<number> {
+    const blockers = await this.listBlockers(query)
+    let deleted = 0
+    for (const blocker of blockers) {
+      if (await this.deleteBlocker(blocker.id)) deleted++
+    }
+    return deleted
   }
 
   async clearScheduledRides(query: {

@@ -559,14 +559,14 @@ button.export-fit {
 }
 
 .cal-cell {
-  /* Shorter than square so full-width tiles don't dominate the page. */
-  aspect-ratio: 2.4;
+  /* Number left, mark chips stacked right — uses the tile’s width. */
+  aspect-ratio: 1.55;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.06rem;
-  padding: 0.1rem;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.25rem;
+  padding: 0.35rem 0.32rem 0.3rem 0.4rem;
   min-height: 0;
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -574,6 +574,7 @@ button.export-fit {
   color: var(--text);
   font: inherit;
   cursor: pointer;
+  text-align: left;
 }
 
 .cal-cell.empty {
@@ -592,37 +593,117 @@ button.export-fit {
 }
 
 .cal-daynum {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.88rem;
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  color: var(--text);
+  padding-top: 0.05rem;
 }
 
 .cal-markers {
   display: flex;
-  gap: 0.15rem;
-  min-height: 0.32rem;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: flex-end;
+  gap: 0.18rem;
+  min-width: 1.15rem;
+  /* Quiet days keep a right column so the grid does not jump. */
+  min-height: 2.4rem;
 }
 
-.mark {
-  display: inline-block;
-  width: 0.32rem;
-  height: 0.32rem;
-  border-radius: 50%;
-  vertical-align: middle;
+.cal-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  line-height: 0;
 }
 
-.mark.sched {
-  background: var(--warn);
+.cal-mark-chip {
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  line-height: 1;
 }
 
-.mark.done {
-  background: var(--ok);
+.cal-mark-letter {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.cal-mark-mark {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.cal-mark-mark .cal-mark-letter {
+  font-size: 0.62rem;
+}
+
+.cal-mark-row {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+.cal-mark-row .cal-mark-letter {
+  font-size: 0.78rem;
+}
+
+.cal-mark.plan {
+  color: var(--warn-text);
+  background: color-mix(in srgb, var(--warn) 18%, var(--panel));
+  border-color: var(--warn);
+}
+
+.cal-mark.filled {
+  /* Brighter than --ok so the done chip reads at mark size. */
+  color: var(--bg, #fff);
+  background: #1b8a4a;
+  border-color: #1b8a4a;
+}
+
+.cal-mark.blocker {
+  color: var(--muted);
+  background: var(--panel);
+  border-color: var(--border);
+}
+
+.cal-mark-more {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.blocker-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem 0;
+}
+
+.blocker-row div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .cal-legend {
   margin: 0.5rem 0 0;
   font-size: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
 }
 
 .cal-section-title {

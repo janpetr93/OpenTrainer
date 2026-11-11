@@ -36,6 +36,16 @@ describe('plan_training_week prompt', () => {
     expect(serverInstructions.slice(0, 512)).toContain('averageWatts')
   })
 
+  it('reads Blockers before asking for free time and clears them only on a range replace', () => {
+    expect(planTrainingWeekPrompt).toContain('list_blockers')
+    expect(planTrainingWeekPrompt).toContain('clear_blockers')
+    expect(planTrainingWeekPrompt).toContain('create_blocker')
+    expect(planTrainingWeekPrompt).toMatch(/one-ride edit does not clear Blockers/i)
+    expect(planTrainingWeekPrompt).toMatch(/easy Scheduled Ride may share a day/i)
+    expect(reviewTrainingPrompt).toContain('list_blockers')
+    expect(reviewTrainingPrompt).toMatch(/past Blocker is not missed/i)
+  })
+
   it('treats Estimated FTP as a hint and does not apply an indoor discount', () => {
     expect(planTrainingWeekPrompt).toMatch(/do not call set_ftp from it/i)
     expect(planTrainingWeekPrompt).toMatch(/do not (lower|discount) FTP/i)

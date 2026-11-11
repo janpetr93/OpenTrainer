@@ -1,7 +1,14 @@
 import { randomBytes } from 'node:crypto'
+import {
+  blockerTitle,
+  blockerWindow,
+  localDateKey,
+  nextLocalDateKey,
+} from '../domain/blocker.js'
 import { workoutDurationSec } from '../domain/workoutItems.js'
 import type { LocalStore } from '../store/localStore.js'
 import type {
+  Blocker,
   GoogleCalendarLink,
   ScheduledRideView,
   Workout,
@@ -203,6 +210,7 @@ export class CalendarMirror {
       const accessToken = await this.ensureAccessToken()
       const calendarId = await this.ensureCalendar(accessToken)
       await this.syncRides(accessToken, calendarId)
+      await this.syncBlockers(accessToken, calendarId)
       await this.setLastError(null)
     } catch (error) {
       await this.setLastError(
@@ -271,8 +279,94 @@ export class CalendarMirror {
     await this.store.saveGoogleCalendarEventIndex({
       schemaVersion: 1,
       byRideId: next,
+      byBlockerId: index.byBlockerId,
     })
     if (failure) throw new Error(failure)
+  }
+
+  private async syncBlockers(
+    accessToken: string,
+    calendarId: string,
+  ): Promise<void> {
+    const blockers = await this.store.listBlockers()
+    const index = await this.store.getGoogleCalendarEventIndex()
+    const next: Record<string, string> = { ...index.byBlockerId }
+    const byId = new Map(blockers.map((blocker) => [blocker.id, blocker]))
+    let failure: string | null = null
+    const todayStart = startOfLocalDay(this.now())
+
+    for (const [blockerId, eventId] of Object.entries(index.byBlockerId)) {
+      const blocker = byId.get(blockerId)
+      if (!blocker) {
+        try {
+          await deleteEvent(this.fetchImpl, {
+            accessToken,
+            calendarId,
+            eventId,
+          })
+          delete next[blockerId]
+        } catch (error) {
+          failure = errorMessage(error)
+        }
+        continue
+      }
+      try {
+        next[blockerId] = await this.upsertBlocker(
+          accessToken,
+          calendarId,
+          blocker,
+          eventId,
+        )
+      } catch (error) {
+        failure = errorMessage(error)
+      }
+    }
+
+    for (const blocker of blockers) {
+      if (next[blocker.id]) continue
+      if (Date.parse(blocker.startsAt) < todayStart) continue
+      try {
+        next[blocker.id] = await this.upsertBlocker(
+          accessToken,
+          calendarId,
+          blocker,
+          null,
+        )
+      } catch (error) {
+        failure = errorMessage(error)
+      }
+    }
+
+    await this.store.saveGoogleCalendarEventIndex({
+      schemaVersion: 1,
+      byRideId: index.byRideId,
+      byBlockerId: next,
+    })
+    if (failure) throw new Error(failure)
+  }
+
+  private async upsertBlocker(
+    accessToken: string,
+    calendarId: string,
+    blocker: Blocker,
+    eventId: string | null,
+  ): Promise<string> {
+    const event = blockerEventBody(blocker)
+    if (eventId) {
+      const patched = await patchEvent(this.fetchImpl, {
+        accessToken,
+        calendarId,
+        eventId,
+        event,
+      })
+      if (patched === 'updated') return eventId
+    }
+    const created = await insertEvent(this.fetchImpl, {
+      accessToken,
+      calendarId,
+      event,
+    })
+    return created.id
   }
 
   private async upsertPlanned(
@@ -322,6 +416,7 @@ export class CalendarMirror {
     await this.store.saveGoogleCalendarEventIndex({
       schemaVersion: 1,
       byRideId: {},
+      byBlockerId: {},
     })
     return created.id
   }
@@ -384,6 +479,26 @@ function eventBody(ride: ScheduledRideView, workout: Workout): GoogleEventBody {
     description: ride.purpose ?? '',
     start: { dateTime: new Date(startMs).toISOString() },
     end: { dateTime: new Date(startMs + durationSec * 1000).toISOString() },
+    reminders: { useDefault: false },
+  }
+}
+
+function blockerEventBody(blocker: Blocker): GoogleEventBody {
+  if (blocker.allDay) {
+    return {
+      summary: blockerTitle(blocker),
+      description: '',
+      start: { date: localDateKey(blocker.startsAt) },
+      end: { date: nextLocalDateKey(blocker.startsAt) },
+      reminders: { useDefault: false },
+    }
+  }
+  const window = blockerWindow(blocker)
+  return {
+    summary: blockerTitle(blocker),
+    description: '',
+    start: { dateTime: new Date(window.startMs).toISOString() },
+    end: { dateTime: new Date(window.endMs).toISOString() },
     reminders: { useDefault: false },
   }
 }

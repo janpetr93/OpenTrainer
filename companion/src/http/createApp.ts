@@ -516,6 +516,14 @@ export function createRequestHandler(
         return
       }
 
+      if (method === 'GET' && url.pathname === '/api/blockers') {
+        const since = url.searchParams.get('since') ?? undefined
+        const until = url.searchParams.get('until') ?? undefined
+        const blockers = await store.listBlockers({ since, until })
+        sendJson(res, 200, { blockers })
+        return
+      }
+
       if (method === 'POST' && url.pathname === '/api/scheduled-rides') {
         const body = await readJsonBody(req)
         const input = parseCreateScheduledRide(body)

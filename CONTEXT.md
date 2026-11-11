@@ -156,7 +156,11 @@ _Avoid_: Free Ride, free-spin, Free Ride Target
 
 **Scheduled Ride**:
 A **Workout** placed on a calendar date/time for planned training, optionally with a **Session Purpose**, with status `planned` / `completed` / `skipped` (derived **missed** when still planned and `startsAt` is past).
-_Avoid_: Session, event, booking
+_Avoid_: Session, event, booking, **Blocker**
+
+**Blocker**:
+A social or other-sport mark on the **Training Calendar** (run, gym, or swim) with no **Workout**, occupying a start time and duration or the whole day.
+_Avoid_: Scheduled Ride, Session, Activity, availability (the weekly pattern stays in chat)
 
 **Missed** (Scheduled Ride):
 Derived view when a **Scheduled Ride** is still `planned` and its `startsAt` is in the past — not a stored status and not a fake **Activity**.
@@ -201,7 +205,7 @@ _Avoid_: Invented HR/cadence
 An **Activity** recorded without starting from a **Workout** or **Scheduled Ride** — achieved **Power Profile** only, no planned overlay.
 
 **Training Calendar**:
-The app-local calendar view of upcoming **Scheduled Ride**s and past **Activity**s. Google Calendar is not this view.
+The app-local calendar view of **Scheduled Ride**s, **Blocker**s, and past **Activity**s. Google Calendar is not this view.
 _Avoid_: Google Calendar, schedule (noun for the whole product)
 
 ### Rider prescription
@@ -220,7 +224,7 @@ _Avoid_: Account, user settings (cloud)
 
 **Training Intent**:
 Durable brief on the **Rider Profile** for week planning: the rider’s training **goal**, optional free-text **horizon** / **note**, and optional planning constraints (`maxHardDaysPerWeek`, `preferredLongRideWeekday` 0=Sun–6=Sat, `constraintsNote`); not a multi-week calendar and not chat memory as source of truth.
-_Avoid_: Phase (derived from **Activity** history unless noted), availability (ask in chat), periodization plan, long-term plan (ambiguous), structured targetDate (deferred)
+_Avoid_: Phase (derived from **Activity** history unless noted), weekly availability (ask in chat; a dated mark is a **Blocker**), periodization plan, long-term plan (ambiguous), structured targetDate (deferred)
 
 ### External export
 
@@ -229,7 +233,7 @@ Optional OAuth authorization between this laptop’s **Local Companion** and the
 _Avoid_: Connection (BLE), Account, Strava login (as product identity)
 
 **Calendar Mirror**:
-A one-way outbound copy of **Scheduled Ride**s onto a dedicated OpenTrainer calendar in the rider’s Google account; the **Local Companion** owns the Google authorization, OpenTrainer stays the source of truth, and **Activity**s are not copied.
+A one-way outbound copy of **Scheduled Ride**s and **Blocker**s onto a dedicated OpenTrainer calendar in the rider’s Google account; the **Local Companion** owns the Google authorization, OpenTrainer stays the source of truth, and **Activity**s are not copied.
 _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar), iCal feed
 
 ## Relationships
@@ -246,6 +250,12 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - The **Device Picker** is how a **Connection** or **Power Meter Connection** begins (separate chooser filters).
 - A successful **Connection** triggers a **Control Probe**; the main **Live Display** still only shows power/connection, not workout controls.
 - A **Scheduled Ride** references exactly one **Workout** and may carry a **Session Purpose**.
+- A **Blocker** has no **Workout** and cannot be started. Its kind is social, or a sport: run, gym, or swim. It occupies a start time and a duration, or the whole day. A **Scheduled Ride** must not overlap that window. Only a **Scheduled Ride** is actionable on the trainer.
+- Several **Blocker**s may share a day when their windows do not overlap. A sport **Blocker** and an easy **Scheduled Ride** may share a day the same way. A hard or moderate **Scheduled Ride** on a day with a sport **Blocker** is a week-check violation. A social **Blocker** only occupies its window.
+- A **Blocker** may carry an optional short label. Its pictogram comes from the kind: social, run, gym, or swim. The **Training Calendar** cannot edit the label.
+- On the month grid, each day cell puts the date on the left and up to two mono letter chips on the right (then `+N`): `B` bike, `R` run, `G` gym, `W` swim, `E` event/social. A planned **Scheduled Ride** is an amber `B` chip; a completed **Activity** is a solid green `B` chip. A **Blocker** is a muted letter chip. The day panel uses the same chips, slightly larger. A past **Blocker** stays the same mark: it has no done state and no **missed** state.
+- On the day, a **Blocker** is a short row: icon, label, and time. It has no planned **Power Profile** and no Start. A **Blocker** does not appear on the Ride tab.
+- Week planning reads and writes **Blocker**s alongside **Scheduled Ride**s. MCP is the only write path for a **Blocker**; the **Training Calendar** shows them and cannot add, change, or remove one. Replacing a date range clears **Blocker**s and **Scheduled Ride**s separately, then writes both back. A change to one ride does not clear **Blocker**s. `check_training_week` reports a **Scheduled Ride** that overlaps a **Blocker**, two **Blocker**s that overlap, and a hard or moderate **Scheduled Ride** on a day with a sport **Blocker**. A weekly availability pattern is still asked in chat and is not a **Blocker**.
 - Riding a **Workout** via a **Scheduled Ride** (Ride panel / Calendar) produces one **Activity** linked by `scheduledRideId` and marks the ride `completed`; unstructured riding is a **Free Ride** (no workout-catalog picker on Ride).
 - A **Scheduled Ride** may be explicitly `skipped` (optional reason) or rescheduled; past `planned` rides appear as **missed** in list/MCP views.
 - A past **Activity** that followed a **Workout** can be placed again via **Schedule again** (new **Scheduled Ride** on a chosen date, purpose copied when present).
@@ -258,17 +268,17 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - **Ride Intensity** and its keys do nothing during an **Open Step**. An intensity set earlier still applies when ERG resumes.
 - A **Scheduled Ride** on the **Training Calendar** day detail and Ride panel shows that **Workout**’s duration and planned **Power Profile** (current **FTP**; `%FTP`/zone plans need FTP set to preview).
 - A **Free Ride** is an **Activity** with no planned **Power Profile**.
-- The **Training Calendar** shows **Scheduled Ride**s (future) and **Activity**s (past).
-- A **Calendar Mirror** copies **Scheduled Ride**s onto a dedicated OpenTrainer Google calendar and leaves them there when the companion is stopped. Reschedule moves the event; skip, delete, and clear remove it; complete leaves it. First connect copies planned rides from the start of today onward. Unlink forgets the authorization and leaves the Google calendar in place. Edits made in Google are not imported; the next reconcile restores the OpenTrainer time. It does not copy **Activity**s.
+- The **Training Calendar** shows **Scheduled Ride**s, **Blocker**s, and **Activity**s (past).
+- A **Calendar Mirror** copies **Scheduled Ride**s and **Blocker**s onto a dedicated OpenTrainer Google calendar and leaves them there when the companion is stopped. Reschedule moves the ride event; skip, delete, and clear remove it; complete leaves it. A **Blocker** event uses the label, or the kind name when the label is empty, and the window or the whole day. Delete and clear remove it. A past **Blocker** stays until MCP removes it. First connect copies planned rides and **Blocker**s from the start of today onward. Unlink forgets the authorization and leaves the Google calendar in place. Edits made in Google are not imported; the next reconcile restores the OpenTrainer time. It does not copy **Activity**s.
 - The **Local Companion** owns the **Calendar Mirror** (tokens and Google event ids). Profile connects it. **Scheduled Ride** writes from the UI and from MCP reconcile while that process is running. The browser never holds the Google client secret.
-- The **Local Companion** owns the **Local Store**; the browser UI and MCP both read through it; **FTP** / **Training Intent** writes are MCP-only (UI remains read-only for those fields).
+- The **Local Companion** owns the **Local Store**; the browser UI and MCP both read through it; **FTP** / **Training Intent** / **Blocker** writes are MCP-only (UI remains read-only for those).
 - **Connection** / Web Bluetooth stay in the browser, not in the **Local Companion**.
 - **Power Zones** are derived from **FTP** on the **Rider Profile** (Coggan 7-zone defaults).
 - **Mean Maximal Power** prefers **Meter Power** on each sample when recorded, else primary `watts`; persisted separately from the **Rider Profile**, and marked stale when Activities change until recompute (auto on Activity save + Profile Recompute).
 - **ERG Calibration** is Local Store device state (not **Rider Profile** / MCP FTP writes).
 - **Estimated FTP** uses 20min **MMP** × 0.95 and is compared to set **FTP**; it does not update the **Rider Profile**.
 - **Session Load** and **Session Adherence** are computed when an **Activity** is saved (and backfilled for older Activities when FTP is known); MCP `list_activities` and the Session module UI read them.
-- **Training Intent** is product-owned context for MCP week planning alongside **Rider Profile** and **Activity** history; weekly availability is asked in chat, not stored; training phase is inferred from recent **Activity**s unless **Training Intent** **note** overrides. Updating Intent keeps omitted fields.
+- **Training Intent** is product-owned context for MCP week planning alongside **Rider Profile** and **Activity** history; the weekly availability pattern is asked in chat, not stored; a dated social or other-sport mark is a **Blocker**; training phase is inferred from recent **Activity**s unless **Training Intent** **note** overrides. Updating Intent keeps omitted fields.
 - Week planning reads a **Training Summary** (no 1 Hz samples) and checks the written week with `check_training_week`. `lastHard.work` is the planned watts of the last hard efforts and the average held there. A hard day starts with a stepped warmup and three 15-second openers at 120% FTP. A **Workout Repeat** expands when the planned **Power Profile** is built and when the runner starts.
 - An **Activity** can be exported as FIT for manual Strava upload and/or uploaded via API when a **Strava Link** exists. The Strava description is Session Load plus the planned step watts, one block per line, with a repeated cycle written `3x (15s - 240W, 1m - 100W)`; **Session Purpose** stays in the app.
 - The **Local Companion** owns the **Strava Link** (tokens + upload); the browser never holds the Strava client secret.
@@ -312,6 +322,9 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 > **Dev:** "When MCP schedules Tuesday’s ride, where does ‘raise lactate threshold’ go?"
 > **Rider:** "That’s **Session Purpose** on the **Scheduled Ride** — not **Training Intent**. Copy it onto the **Activity** when I finish."
 >
+> **Dev:** "Tuesday has a run and a dinner. Are those **Scheduled Ride**s?"
+> **Rider:** "No. Those are **Blocker**s. The trainer **Workout** is the only **Scheduled Ride**, and the only one I can start."
+>
 > **Dev:** "If Assioma and the D100 disagree, which watts own the workout?"
 > **Rider:** "When the **Power Meter** is connected at **Start**, targets and recording are Assioma (**meter-primary**); the **Trainer** only provides ERG via **ERG Calibration**. No meter → **trainer-primary** as before."
 
@@ -346,6 +359,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Scheduled Ride** / **missed** | `companion/data/scheduled/`; API `/api/scheduled-rides` (+ `/skip`, `/reschedule`); MCP `skip_scheduled_ride` / `reschedule_scheduled_ride`; today's list in Ride panel (`LiveDisplay`); shared row UI `SessionModule` |
 | **Session Purpose** | `purpose` on **Scheduled Ride** / **Activity**; MCP `create_scheduled_ride`; Calendar + History UI (see `docs/decisions/2026-10-10-session-purpose-on-scheduled-ride.md`) |
 | **Training Calendar** | `web/src/CalendarPanel.tsx` |
+| **Blocker** | `companion/data/blockers/`; GET `/api/blockers`; MCP `list_blockers` / `create_blocker` / `update_blocker` / `delete_blocker` / `clear_blockers`; calendar marks `web/src/calendar/calendarMarks.ts` (see `docs/decisions/2026-11-11-calendar-blocker.md`) |
 | Session module (Scheduled / Activity rows) | `web/src/SessionModule.tsx` + `web/src/session/sessionModuleHelpers.ts` (`activityMeta` / `scheduledMeta`); planned preview via `web/src/domain/scheduledWorkoutPreview.ts` (Ride, History, Calendar) |
 | **Activity** recording | `web/src/workout/` + `POST /api/activities`; runner on Ride tab |
 | **Session Load** / **Session Adherence** | `companion/src/domain/sessionLoad.ts`, `sessionAdherence.ts`; on **Activity** JSON; Session module via `web/src/session/sessionModuleHelpers.ts` |
@@ -354,7 +368,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Workout** runner | `web/src/workout/workoutRunner.ts` — start/pause/resume/skip/stop + ERG targets |
 | **Open Step** | Step type `open` on a **Workout**; flat simulation `web/src/ftms/controlProbe.ts`; runner ignores **Ride Intensity** while it is current |
 | **Ride Intensity** / **Free Ride Target** | `web/src/domain/rideIntensity.ts` (scaling, ridden-target profile, keys); runner `setIntensity` / `setFreeRideTarget`; UI `web/src/RideIntensityControl.tsx`; app-wide keys in `App.tsx` |
-| MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`) |
+| MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`, `list_blockers`, `clear_blockers`) |
 | **Rider Profile** | `companion/data/profile.json`; GET `/api/profile`; UI Profile tab (read-only); MCP `set_ftp` / `get_rider_profile`; resolve `web/src/domain/resolveTarget.ts` |
 | **Training Intent** | On **Rider Profile** / `profile.json`; UI Profile tab (read-only); MCP `set_training_intent` (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`, `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`) |
 | **Target Prescription** | Workout steps: watts / `%FTP` / zone; resolve at run via current FTP |
@@ -364,11 +378,12 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 ## Flagged ambiguities
 
 - "intent" on a planned ride — resolved as **Session Purpose** (`purpose`); **Training Intent** stays on the **Rider Profile**.
+- "availability" / planned run — a weekly pattern stays in chat on **Training Intent**. A dated social plan or other sport (run, gym, swim) is a **Blocker**, not a **Scheduled Ride**. MCP is the only write path (see `docs/decisions/2026-11-11-calendar-blocker.md`).
 - "Session" — resolved: do not use; say **Workout**, **Scheduled Ride**, or **Activity**.
 - "Power curve" — session chart is **Power Profile**; lifetime bests are **Mean Maximal Power** (Profile).
 - **Free Ride** — resolved: allowed; planned **Power Profile** omitted.
 - "free ride block" inside a **Workout** — resolved: **Open Step** (flat simulation for that step). **Free Ride** stays a whole **Activity** with no plan.
-- **Training Calendar** — resolved: app-local view; future Scheduled Rides + past Activities. Outbound **Calendar Mirror** is separate (see `docs/decisions/2026-10-19-google-calendar-one-way-mirror.md`).
+- **Training Calendar** — resolved: app-local view of **Scheduled Ride**s, **Blocker**s, and past **Activity**s. Outbound **Calendar Mirror** is separate (see `docs/decisions/2026-10-19-google-calendar-one-way-mirror.md` and `docs/decisions/2026-11-11-calendar-blocker.md`).
 - Build order — resolved: slice1 Bluetooth proof → slice2 local store+MCP → slice3 runner/recording → slice4 export/Power Profile UI → slice5 Training Calendar.
 - **Local Companion** + JSON **Local Store** — resolved in [ADR 0001](docs/adr/0001-local-companion-json-store.md).
 - Export format — resolved: FIT first.
@@ -379,7 +394,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - Long-term plan / **Training Intent** — resolved: Local Store goal + optional horizon/note; not chat-only; no stored phase or availability (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`).
 - **Rider Profile** writes — resolved: MCP-only for FTP/Intent; Profile tab read-only; no HTTP PUTs (see `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`).
 - Strava — resolved: keep manual FIT; add optional **Strava Link** + one-click upload (see `docs/decisions/2026-10-09-strava-link-and-upload.md`).
-- **Calendar Mirror** — resolved: one-way Google Calendar copy of **Scheduled Ride**s (see `docs/decisions/2026-10-19-google-calendar-one-way-mirror.md`).
+- **Calendar Mirror** — resolved: one-way Google Calendar copy of **Scheduled Ride**s and **Blocker**s (see `docs/decisions/2026-10-19-google-calendar-one-way-mirror.md` and `docs/decisions/2026-11-11-calendar-blocker.md`).
 - **Power Meter** / **Power Source Mode** — resolved: [ADR 0002](docs/adr/0002-meter-primary-hybrid-erg.md) + `docs/decisions/2026-10-11-meter-primary-hybrid-erg.md` (supersedes trainer-always-primary in `2026-10-09-power-meter-comparison-only.md`; Δ still `2026-10-10-average-alignment-delta-on-activity.md`).
 - **Heart Rate Monitor** / **Cadence Sensor** — resolved: live connectors + optional fields on achieved **Power Profile** (see `docs/decisions/2026-10-09-hrm-and-cadence-connectors.md`).
 - Friendlier connectors — resolved: in-page **Known Devices**, explicit **Connect All Known** / **Disconnect All**, collapsed **Find New Device** (see `docs/decisions/2026-10-09-friendlier-connectors-known-devices.md`).

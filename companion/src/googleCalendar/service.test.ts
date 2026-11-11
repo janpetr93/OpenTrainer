@@ -276,6 +276,37 @@ describe('CalendarMirror', () => {
     ).length
     expect(insertsAfter).toBe(insertsBefore + 1)
   })
+
+  it('copies a Blocker from today and removes it when the Blocker is deleted', async () => {
+    const calls: Array<{ url: string; method: string; body: Record<string, unknown> | null }> =
+      []
+    const fetchImpl = fakeGoogle(calls)
+    const mirror = mirrorWith(store, fetchImpl, now)
+    const today = await store.createBlocker({
+      kind: 'run',
+      startsAt: new Date(2026, 9, 19, 7, 0, 0).toISOString(),
+      durationMin: 50,
+      label: 'easy 50 min',
+    })
+    await store.createBlocker({
+      kind: 'social',
+      startsAt: new Date(2026, 9, 18, 12, 0, 0).toISOString(),
+      allDay: true,
+      label: 'yesterday',
+    })
+    await connect(mirror)
+    const inserts = calls.filter(
+      (call) => call.method === 'POST' && call.url.includes('/events'),
+    )
+    expect(inserts).toHaveLength(1)
+    expect(inserts[0]?.body?.summary).toBe('easy 50 min')
+
+    await store.deleteBlocker(today.id)
+    await mirror.reconcile()
+    expect(
+      calls.some((call) => call.method === 'DELETE' && call.url.includes('/events/')),
+    ).toBe(true)
+  })
 })
 
 function mirrorWith(

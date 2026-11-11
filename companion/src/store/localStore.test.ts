@@ -234,7 +234,10 @@ describe('LocalStore', () => {
       purpose: 'Improve endurance',
     })
     expect(activity.purpose).toBe('Improve endurance')
-    const listed = await store.listActivities({ pastDays: 30 })
+    const listed = await store.listActivities({
+      since: '2026-10-12T00:00:00.000Z',
+      until: '2026-10-13T00:00:00.000Z',
+    })
     expect(listed[0]?.purpose).toBe('Improve endurance')
   })
 

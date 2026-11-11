@@ -63,20 +63,20 @@ Week-plan workflow:
 1. get_rider_profile — if FTP is null, ask me and set_ftp
 2. If Training Intent is null, ask once for goal (optional horizon/note) and set_training_intent — or continue without if I decline; never invent a goal
 3. get_mmp. Estimated FTP is a hint only — do not call set_ftp from it
-4. Ask what days I have available this week (not stored). Honor maxHardDaysPerWeek
+4. Call list_blockers for the range. A Blocker is stored time (social, run, gym, or swim). Ask only about time that is not already a Blocker. The weekly pattern is still not stored. Honor maxHardDaysPerWeek
 5. get_training_summary (pastDays 14). Do not call list_activities for planning. lastHard.work.averageWatts at or above plannedWatts means add a repeat or minutes at the same percent. A lower average means keep the percent and do not add a repeat. Do not lower the percent because targetAdherence is low
-6. list_scheduled_rides for the week you are writing, then clear_scheduled_rides for that week’s since/until if replacing the plan
+6. list_scheduled_rides and list_blockers for the week you are writing. When replacing that range, clear_scheduled_rides and clear_blockers for the same since/until. A one-ride edit does not clear Blockers
 7. create_workout with percentFtp on quality steps (sweet spot 88-94, 4x8 at 105-108). Hard-day warmup steps, in order: 5 min at 50% FTP, 5 min at 65%, 3 min at 80%, then 3 x (15 s at 120% FTP, 60 s at 50%). Those openers are warmup steps. Easy rides stay flat, under 75% FTP, with no bursts. For 30s/15s use a repeat item, do not unroll reps. Zone only for Z1-Z2. Never zone 6 or 7. At most two hard sessions, easy day between them, every other ride under 75% FTP. Name by training content only — no weekday or date
-8. create_scheduled_ride for each day (workoutId + startsAt ISO + purpose — Session Purpose: what the session is for, e.g. improve endurance)
-9. check_training_week for that week. Fix any violations, then check again
-10. Summarize dates, names, Session Purpose, and percentFtp. Ask before updating the Intent note (omitted fields are kept)
+8. create_scheduled_ride for each trainer day (workoutId + startsAt ISO + purpose — Session Purpose: what the session is for, e.g. improve endurance). create_blocker for each run, gym, swim, and social mark (kind, startsAt, durationMin or allDay, optional label). A planned run is a Blocker, not a Workout
+9. check_training_week for that week. Fix any violations, then check again. An easy ride may share a day with a run, gym, or swim when the windows do not overlap. A hard or moderate ride on that day is a violation
+10. Summarize dates, names, Session Purpose, percentFtp, and Blockers. Ask before updating the Intent note (omitted fields are kept)
 
 Do not lower FTP by a fixed indoor percentage. For work above tempo, remind me to use a fan. Never invent Activities.
 ```
 
 ## Tools it should see
 
-`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, `get_training_summary`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, `check_training_week`, plus prompts `plan_training_week` and `review_training`.
+`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, `get_training_summary`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, `list_blockers`, `create_blocker`, `update_blocker`, `delete_blocker`, `clear_blockers`, `check_training_week`, plus prompts `plan_training_week` and `review_training`.
 
 ## chatgpt.com (browser)
 

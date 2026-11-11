@@ -128,10 +128,11 @@ export type GoogleCalendarLink = {
   lastError: string | null
 }
 
-/** Scheduled Ride id → Google event id for the Calendar Mirror. */
+/** Scheduled Ride id and Blocker id → Google event id for the Calendar Mirror. */
 export type GoogleCalendarEventIndex = {
   schemaVersion: typeof STORE_SCHEMA_VERSION
   byRideId: Record<string, string>
+  byBlockerId: Record<string, string>
 }
 
 /** OAuth tokens for the rider's Strava Link (Local Store). */
@@ -183,6 +184,44 @@ export type CreateScheduledRideInput = {
 }
 
 export type ListScheduledRidesQuery = {
+  since?: string
+  until?: string
+}
+
+/** Pictogram and planning kind for a Blocker. */
+export type BlockerKind = 'social' | 'run' | 'gym' | 'swim'
+
+/** A dated social or other-sport mark with no Workout. */
+export type Blocker = {
+  schemaVersion: typeof STORE_SCHEMA_VERSION
+  id: string
+  kind: BlockerKind
+  startsAt: string
+  /** Whole local day of startsAt. durationMin is null. */
+  allDay: boolean
+  /** Minutes when allDay is false. */
+  durationMin: number | null
+  label: string | null
+  createdAt: string
+}
+
+export type CreateBlockerInput = {
+  kind: BlockerKind
+  startsAt: string
+  allDay?: boolean
+  durationMin?: number | null
+  label?: string | null
+}
+
+export type UpdateBlockerInput = {
+  kind?: BlockerKind
+  startsAt?: string
+  allDay?: boolean
+  durationMin?: number | null
+  label?: string | null
+}
+
+export type ListBlockersQuery = {
   since?: string
   until?: string
 }

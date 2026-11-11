@@ -5,12 +5,20 @@ import {
 } from './sessionAdherence.js'
 import type { SessionLoad, TimeInZonesSec } from './sessionLoad.js'
 import type {
+  BlockerKind,
   PowerProfilePoint,
   ScheduledRideStatus,
   WorkoutItem,
   WorkoutStep,
 } from './types.js'
-import { expandWorkoutItems } from './workoutItems.js'
+import { expandWorkoutItems, workoutDurationSec } from './workoutItems.js'
+import {
+  blockerWindow,
+  isSportBlocker,
+  localDayWindow,
+  windowsOverlap,
+  type TimeWindow,
+} from './blocker.js'
 
 /** Achieved time at or above Coggan Z4 that marks a Free Ride as hard. */
 const FREE_RIDE_HARD_SEC = 300
@@ -305,6 +313,70 @@ function localDayIndex(iso: string): number {
   return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000
 }
 
+function blockerViolations(
+  rides: readonly WeekCheckRide[],
+  blockers: readonly WeekCheckBlocker[],
+  ftpWatts: number | null,
+): string[] {
+  const violations: string[] = []
+  const windows: Array<{ blocker: WeekCheckBlocker; window: TimeWindow }> = []
+  for (const blocker of blockers) {
+    try {
+      windows.push({ blocker, window: blockerWindow(blocker) })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      violations.push(`Blocker ${blocker.id} ${message}`)
+    }
+  }
+
+  for (let i = 0; i < windows.length; i++) {
+    for (let j = i + 1; j < windows.length; j++) {
+      const left = windows[i]!
+      const right = windows[j]!
+      if (!windowsOverlap(left.window, right.window)) continue
+      violations.push(
+        `${blockerName(left.blocker)} and ${blockerName(right.blocker)} overlap.`,
+      )
+    }
+  }
+
+  for (const ride of rides) {
+    if (!ride.workout) continue
+    const startMs = Date.parse(ride.startsAt)
+    if (Number.isNaN(startMs)) continue
+    const durationSec = workoutDurationSec(ride.workout.steps)
+    const rideWindow: TimeWindow = {
+      startMs,
+      endMs: startMs + Math.max(durationSec, 1) * 1000,
+    }
+    const day = localDayWindow(ride.startsAt)
+    const kind = sessionKind(ride.workout.steps, null, ftpWatts)
+    const moderate = inModerateBand(ride.workout.steps, ftpWatts)
+    for (const item of windows) {
+      if (windowsOverlap(rideWindow, item.window)) {
+        violations.push(
+          `${ride.workout.name} overlaps ${blockerName(item.blocker)}.`,
+        )
+      }
+      if (
+        isSportBlocker(item.blocker.kind) &&
+        (kind === 'hard' || moderate) &&
+        windowsOverlap(day, item.window)
+      ) {
+        violations.push(
+          `${ride.workout.name} on ${localDateKey(ride.startsAt)} shares the day with ${blockerName(item.blocker)}.`,
+        )
+      }
+    }
+  }
+  return violations
+}
+
+function blockerName(blocker: WeekCheckBlocker): string {
+  const label = blocker.label?.trim()
+  return label ? `${blocker.kind} Blocker "${label}"` : `${blocker.kind} Blocker`
+}
+
 function localDateKey(iso: string): string {
   const d = new Date(iso)
   const month = String(d.getMonth() + 1).padStart(2, '0')
@@ -319,6 +391,15 @@ export type WeekCheckRide = {
   workout: TrainingSummaryWorkout | null
 }
 
+export type WeekCheckBlocker = {
+  id: string
+  kind: BlockerKind
+  startsAt: string
+  allDay: boolean
+  durationMin: number | null
+  label: string | null
+}
+
 export type WeekCheck = {
   hardCount: number
   hardCap: number
@@ -328,6 +409,7 @@ export type WeekCheck = {
 
 export function checkTrainingWeek(input: {
   rides: readonly WeekCheckRide[]
+  blockers?: readonly WeekCheckBlocker[]
   ftpWatts: number | null
   maxHardDaysPerWeek: number | null
 }): WeekCheck {
@@ -376,6 +458,10 @@ export function checkTrainingWeek(input: {
       )
     }
   }
+
+  violations.push(
+    ...blockerViolations(active, input.blockers ?? [], input.ftpWatts),
+  )
 
   return {
     hardCount: hardRides.length,

@@ -67,6 +67,32 @@ describe('HTTP API', () => {
     })
   })
 
+  it('GET /api/blockers lists Blockers and does not accept a write', async () => {
+    const blocker = await store.createBlocker({
+      kind: 'run',
+      startsAt: '2026-11-17T06:00:00.000Z',
+      durationMin: 50,
+      label: 'easy 50 min',
+    })
+    await withServer(store, async (baseUrl) => {
+      const listed = await fetch(`${baseUrl}/api/blockers`)
+      expect(listed.status).toBe(200)
+      const body = (await listed.json()) as { blockers: { id: string }[] }
+      expect(body.blockers.map((item) => item.id)).toEqual([blocker.id])
+
+      const posted = await fetch(`${baseUrl}/api/blockers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'social',
+          startsAt: '2026-11-18T18:00:00.000Z',
+          durationMin: 90,
+        }),
+      })
+      expect(posted.status).toBe(404)
+    })
+  })
+
   it('GET /api/activities returns empty list by default', async () => {
     await withServer(store, async (baseUrl) => {
       const res = await fetch(`${baseUrl}/api/activities?pastDays=14`)

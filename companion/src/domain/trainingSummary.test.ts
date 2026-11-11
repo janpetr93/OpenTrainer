@@ -263,4 +263,71 @@ describe('checkTrainingWeek', () => {
     expect(result.violations).toEqual([])
     expect(result.hardCount).toBe(2)
   })
+
+  it('allows an easy ride beside a morning run and flags a hard ride and an overlap', () => {
+    const run = {
+      id: 'run',
+      kind: 'run' as const,
+      startsAt: new Date(2026, 10, 3, 7, 0, 0).toISOString(),
+      allDay: false,
+      durationMin: 50,
+      label: 'easy 50 min',
+    }
+    const easy = checkTrainingWeek({
+      ftpWatts: 250,
+      maxHardDaysPerWeek: 2,
+      blockers: [run],
+      rides: [ride('spin', 3, [step('steady', 3600, 65)])],
+    })
+    expect(easy.violations).toEqual([])
+
+    const hard = checkTrainingWeek({
+      ftpWatts: 250,
+      maxHardDaysPerWeek: 2,
+      blockers: [run],
+      rides: [ride('intervals', 3, [step('steady', 480, 106)])],
+    })
+    expect(hard.violations.join('\n')).toMatch(/shares the day with run Blocker/i)
+
+    const stacked = checkTrainingWeek({
+      ftpWatts: 250,
+      maxHardDaysPerWeek: 2,
+      blockers: [run],
+      rides: [
+        {
+          ...ride('spin', 3, [step('steady', 3600, 65)]),
+          startsAt: new Date(2026, 10, 3, 7, 15, 0).toISOString(),
+        },
+      ],
+    })
+    expect(stacked.violations.join('\n')).toMatch(/overlaps run Blocker/i)
+  })
+
+  it('flags two Blockers on the same window and ignores a social Blocker for training load', () => {
+    const result = checkTrainingWeek({
+      ftpWatts: 250,
+      maxHardDaysPerWeek: 2,
+      blockers: [
+        {
+          id: 'gym',
+          kind: 'gym',
+          startsAt: new Date(2026, 10, 4, 7, 0, 0).toISOString(),
+          allDay: false,
+          durationMin: 60,
+          label: null,
+        },
+        {
+          id: 'swim',
+          kind: 'swim',
+          startsAt: new Date(2026, 10, 4, 7, 30, 0).toISOString(),
+          allDay: false,
+          durationMin: 45,
+          label: null,
+        },
+      ],
+      rides: [ride('spin', 4, [step('steady', 3600, 65)])],
+    })
+    expect(result.violations.join('\n')).toMatch(/gym Blocker and swim Blocker overlap/i)
+    expect(result.violations.join('\n')).not.toMatch(/shares the day/i)
+  })
 })

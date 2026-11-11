@@ -149,6 +149,18 @@ export type ScheduledRide = {
   createdAt: string
 }
 
+export type BlockerKind = 'social' | 'run' | 'gym' | 'swim'
+
+export type Blocker = {
+  id: string
+  kind: BlockerKind
+  startsAt: string
+  allDay: boolean
+  durationMin: number | null
+  label: string | null
+  createdAt: string
+}
+
 async function parseJson<T>(res: Response): Promise<T> {
   const body = (await res.json()) as T & { error?: string }
   if (!res.ok) {
@@ -230,6 +242,19 @@ export async function listScheduledRides(options: {
   const res = await fetch(`/api/scheduled-rides${qs ? `?${qs}` : ''}`)
   const body = await parseJson<{ scheduledRides: ScheduledRide[] }>(res)
   return body.scheduledRides
+}
+
+export async function listBlockers(options: {
+  since?: string
+  until?: string
+} = {}): Promise<Blocker[]> {
+  const params = new URLSearchParams()
+  if (options.since) params.set('since', options.since)
+  if (options.until) params.set('until', options.until)
+  const qs = params.toString()
+  const res = await fetch(`/api/blockers${qs ? `?${qs}` : ''}`)
+  const body = await parseJson<{ blockers: Blocker[] }>(res)
+  return body.blockers
 }
 
 export async function createScheduledRide(input: {

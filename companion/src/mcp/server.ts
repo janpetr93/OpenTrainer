@@ -517,7 +517,7 @@ async function main(): Promise<void> {
     'clear_scheduled_rides',
     {
       description:
-        'Delete all Scheduled Rides with startsAt in [since, until]. Use before writing a new week plan.',
+        'Delete all Scheduled Rides with startsAt in [since, until]. Does not delete Blockers. When replacing a date range, also call clear_blockers.',
       inputSchema: {
         since: z.string().describe('ISO lower bound inclusive'),
         until: z.string().describe('ISO upper bound inclusive'),
@@ -530,11 +530,122 @@ async function main(): Promise<void> {
     },
   )
 
+  const blockerKindSchema = z.enum(['social', 'run', 'gym', 'swim'])
+
+  server.registerTool(
+    'list_blockers',
+    {
+      description:
+        'List Blockers on the Training Calendar in a time range. A Blocker is social, or another sport (run, gym, swim). It has no Workout and cannot be started. Includes startsAt, durationMin or allDay, and an optional label.',
+      inputSchema: {
+        since: z.string().optional().describe('ISO lower bound'),
+        until: z.string().optional().describe('ISO upper bound'),
+      },
+    },
+    async ({ since, until }) => {
+      const blockers = await store.listBlockers({ since, until })
+      return jsonResult({ count: blockers.length, blockers })
+    },
+  )
+
+  server.registerTool(
+    'create_blocker',
+    {
+      description:
+        'Put a Blocker on the Training Calendar. kind is social, run, gym, or swim. A planned run, gym session, or swim is a Blocker, not a Workout and not a Scheduled Ride. Pass durationMin for a clock window, or allDay:true for a whole local day. label is an optional short name such as "dinner" or "easy 50 min".',
+      inputSchema: {
+        kind: blockerKindSchema,
+        startsAt: z.string().describe('ISO datetime'),
+        allDay: z
+          .boolean()
+          .optional()
+          .describe('True when the Blocker takes the whole local day'),
+        durationMin: z
+          .number()
+          .int()
+          .positive()
+          .nullable()
+          .optional()
+          .describe('Minutes. Required unless allDay is true'),
+        label: z.string().nullable().optional(),
+      },
+    },
+    async ({ kind, startsAt, allDay, durationMin, label }) => {
+      const blocker = await store.createBlocker({
+        kind,
+        startsAt,
+        allDay,
+        durationMin,
+        label,
+      })
+      await calendarMirror.reconcile()
+      return jsonResult({ blocker })
+    },
+  )
+
+  server.registerTool(
+    'update_blocker',
+    {
+      description:
+        'Change a Blocker. Omitted fields keep their current values. allDay:true clears durationMin. A durationMin sets a clock window.',
+      inputSchema: {
+        id: z.string(),
+        kind: blockerKindSchema.optional(),
+        startsAt: z.string().optional().describe('ISO datetime'),
+        allDay: z.boolean().optional(),
+        durationMin: z.number().int().positive().nullable().optional(),
+        label: z.string().nullable().optional(),
+      },
+    },
+    async ({ id, kind, startsAt, allDay, durationMin, label }) => {
+      const blocker = await store.updateBlocker(id, {
+        kind,
+        startsAt,
+        allDay,
+        durationMin,
+        label,
+      })
+      await calendarMirror.reconcile()
+      return jsonResult({ blocker })
+    },
+  )
+
+  server.registerTool(
+    'delete_blocker',
+    {
+      description: 'Remove one Blocker from the Training Calendar.',
+      inputSchema: { id: z.string() },
+    },
+    async ({ id }) => {
+      const deleted = await store.deleteBlocker(id)
+      if (!deleted) throw new Error(`Blocker not found: ${id}`)
+      await calendarMirror.reconcile()
+      return jsonResult({ deleted: true, id })
+    },
+  )
+
+  server.registerTool(
+    'clear_blockers',
+    {
+      description:
+        'Delete all Blockers with startsAt in [since, until]. Use together with clear_scheduled_rides when replacing a date range. Do not call this for a one-ride edit.',
+      inputSchema: {
+        since: z.string().describe('ISO lower bound inclusive'),
+        until: z.string().describe('ISO upper bound inclusive'),
+      },
+    },
+    async ({ since, until }) => {
+      const deleted = await store.clearBlockers({ since, until })
+      await calendarMirror.reconcile()
+      return jsonResult({ deleted, since, until })
+    },
+  )
+
   server.registerTool(
     'check_training_week',
     {
       description:
-        'Check Scheduled Rides in [since, until] against the planning rules. Returns violations: hard sessions over the cap (maxHardDaysPerWeek, else 2), hard sessions with no easy day between them, more than two sessions with steady work at 76-94% FTP, zone 3–7 steps, and sprints ERG cannot hold. Skipped rides are ignored. Call after writing a week and fix violations before summarizing.',
+        'Check Scheduled Rides in [since, until] against the planning rules. Returns violations: hard sessions over the cap (maxHardDaysPerWeek, else 2), hard sessions with no easy day between them, more than two sessions with steady work at 76-94% FTP, zone 3–7 steps, sprints ERG cannot hold, a Scheduled Ride that overlaps a Blocker, two Blockers that overlap, and a hard or moderate Scheduled Ride on a day with a run, gym, or swim Blocker. An easy ride may share that day when the windows do not overlap. Skipped rides are ignored. Call after writing a week and fix violations before summarizing.',
       inputSchema: {
         since: z.string().describe('ISO lower bound inclusive'),
         until: z.string().describe('ISO upper bound inclusive'),
@@ -543,12 +654,14 @@ async function main(): Promise<void> {
     async ({ since, until }) => {
       const profile = await store.getRiderProfile()
       const rides = await store.listScheduledRides({ since, until })
+      const blockers = await store.listBlockers({ since, until })
       const workouts = await store.listWorkouts()
       const byId = new Map(workouts.map((workout) => [workout.id, workout]))
       return jsonResult(
         checkTrainingWeek({
           ftpWatts: profile.ftpWatts,
           maxHardDaysPerWeek: profile.intent?.maxHardDaysPerWeek ?? null,
+          blockers,
           rides: rides.map((ride) => {
             const workout = byId.get(ride.workoutId) ?? null
             return {

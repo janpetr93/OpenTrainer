@@ -19,8 +19,8 @@ export type GoogleTokenResponse = {
 export type GoogleEventBody = {
   summary: string
   description: string
-  start: { dateTime: string }
-  end: { dateTime: string }
+  start: { dateTime: string } | { date: string }
+  end: { dateTime: string } | { date: string }
   reminders: { useDefault: false }
 }
 

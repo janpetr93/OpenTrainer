@@ -225,7 +225,7 @@ Flat by default. Depth is a change of surface, not a lift. Cool Paper is the gro
 
 ## Shapes
 
-Controls, panels, inputs, banners, and calendar days share one corner (0.4rem). History session cards step slightly larger (0.5rem). Zone swatches are nearly square (2px). Sensor dots and calendar ride marks are circles. Tabs are square; the bar that holds them uses the shared corner. Borders are a 1px Steel Line. Charts are not clipped into rounded frames.
+Controls, panels, inputs, banners, and calendar days share one corner (0.4rem). History session cards step slightly larger (0.5rem). Zone swatches are nearly square (2px). Sensor dots are circles. Calendar day cells are short tiles (~1.55 aspect) with the day number on the left and a right stack of mono letter chips (`B` bike, `R` run, `G` gym, `W` swim, `E` event; at most two, then `+N`). Planned bike is an amber wash chip, completed bike is solid Signal Green, Blockers are panel + steel border. Day-detail rows use the same chips, slightly larger. Tabs are square; the bar that holds them uses the shared corner. Borders are a 1px Steel Line. Charts are not clipped into rounded frames.
 
 ### Named Rules
 
@@ -267,7 +267,7 @@ A full-width note with the shared corner and 0.85rem type. Warning is an 18% amb
 
 ### Calendar day
 
-A short tile (aspect about 2.4), Inset fill, steel border, shared corner. Today takes a Cobalt border. The selected day takes a Cobalt border and an 18% Cobalt wash on white. Ride marks are 0.32rem circles: Signal Amber for scheduled, Signal Green for completed.
+A short tile (aspect about 1.55), Inset fill, steel border, shared corner. Day number sits left; mono letter chips stack on the right and stay empty on quiet days so the grid keeps one rhythm. Today takes a Cobalt border. The selected day takes a Cobalt border and an 18% Cobalt wash on white. At most two chips show (amber wash `B` scheduled, solid green `B` completed, muted letter for a Blocker); further marks collapse to a mono `+N`.
 
 ### Live watts
 
@@ -285,7 +285,7 @@ In History and on the calendar, each figure is a label (0.82rem, weight 600, Sla
 - **Do** use Cobalt (`#1b4fd8`) for the primary action, the active tab underline, links, and today on the calendar.
 - **Do** set live watts and compared figures in Source Code Pro, weight 800, tabular numerals, Metric Cobalt (`#153db8`) when fresh.
 - **Do** draw panels and controls with a 1px Steel Line (`#9aa8b5`) and a 0.4rem corner.
-- **Do** mark connection and errors with Signal Green, Signal Amber, and Signal Red, including the small calendar dots.
+- **Do** mark connection and errors with Signal Green, Signal Amber, and Signal Red. On the calendar, amber is a planned ride, green is a completed Activity, and Blocker pictograms stay muted ink.
 
 ### Don't
 

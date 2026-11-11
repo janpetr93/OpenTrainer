@@ -4,14 +4,18 @@ import {
   deleteScheduledRide,
   getRiderProfile,
   listActivities,
+  listBlockers,
   listScheduledRides,
   listWorkouts,
   skipScheduledRide,
   type Activity,
+  type Blocker,
   type ScheduledRide,
   type Workout,
 } from './api'
 import { scheduledRidesBesideCompletedActivity } from './calendar/scheduledRidesBesideCompletedActivity'
+import { CalendarPictogram } from './calendar/CalendarPictogram'
+import { blockerTitle, blockerWhen, marksForDay } from './calendar/calendarMarks'
 import { dayKey, monthCells, monthRangeIso } from './calendar/monthGrid'
 import { ActivityActions } from './ActivityActions'
 import { PageHeader } from './PageHeader'
@@ -41,6 +45,7 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
   const [selectedKey, setSelectedKey] = useState(dayKey(now))
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [scheduled, setScheduled] = useState<ScheduledRide[]>([])
+  const [blockers, setBlockers] = useState<Blocker[]>([])
   const [activities, setActivities] = useState<Activity[]>([])
   const [ftpWatts, setFtpWatts] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -65,14 +70,16 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
     }
     setError(null)
     const range = monthRangeIso(year, monthIndex)
-    const [w, s, a, profile] = await Promise.all([
+    const [w, s, b, a, profile] = await Promise.all([
       listWorkouts(),
       listScheduledRides(range),
+      listBlockers(range),
       listActivities(range),
       getRiderProfile(),
     ])
     setWorkouts(w)
     setScheduled(s)
+    setBlockers(b)
     setActivities(a)
     setFtpWatts(profile.ftpWatts)
   }, [year, monthIndex])
@@ -92,6 +99,17 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
     return map
   }, [scheduled])
 
+  const blockersByDay = useMemo(() => {
+    const map = new Map<string, Blocker[]>()
+    for (const blocker of blockers) {
+      const key = dayKey(new Date(blocker.startsAt))
+      const list = map.get(key) ?? []
+      list.push(blocker)
+      map.set(key, list)
+    }
+    return map
+  }, [blockers])
+
   const activitiesByDay = useMemo(() => {
     const map = new Map<string, Activity[]>()
     for (const activity of activities) {
@@ -108,6 +126,7 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
     scheduledByDay.get(selectedKey) ?? [],
     selectedActivities,
   )
+  const selectedBlockers = blockersByDay.get(selectedKey) ?? []
 
   function shiftMonth(delta: number): void {
     const d = new Date(year, monthIndex + delta, 1)
@@ -150,7 +169,7 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
         }
         blurb={
           <>
-            New rides come from ChatGPT/MCP week planning, or{' '}
+            New rides and Blockers come from ChatGPT/MCP week planning, or{' '}
             <strong>Schedule again</strong> on a past Activity below / on
             History. No workout catalog here.
           </>
@@ -184,12 +203,15 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
               }
               const key = dayKey(cell)
               const dayActivities = activitiesByDay.get(key) ?? []
-              const hasSched =
-                scheduledRidesBesideCompletedActivity(
-                  scheduledByDay.get(key) ?? [],
-                  dayActivities,
-                ).length > 0
-              const hasAct = dayActivities.length > 0
+              const dayScheduled = scheduledByDay.get(key) ?? []
+              const dayBlockers = blockersByDay.get(key) ?? []
+              const marks = marksForDay({
+                scheduled: dayScheduled,
+                activities: dayActivities,
+                blockers: dayBlockers,
+              })
+              const cellMarks = marks.slice(0, 2)
+              const extraMarks = marks.length - cellMarks.length
               const selected = key === selectedKey
               const today = key === dayKey(new Date())
               return (
@@ -204,27 +226,66 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
                     .filter(Boolean)
                     .join(' ')}
                   onClick={() => setSelectedKey(key)}
+                  aria-label={
+                    marks.length === 0
+                      ? undefined
+                      : `${cell.getDate()}, ${marks.map((m) => m.title).join(', ')}`
+                  }
                 >
                   <span className="cal-daynum">{cell.getDate()}</span>
-                  <span className="cal-markers">
-                    {hasSched && (
-                      <span className="mark sched" title="Scheduled" />
-                    )}
-                    {hasAct && <span className="mark done" title="Activity" />}
+                  <span className="cal-markers" aria-hidden={marks.length > 0}>
+                    {cellMarks.map((mark) => (
+                      <CalendarPictogram
+                        key={mark.id}
+                        shape={mark.shape}
+                        filled={mark.filled}
+                        title={mark.title}
+                      />
+                    ))}
+                    {extraMarks > 0 ? (
+                      <span className="cal-mark-more">+{extraMarks}</span>
+                    ) : null}
                   </span>
                 </button>
               )
             })}
           </div>
           <p className="muted cal-legend">
-            <span className="mark sched" /> Scheduled ·{' '}
-            <span className="mark done" /> Completed Activity
+            <CalendarPictogram shape="bicycle" title="Scheduled" /> Bike
+            scheduled
+            <CalendarPictogram shape="bicycle" filled title="Activity" /> Bike
+            done
+            <CalendarPictogram shape="run" title="Run" /> Run
+            <CalendarPictogram shape="gym" title="Gym" /> Gym
+            <CalendarPictogram shape="swim" title="Swim" /> Swim
+            <CalendarPictogram shape="social" title="Social" /> Event
           </p>
         </div>
       </section>
 
       <section className="panel-block calendar-day-panel">
         <h2>{selectedKey}</h2>
+
+        <h3 className="cal-section-title">Blockers</h3>
+        {selectedBlockers.length === 0 ? (
+          <p className="muted">No blockers.</p>
+        ) : (
+          <ul className="entity-list">
+            {selectedBlockers.map((blocker) => (
+              <li key={blocker.id} className="blocker-row">
+                <CalendarPictogram
+                  shape={blocker.kind}
+                  title={blockerTitle(blocker)}
+                  size="row"
+                />
+                <div>
+                  <strong>{blockerTitle(blocker)}</strong>
+                  <span className="muted">{blockerWhen(blocker)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <h3 className="cal-section-title">Scheduled</h3>
         {selectedScheduled.length === 0 ? (
