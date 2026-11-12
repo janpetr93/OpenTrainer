@@ -1104,6 +1104,15 @@ button.export-fit {
   font-size: 0.82rem;
 }
 
+.live-metrics-hud-title .workout-live-title {
+  font-size: 0.82rem;
+}
+
+.live-metrics-hud-note {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+}
+
 .live-metric-rail {
   display: grid;
   gap: 0.45rem;

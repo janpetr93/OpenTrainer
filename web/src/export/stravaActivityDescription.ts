@@ -141,13 +141,26 @@ function formatPlannedStructure(
   return formatGroupedSegments(segments)
 }
 
+/** `+ 25 min free ride` after a Workout that continued as a Free Ride. */
+function formatFreeRideTail(
+  activity: Partial<Pick<Activity, 'freeRideFromSec' | 'durationSec'>>,
+): string | null {
+  const from = activity.freeRideFromSec
+  if (from == null || activity.durationSec == null) return null
+  const minutes = Math.round((activity.durationSec - from) / 60)
+  return minutes >= 1 ? `+ ${minutes} min free ride` : null
+}
+
 /**
  * Strava activity description: Session Load, then planned watts, then the
- * Ride Intensity when the plan was not ridden at 100%. No Session Purpose.
+ * Ride Intensity when the plan was not ridden at 100%, then the minutes
+ * ridden as a Free Ride after the Workout. No Session Purpose.
  */
 export function stravaActivityDescription(
   activity: Pick<Activity, 'sessionLoad' | 'plannedPowerProfile'> &
-    Partial<Pick<Activity, 'sessionAdherence'>>,
+    Partial<
+      Pick<Activity, 'sessionAdherence' | 'freeRideFromSec' | 'durationSec'>
+    >,
 ): string | undefined {
   const loadLine = activity.sessionLoad
     ? formatSessionLoadLine(activity.sessionLoad)
@@ -156,10 +169,14 @@ export function stravaActivityDescription(
     ? formatPlannedStructure(activity.plannedPowerProfile)
     : null
   const intensity = activity.sessionAdherence?.intensityPercent
-  const structure =
+  const lines = [
+    planned,
     planned && intensity !== undefined && intensity !== 100
-      ? `${planned}\nRidden at ${intensity}% of plan`
-      : planned
+      ? `Ridden at ${intensity}% of plan`
+      : null,
+    formatFreeRideTail(activity),
+  ].filter((line): line is string => line !== null)
+  const structure = lines.length > 0 ? lines.join('\n') : null
   if (loadLine && structure) return `${loadLine}\n\n${structure}`
   return loadLine ?? structure ?? undefined
 }

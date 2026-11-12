@@ -61,6 +61,8 @@ type Props = {
   onResume: () => void
   onSkip: () => void
   onStop: () => void
+  /** End the Workout and keep the same ride going as a Free Ride. */
+  onContinueAsFreeRide: () => void
   /** Ride Intensity (Workout) or Free Ride ERG target change. */
   onRideAdjust: (action: RideKeyAction) => void
 }
@@ -148,6 +150,7 @@ export function LiveDisplay({
   onResume,
   onSkip,
   onStop,
+  onContinueAsFreeRide,
   onRideAdjust,
 }: Props) {
   const connected = snapshot.connectionState === 'connected'
@@ -360,11 +363,19 @@ export function LiveDisplay({
         {riding ? (
           <div className="live-metrics-hud">
             {inWorkout && (
-              <p className="workout-live-title live-metrics-hud-title">
-                {isFreeRide || runner.stepCount === 0
-                  ? 'Free Ride'
-                  : `${runner.workoutName ?? 'Workout'} · step ${runner.stepIndex + 1}/${runner.stepCount}${runner.stepType ? ` · ${runner.stepType}` : ''}`}
-              </p>
+              <div className="live-metrics-hud-title">
+                <p className="workout-live-title">
+                  {isFreeRide || runner.stepCount === 0
+                    ? 'Free Ride'
+                    : `${runner.workoutName ?? 'Workout'} · step ${runner.stepIndex + 1}/${runner.stepCount}${runner.stepType ? ` · ${runner.stepType}` : ''}`}
+                </p>
+                {runner.freeRideFromSec !== null && (
+                  <p className="muted live-metrics-hud-note">
+                    Workout ended at {formatClock(runner.freeRideFromSec)}. Still
+                    recording; Stop saves it all as one ride.
+                  </p>
+                )}
+              </div>
             )}
 
             <div className="live-metric-rail live-metric-rail-body">
@@ -644,6 +655,11 @@ export function LiveDisplay({
                   Skip interval
                 </button>
               )}
+              {!isFreeRide && runner.stepCount > 0 && (
+                <button type="button" onClick={onContinueAsFreeRide}>
+                  Continue as Free Ride
+                </button>
+              )}
               <button type="button" className="danger" onClick={onStop}>
                 Stop
               </button>
@@ -663,6 +679,11 @@ export function LiveDisplay({
               {!isFreeRide && runner.stepCount > 0 && (
                 <button type="button" onClick={onSkip}>
                   Skip interval
+                </button>
+              )}
+              {!isFreeRide && runner.stepCount > 0 && (
+                <button type="button" onClick={onContinueAsFreeRide}>
+                  Continue as Free Ride
                 </button>
               )}
               <button type="button" className="danger" onClick={onStop}>

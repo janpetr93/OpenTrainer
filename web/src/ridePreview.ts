@@ -129,6 +129,7 @@ const FRAME: RidePreview = {
     totalSec: STEPS.reduce((sum, step) => sum + step.durationSec, 0),
     targetChanged: false,
     openStepBlocked: false,
+    freeRideFromSec: null,
   },
   plannedProfile: plannedProfile(),
   targetProfile: null,

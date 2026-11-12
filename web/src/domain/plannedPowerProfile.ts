@@ -32,3 +32,26 @@ export function buildPlannedPowerProfile(
 
   return points
 }
+
+/**
+ * Step-corner profile cut at `endSec`: the part of the plan that was ridden
+ * before a Workout continued as a Free Ride. A step that spans the cut ends
+ * there; zero-length step transitions are dropped.
+ */
+export function truncatePowerProfile(
+  points: readonly PowerProfilePoint[],
+  endSec: number,
+): PowerProfilePoint[] {
+  const out: PowerProfilePoint[] = []
+  for (let i = 0; i < points.length - 1; i++) {
+    const start = points[i]!
+    const end = points[i + 1]!
+    if (start.tSec >= endSec) break
+    if (end.tSec <= start.tSec) continue
+    out.push(
+      { tSec: start.tSec, watts: start.watts },
+      { tSec: Math.min(end.tSec, endSec), watts: start.watts },
+    )
+  }
+  return out
+}

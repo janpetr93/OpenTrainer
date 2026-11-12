@@ -502,6 +502,7 @@ export class LocalStore {
       achievedPowerProfile: input.achievedPowerProfile,
       plannedPowerProfile: input.plannedPowerProfile,
       targetPowerProfile: input.targetPowerProfile ?? null,
+      freeRideFromSec: input.freeRideFromSec ?? null,
       workoutId: input.workoutId,
       scheduledRideId,
       purpose: normalizePurpose(input.purpose),

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildPlannedPowerProfile } from './plannedPowerProfile'
+import {
+  buildPlannedPowerProfile,
+  truncatePowerProfile,
+} from './plannedPowerProfile'
 
 describe('buildPlannedPowerProfile', () => {
   it('builds step edges for absolute watts', () => {
@@ -75,5 +78,39 @@ describe('buildPlannedPowerProfile', () => {
       { tSec: 180, watts: 80 },
       { tSec: 240, watts: 80 },
     ])
+  })
+})
+
+describe('truncatePowerProfile', () => {
+  const plan = [
+    { tSec: 0, watts: 100 },
+    { tSec: 60, watts: 100 },
+    { tSec: 60, watts: 200 },
+    { tSec: 180, watts: 200 },
+  ]
+
+  it('ends the step that spans the cut at the cut', () => {
+    expect(truncatePowerProfile(plan, 90)).toEqual([
+      { tSec: 0, watts: 100 },
+      { tSec: 60, watts: 100 },
+      { tSec: 60, watts: 200 },
+      { tSec: 90, watts: 200 },
+    ])
+  })
+
+  it('drops a step that starts at the cut', () => {
+    expect(truncatePowerProfile(plan, 60)).toEqual([
+      { tSec: 0, watts: 100 },
+      { tSec: 60, watts: 100 },
+    ])
+  })
+
+  it('returns the whole plan when the cut is at or past its end', () => {
+    expect(truncatePowerProfile(plan, 180)).toEqual(plan)
+    expect(truncatePowerProfile(plan, 500)).toEqual(plan)
+  })
+
+  it('returns nothing for a cut at 0 s', () => {
+    expect(truncatePowerProfile(plan, 0)).toEqual([])
   })
 })

@@ -95,6 +95,12 @@ export type Activity = {
    * Free Ride target was set; omitted on older Activities.
    */
   targetPowerProfile?: PowerProfilePoint[] | null
+  /**
+   * Elapsed second where the Workout continued as a Free Ride; the planned
+   * Power Profile ends here and Session Adherence scores only that part.
+   * Null or omitted when the ride did not switch.
+   */
+  freeRideFromSec?: number | null
   workoutId: string | null
   /** Scheduled Ride this Activity completed; null for Free Ride / unlinked. */
   scheduledRideId: string | null
