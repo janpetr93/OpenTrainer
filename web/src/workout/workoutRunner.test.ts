@@ -91,11 +91,24 @@ describe('WorkoutRunner', () => {
     expect(runner.getSnapshot().status).toBe('running')
   })
 
-  it('completes after the last step', () => {
+  it('keeps riding as a Free Ride when the plan ends', () => {
     const runner = new WorkoutRunner()
     runner.start(sampleWorkout, 0)
     runner.tick(20_000)
-    expect(runner.getSnapshot().status).toBe('completed')
+    const snap = runner.getSnapshot()
+    expect(snap.status).toBe('running')
+    expect(snap.workoutId).toBeNull()
+    expect(snap.workoutName).toBe('Free Ride')
+    expect(snap.freeRideFromSec).toBe(20)
+    // The trainer keeps holding the cool-down until the rider changes it.
+    expect(snap.stepTargetWatts).toBe(80)
+    expect(snap.targetChanged).toBe(true)
+
+    runner.tick(30_000)
+    expect(runner.getSnapshot().elapsedSec).toBe(30)
+    runner.stop(31_000)
+    expect(runner.getSnapshot().status).toBe('stopped')
+    expect(runner.getSnapshot().elapsedSec).toBe(31)
   })
 
   it('resolves percentFtp targets from FTP at start', () => {
@@ -396,5 +409,132 @@ describe('WorkoutRunner Free Ride targets', () => {
     runner.resume(2_000)
     expect(runner.getSnapshot().targetChanged).toBe(true)
     expect(runner.getSnapshot().status).toBe('running')
+  })
+})
+
+describe('WorkoutRunner continue as Free Ride', () => {
+  it('ends the Workout mid-step and holds that step on the same clock', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.tick(7_000)
+    runner.continueAsFreeRide(7_000)
+    const snap = runner.getSnapshot()
+    expect(snap.status).toBe('running')
+    expect(snap.workoutId).toBeNull()
+    expect(snap.freeRideFromSec).toBe(7)
+    expect(snap.stepTargetWatts).toBe(200)
+    expect(snap.elapsedSec).toBe(7)
+
+    runner.tick(60_000)
+    expect(runner.getSnapshot().elapsedSec).toBe(60)
+    expect(runner.getSnapshot().status).toBe('running')
+  })
+
+  it('records the ridden plan, then the Free Ride targets, from 0 s', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.tick(7_000)
+    runner.continueAsFreeRide(7_000)
+    runner.setFreeRideTarget(150, 9_000)
+    runner.tick(12_000)
+    expect(runner.getTargetPowerProfile()).toEqual([
+      { tSec: 0, watts: 100 },
+      { tSec: 5, watts: 100 },
+      { tSec: 5, watts: 200 },
+      { tSec: 7, watts: 200 },
+      { tSec: 7, watts: 200 },
+      { tSec: 9, watts: 200 },
+      { tSec: 9, watts: 150 },
+      { tSec: 12, watts: 150 },
+    ])
+  })
+
+  it('carries Ride Intensity into the held target', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.setIntensity(80, 0)
+    runner.tick(7_000)
+    runner.continueAsFreeRide(7_000)
+    expect(runner.getSnapshot().stepTargetWatts).toBe(160)
+    expect(runner.getSnapshot().intensityPercent).toBe(100)
+  })
+
+  it('works while paused and stays paused', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.pause(3_000)
+    runner.continueAsFreeRide(5_000)
+    expect(runner.getSnapshot().status).toBe('paused')
+    expect(runner.getSnapshot().freeRideFromSec).toBe(3)
+    runner.resume(5_000)
+    runner.tick(6_000)
+    expect(runner.getSnapshot().elapsedSec).toBe(4)
+  })
+
+  it('treats Skip on the last step as the end of the plan', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.tick(16_000)
+    runner.skip(16_000)
+    const snap = runner.getSnapshot()
+    expect(snap.status).toBe('running')
+    expect(snap.freeRideFromSec).toBe(20)
+    expect(snap.elapsedSec).toBe(20)
+    runner.tick(18_000)
+    expect(runner.getSnapshot().elapsedSec).toBe(22)
+  })
+
+  it('leaves no target when leaving from an Open Step', () => {
+    const runner = new WorkoutRunner()
+    runner.start(
+      {
+        id: 'open',
+        name: 'Open',
+        steps: [
+          {
+            type: 'warmup',
+            durationSec: 10,
+            targetWatts: 100,
+            percentFtp: null,
+            zone: null,
+          },
+          {
+            type: 'open',
+            durationSec: 20,
+            targetWatts: null,
+            percentFtp: null,
+            zone: null,
+          },
+        ],
+        plannedPowerProfile: [],
+        createdAt: '',
+      },
+      0,
+    )
+    runner.tick(15_000)
+    runner.continueAsFreeRide(15_000)
+    expect(runner.getSnapshot().stepTargetWatts).toBeNull()
+    expect(runner.getTargetPowerProfile()).toEqual([
+      { tSec: 0, watts: 100 },
+      { tSec: 10, watts: 100 },
+      { tSec: 10, watts: null },
+      { tSec: 15, watts: null },
+    ])
+  })
+
+  it('does nothing outside a running Workout', () => {
+    const runner = new WorkoutRunner()
+    runner.continueAsFreeRide(0)
+    expect(runner.getSnapshot().status).toBe('idle')
+
+    runner.startFreeRide(0)
+    runner.continueAsFreeRide(1_000)
+    expect(runner.getSnapshot().freeRideFromSec).toBeNull()
+
+    runner.start(sampleWorkout, 0)
+    runner.stop(1_000)
+    runner.continueAsFreeRide(2_000)
+    expect(runner.getSnapshot().status).toBe('stopped')
+    expect(runner.getSnapshot().freeRideFromSec).toBeNull()
   })
 })

@@ -229,6 +229,55 @@ describe('HTTP API', () => {
     })
   })
 
+  it('POST /api/activities keeps where a Workout continued as a Free Ride', async () => {
+    await withServer(store, async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/api/activities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startedAt: new Date().toISOString(),
+          durationSec: 120,
+          averagePowerWatts: 150,
+          maxPowerWatts: 160,
+          achievedPowerProfile: [{ tSec: 0, watts: 150 }],
+          plannedPowerProfile: [
+            { tSec: 0, watts: 150 },
+            { tSec: 60, watts: 150 },
+          ],
+          freeRideFromSec: 60,
+          workoutId: null,
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as {
+        activity: { id: string; freeRideFromSec: unknown }
+      }
+      expect(body.activity.freeRideFromSec).toBe(60)
+      const saved = await store.getActivity(body.activity.id)
+      expect(saved?.freeRideFromSec).toBe(60)
+    })
+  })
+
+  it('POST /api/activities rejects a negative freeRideFromSec', async () => {
+    await withServer(store, async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/api/activities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startedAt: new Date().toISOString(),
+          durationSec: 60,
+          averagePowerWatts: 150,
+          maxPowerWatts: 160,
+          achievedPowerProfile: [{ tSec: 0, watts: 150 }],
+          plannedPowerProfile: null,
+          freeRideFromSec: -5,
+          workoutId: null,
+        }),
+      })
+      expect(res.status).toBe(400)
+    })
+  })
+
   it('POST /api/activities saves an Activity', async () => {
     await withServer(store, async (baseUrl) => {
       const res = await fetch(`${baseUrl}/api/activities`, {

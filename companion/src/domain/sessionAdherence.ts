@@ -124,7 +124,9 @@ export function computeSessionAdherence(
       : null
   const target = ridden && ridden.length > 0 ? ridden : planned
 
-  const overlap = Math.min(target.length, achieved.length)
+  // Score the plan only: a Workout that continued as a Free Ride carries
+  // ridden targets past the plan's end.
+  const overlap = Math.min(target.length, achieved.length, planned.length)
   const lastIndex = overlap - 1
   let scored = 0
   let onTarget = 0

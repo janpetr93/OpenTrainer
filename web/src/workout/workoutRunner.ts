@@ -4,7 +4,10 @@ import type {
   WorkoutStep,
   WorkoutStepType,
 } from '../api'
-import { buildPlannedPowerProfile } from '../domain/plannedPowerProfile'
+import {
+  buildPlannedPowerProfile,
+  truncatePowerProfile,
+} from '../domain/plannedPowerProfile'
 import { expandWorkoutItems } from '../domain/workoutItems'
 import { resolveStepWatts, workoutNeedsFtp } from '../domain/resolveTarget'
 import {
@@ -48,6 +51,12 @@ export type RunnerSnapshot = {
   targetChanged: boolean
   /** Simulation was rejected on the current Open Step, so the trainer stayed in ERG. */
   openStepBlocked: boolean
+  /**
+   * Elapsed second where a Workout continued as a Free Ride (button, last
+   * step skipped, or plan ended); null otherwise. The ride and its recording
+   * carry on until Stop.
+   */
+  freeRideFromSec: number | null
 }
 
 type FlatWorkout = Omit<Workout, 'steps'> & { steps: WorkoutStep[] }
@@ -72,6 +81,8 @@ type Internal = {
   intensityChanges: IntensityChange[]
   freeRideTargetWatts: number | null
   freeRideTargetChanges: FreeRideTargetChange[]
+  /** Set when a Workout continued as a Free Ride; the plan ends here. */
+  freeRideFromSec: number | null
   simulationRejected: boolean
 }
 
@@ -115,6 +126,7 @@ function idleState(): Internal {
     intensityChanges: [],
     freeRideTargetWatts: null,
     freeRideTargetChanges: [],
+    freeRideFromSec: null,
     simulationRejected: false,
   }
 }
@@ -134,6 +146,7 @@ const IDLE_SNAPSHOT: RunnerSnapshot = {
   totalSec: 0,
   targetChanged: false,
   openStepBlocked: false,
+  freeRideFromSec: null,
 }
 
 /** Record a change at an elapsed second; a second change in that second wins. */
@@ -170,6 +183,7 @@ export class WorkoutRunner {
         stepTargetWatts: freeRideTargetWatts,
         elapsedSec: Math.floor(elapsedSec),
         targetChanged,
+        freeRideFromSec: this.state.freeRideFromSec,
       }
     }
 
@@ -197,6 +211,7 @@ export class WorkoutRunner {
       openStepBlocked:
         this.state.simulationRejected && step.type === 'open',
       totalSec,
+      freeRideFromSec: null,
     }
     if (finished) {
       return {
@@ -219,17 +234,27 @@ export class WorkoutRunner {
   /**
    * Targets the rider actually asked for, as step corners on the elapsed
    * timeline: the plan with Ride Intensity applied (carried to the plan's
-   * end), or the Free Ride targets up to now. Null when the plan ran at
+   * end), or the Free Ride targets up to now. A Workout that continued as a
+   * Free Ride gives the ridden part of the plan, then the Free Ride targets,
+   * so the profile starts at 0 s like the plan. Null when the plan ran at
    * 100% throughout or no Free Ride target was set.
    */
   getTargetPowerProfile(): PowerProfilePoint[] | null {
-    const { status, freeRide, workout } = this.state
+    const { status, freeRide, workout, freeRideFromSec } = this.state
     if (status === 'idle') return null
     if (freeRide) {
       const points = freeRideTargetProfile(
         this.state.freeRideTargetChanges,
         Math.floor(this.state.elapsedSec),
       )
+      if (workout && freeRideFromSec !== null) {
+        const ridden = applyIntensityToProfile(
+          truncatePowerProfile(this.state.plannedProfile, freeRideFromSec),
+          this.state.intensityChanges,
+        )
+        const combined = [...ridden, ...points]
+        return combined.length >= 2 ? combined : null
+      }
       return points.length >= 2 ? points : null
     }
     if (!workout) return null
@@ -316,6 +341,20 @@ export class WorkoutRunner {
     }
   }
 
+  /**
+   * End the Workout here and keep riding as a Free Ride on the same clock and
+   * recording. The trainer holds the current step's target until the rider
+   * changes it; an Open Step leaves no target.
+   */
+  continueAsFreeRide(nowMs: number): void {
+    const { status, freeRide, workout } = this.state
+    if (status !== 'running' && status !== 'paused') return
+    if (freeRide || !workout) return
+    this.syncElapsed(nowMs)
+    const step = stepBounds(workout.steps, this.state.stepIndex).step
+    this.switchToFreeRide(Math.floor(this.state.elapsedSec), step)
+  }
+
   startFreeRide(nowMs: number): void {
     this.state = {
       ...idleState(),
@@ -351,9 +390,14 @@ export class WorkoutRunner {
     this.syncElapsed(nowMs)
     const next = this.state.stepIndex + 1
     if (next >= this.state.workout.steps.length) {
-      this.state.elapsedSec = totalDuration(this.state.workout.steps)
-      this.state.status = 'completed'
-      this.state.targetChanged = false
+      const endSec = totalDuration(this.state.workout.steps)
+      this.state.elapsedSec = endSec
+      this.state.elapsedAtSegmentStart = endSec
+      this.state.segmentStartedAtMs = nowMs
+      this.switchToFreeRide(
+        endSec,
+        this.state.workout.steps[this.state.stepIndex]!,
+      )
       return
     }
     const { startSec } = stepBounds(this.state.workout.steps, next)
@@ -384,6 +428,24 @@ export class WorkoutRunner {
     this.advanceSteps(nowMs)
   }
 
+  /** Leave the plan at `fromSec`, holding `step`'s ridden target in ERG. */
+  private switchToFreeRide(fromSec: number, step: WorkoutStep): void {
+    const planned = resolvedTarget(step, this.state.ftpWatts)
+    const seed =
+      planned === null
+        ? null
+        : clampFreeRideTargetWatts(
+            scaleTargetWatts(planned, this.state.intensityPercent),
+          )
+    this.state.freeRide = true
+    this.state.freeRideFromSec = fromSec
+    this.state.freeRideTargetWatts = seed
+    this.state.freeRideTargetChanges =
+      seed === null ? [] : [{ tSec: fromSec, watts: seed }]
+    this.state.simulationRejected = false
+    this.state.targetChanged = true
+  }
+
   private syncElapsed(nowMs: number): void {
     if (this.state.status !== 'running') return
     const deltaSec = (nowMs - this.state.segmentStartedAtMs) / 1000
@@ -399,10 +461,11 @@ export class WorkoutRunner {
       if (this.state.elapsedSec < endSec) break
       const next = this.state.stepIndex + 1
       if (next >= workout.steps.length) {
-        this.state.stepIndex = workout.steps.length - 1
-        this.state.elapsedSec = totalDuration(workout.steps)
-        this.state.status = 'completed'
-        this.state.targetChanged = false
+        // The plan is done; the ride goes on as a Free Ride until Stop.
+        this.switchToFreeRide(
+          totalDuration(workout.steps),
+          workout.steps[this.state.stepIndex]!,
+        )
         return
       }
       this.state.stepIndex = next

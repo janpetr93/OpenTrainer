@@ -172,4 +172,23 @@ describe('computeSessionAdherence', () => {
       computeSessionAdherence(profile(150, 60), null, profile(150, 60)),
     ).toBeNull()
   })
+
+  it('scores only the plan when ridden targets run past it', () => {
+    // 60 s plan at 200 W, then 60 s of Free Ride held at 120 W in ERG.
+    const target: PowerProfilePoint[] = [
+      { tSec: 0, watts: 200 },
+      { tSec: 60, watts: 200 },
+      { tSec: 60, watts: 120 },
+      { tSec: 120, watts: 120 },
+    ]
+    const achieved = [...profile(200, 60), ...profile(300, 60)].map(
+      (point, tSec) => ({ ...point, tSec }),
+    )
+    const a = computeSessionAdherence(achieved, profile(200, 60), target)
+    expect(a).toEqual({
+      completionRatio: 1,
+      targetAdherence: 1,
+      intensityPercent: 100,
+    })
+  })
 })

@@ -19,7 +19,10 @@ import {
   type ErgAdaptMemory,
   resolveErgSetpoint,
 } from './domain/ergCalibration'
-import { buildPlannedPowerProfile } from './domain/plannedPowerProfile'
+import {
+  buildPlannedPowerProfile,
+  truncatePowerProfile,
+} from './domain/plannedPowerProfile'
 import {
   resolvePowerSourceMode,
   type PowerSourceMode,
@@ -143,11 +146,16 @@ function App() {
 
   const ftpWatts = profile?.ftpWatts ?? null
   const selectedWorkout = workouts.find((w) => w.id === selectedWorkoutId)
-  const plannedProfile =
+  const fullPlannedProfile =
     activeWorkout?.plannedPowerProfile ??
     (selectedWorkout
       ? buildPlannedPowerProfile(selectedWorkout.steps, ftpWatts)
       : [])
+  // After continuing as a Free Ride the plan ends where the Workout did.
+  const plannedProfile =
+    runnerSnap.freeRideFromSec === null
+      ? fullPlannedProfile
+      : truncatePowerProfile(fullPlannedProfile, runnerSnap.freeRideFromSec)
 
   const refreshRunner = useCallback(() => {
     setRunnerSnap(runner.getSnapshot())
@@ -242,10 +250,13 @@ function App() {
     const workout = activeWorkout
     const startedAt = startedAtRef.current ?? new Date().toISOString()
     const summary = sampler.summarize()
-    const durationSec = Math.max(
-      summary.durationSec,
-      runner.getSnapshot().elapsedSec,
-    )
+    const finalSnap = runner.getSnapshot()
+    const durationSec = Math.max(summary.durationSec, finalSnap.elapsedSec)
+    const freeRideFromSec = workout ? finalSnap.freeRideFromSec : null
+    const plannedPowerProfile =
+      workout?.plannedPowerProfile && freeRideFromSec !== null
+        ? truncatePowerProfile(workout.plannedPowerProfile, freeRideFromSec)
+        : (workout?.plannedPowerProfile ?? null)
     const mode = powerSourceModeRef.current
     try {
       await saveActivity({
@@ -254,8 +265,9 @@ function App() {
         averagePowerWatts: summary.averagePowerWatts,
         maxPowerWatts: summary.maxPowerWatts,
         achievedPowerProfile: sampler.getProfile(),
-        plannedPowerProfile: workout?.plannedPowerProfile ?? null,
+        plannedPowerProfile,
         targetPowerProfile: runner.getTargetPowerProfile(),
+        freeRideFromSec,
         workoutId: workout?.id ?? null,
         scheduledRideId: activeScheduledRideId,
         purpose: activePurpose,
@@ -631,6 +643,14 @@ function App() {
     void finishAndSave()
   }
 
+  /** End the Workout here and keep the same ride going as a Free Ride. */
+  function onContinueAsFreeRide(): void {
+    runner.continueAsFreeRide(Date.now())
+    refreshRunner()
+    setTargetProfile(runner.getTargetPowerProfile())
+    void pushErgTarget(true)
+  }
+
   function dismissRidePreview(): void {
     setRidePreview(null)
     const url = new URL(window.location.href)
@@ -877,6 +897,9 @@ function App() {
           onResume={previewActive ? dismissRidePreview : onResume}
           onSkip={previewActive ? dismissRidePreview : onSkip}
           onStop={previewActive ? dismissRidePreview : onStop}
+          onContinueAsFreeRide={
+            previewActive ? dismissRidePreview : onContinueAsFreeRide
+          }
           onRideAdjust={previewActive ? () => undefined : onRideAdjust}
         />
       )}

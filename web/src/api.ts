@@ -104,6 +104,8 @@ export type Activity = {
   plannedPowerProfile: PowerProfilePoint[] | null
   /** Targets the rider asked for (Ride Intensity / Free Ride); null if none. */
   targetPowerProfile?: PowerProfilePoint[] | null
+  /** Elapsed second where the Workout continued as a Free Ride; null if not. */
+  freeRideFromSec?: number | null
   workoutId: string | null
   scheduledRideId?: string | null
   /** Session Purpose copied from Scheduled Ride when ridden. */
@@ -302,6 +304,7 @@ export type SaveActivityInput = {
   achievedPowerProfile: PowerProfilePoint[]
   plannedPowerProfile: PowerProfilePoint[] | null
   targetPowerProfile?: PowerProfilePoint[] | null
+  freeRideFromSec?: number | null
   workoutId: string | null
   scheduledRideId?: string | null
   purpose?: string | null

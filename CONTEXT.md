@@ -204,6 +204,10 @@ _Avoid_: Invented HR/cadence
 **Free Ride**:
 An **Activity** recorded without starting from a **Workout** or **Scheduled Ride** — achieved **Power Profile** only, no planned overlay.
 
+**Continue as Free Ride**:
+Ending a **Workout** mid-ride and riding on in the same **Activity** as a **Free Ride**: the clock and recording carry on, and the **Trainer** holds the current step's ridden target until the rider changes it. It happens on the button, when the last step is skipped, and when the plan runs out. `freeRideFromSec` marks the switch; the planned **Power Profile** ends there.
+_Avoid_: Extend workout, overtime
+
 **Training Calendar**:
 The app-local calendar view of **Scheduled Ride**s, **Blocker**s, and past **Activity**s. Google Calendar is not this view.
 _Avoid_: Google Calendar, schedule (noun for the whole product)
@@ -268,6 +272,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - **Ride Intensity** and its keys do nothing during an **Open Step**. An intensity set earlier still applies when ERG resumes.
 - A **Scheduled Ride** on the **Training Calendar** day detail and Ride panel shows that **Workout**’s duration and planned **Power Profile** (current **FTP**; `%FTP`/zone plans need FTP set to preview).
 - A **Free Ride** is an **Activity** with no planned **Power Profile**.
+- A **Workout** that hit **Continue as Free Ride** stays one **Activity**, linked to its **Workout** and **Scheduled Ride**. **Session Adherence** scores only the planned part; the free-ride minutes count for **Session Load**. A **Workout** no longer saves itself when the plan ends: Stop saves.
 - The **Training Calendar** shows **Scheduled Ride**s, **Blocker**s, and **Activity**s (past).
 - A **Calendar Mirror** copies **Scheduled Ride**s and **Blocker**s onto a dedicated OpenTrainer Google calendar and leaves them there when the companion is stopped. Reschedule moves the ride event; skip, delete, and clear remove it; complete leaves it. A **Blocker** event uses the label, or the kind name when the label is empty, and the window or the whole day. Delete and clear remove it. A past **Blocker** stays until MCP removes it. First connect copies planned rides and **Blocker**s from the start of today onward. Unlink forgets the authorization and leaves the Google calendar in place. Edits made in Google are not imported; the next reconcile restores the OpenTrainer time. It does not copy **Activity**s.
 - The **Local Companion** owns the **Calendar Mirror** (tokens and Google event ids). Profile connects it. **Scheduled Ride** writes from the UI and from MCP reconcile while that process is running. The browser never holds the Google client secret.
@@ -383,6 +388,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - "Power curve" — session chart is **Power Profile**; lifetime bests are **Mean Maximal Power** (Profile).
 - **Free Ride** — resolved: allowed; planned **Power Profile** omitted.
 - "free ride block" inside a **Workout** — resolved: **Open Step** (flat simulation for that step). **Free Ride** stays a whole **Activity** with no plan.
+- "keep riding after the workout" — resolved: **Continue as Free Ride**. The tail is not an **Open Step** (the plan has ended) and not a second **Activity** (see `docs/decisions/2026-11-12-continue-as-free-ride.md`).
 - **Training Calendar** — resolved: app-local view of **Scheduled Ride**s, **Blocker**s, and past **Activity**s. Outbound **Calendar Mirror** is separate (see `docs/decisions/2026-10-19-google-calendar-one-way-mirror.md` and `docs/decisions/2026-11-11-calendar-blocker.md`).
 - Build order — resolved: slice1 Bluetooth proof → slice2 local store+MCP → slice3 runner/recording → slice4 export/Power Profile UI → slice5 Training Calendar.
 - **Local Companion** + JSON **Local Store** — resolved in [ADR 0001](docs/adr/0001-local-companion-json-store.md).

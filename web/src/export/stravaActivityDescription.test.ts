@@ -219,4 +219,26 @@ describe('stravaActivityDescription', () => {
       }),
     ).toBeUndefined()
   })
+
+  it('adds the Free Ride minutes ridden after the Workout', () => {
+    expect(
+      stravaActivityDescription({
+        sessionLoad: load,
+        plannedPowerProfile: plannedSteps([{ durationSec: 3600, watts: 160 }]),
+        freeRideFromSec: 3600,
+        durationSec: 3600 + 25 * 60 + 10,
+      }),
+    ).toBe('NP 245 · IF 0.89 · TSS 78\n\n60m - 160W\n+ 25 min free ride')
+  })
+
+  it('skips the Free Ride line under a minute', () => {
+    expect(
+      stravaActivityDescription({
+        sessionLoad: null,
+        plannedPowerProfile: plannedSteps([{ durationSec: 600, watts: 160 }]),
+        freeRideFromSec: 600,
+        durationSec: 625,
+      }),
+    ).toBe('10m - 160W')
+  })
 })

@@ -169,6 +169,18 @@ function parseSaveActivity(body: unknown): SaveActivityInput {
     record.targetPowerProfile === undefined || record.targetPowerProfile === null
       ? null
       : parseProfilePoints(record.targetPowerProfile, 'targetPowerProfile')
+  const freeRideFromSec =
+    record.freeRideFromSec === undefined || record.freeRideFromSec === null
+      ? null
+      : record.freeRideFromSec
+  if (
+    freeRideFromSec !== null &&
+    (typeof freeRideFromSec !== 'number' ||
+      !Number.isFinite(freeRideFromSec) ||
+      freeRideFromSec < 0)
+  ) {
+    throw new Error('freeRideFromSec must be a non-negative number or null')
+  }
 
   const primaryPowerSource =
     record.primaryPowerSource === undefined || record.primaryPowerSource === null
@@ -193,6 +205,7 @@ function parseSaveActivity(body: unknown): SaveActivityInput {
     ),
     plannedPowerProfile,
     targetPowerProfile,
+    freeRideFromSec,
     workoutId,
     scheduledRideId,
     purpose,
