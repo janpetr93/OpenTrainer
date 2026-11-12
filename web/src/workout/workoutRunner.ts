@@ -390,14 +390,8 @@ export class WorkoutRunner {
     this.syncElapsed(nowMs)
     const next = this.state.stepIndex + 1
     if (next >= this.state.workout.steps.length) {
-      const endSec = totalDuration(this.state.workout.steps)
-      this.state.elapsedSec = endSec
-      this.state.elapsedAtSegmentStart = endSec
-      this.state.segmentStartedAtMs = nowMs
-      this.switchToFreeRide(
-        endSec,
-        this.state.workout.steps[this.state.stepIndex]!,
-      )
+      // Same clock as the button: the skipped tail is not ridden and not planned.
+      this.continueAsFreeRide(nowMs)
       return
     }
     const { startSec } = stepBounds(this.state.workout.steps, next)

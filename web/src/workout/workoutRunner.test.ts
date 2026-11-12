@@ -471,17 +471,32 @@ describe('WorkoutRunner continue as Free Ride', () => {
     expect(runner.getSnapshot().elapsedSec).toBe(4)
   })
 
-  it('treats Skip on the last step as the end of the plan', () => {
+  it('skips the last step into a Free Ride on the same clock', () => {
     const runner = new WorkoutRunner()
     runner.start(sampleWorkout, 0)
     runner.tick(16_000)
     runner.skip(16_000)
     const snap = runner.getSnapshot()
     expect(snap.status).toBe('running')
-    expect(snap.freeRideFromSec).toBe(20)
-    expect(snap.elapsedSec).toBe(20)
+    expect(snap.workoutId).toBeNull()
+    expect(snap.workoutName).toBe('Free Ride')
+    expect(snap.freeRideFromSec).toBe(16)
+    expect(snap.elapsedSec).toBe(16)
+    expect(snap.stepTargetWatts).toBe(80)
+
     runner.tick(18_000)
-    expect(runner.getSnapshot().elapsedSec).toBe(22)
+    expect(runner.getSnapshot().elapsedSec).toBe(18)
+    // The skipped tail of the cool-down is not part of the plan or the recording.
+    expect(runner.getTargetPowerProfile()).toEqual([
+      { tSec: 0, watts: 100 },
+      { tSec: 5, watts: 100 },
+      { tSec: 5, watts: 200 },
+      { tSec: 15, watts: 200 },
+      { tSec: 15, watts: 80 },
+      { tSec: 16, watts: 80 },
+      { tSec: 16, watts: 80 },
+      { tSec: 18, watts: 80 },
+    ])
   })
 
   it('leaves no target when leaving from an Open Step', () => {
