@@ -631,7 +631,12 @@ export function LiveDisplay({
         <div className="actions ride-controls">
           {runner.status === 'running' && (
             <>
-              <button type="button" onClick={onPause}>
+              <button
+                type="button"
+                onClick={onPause}
+                aria-keyshortcuts="Space"
+                title="Pause (Space)"
+              >
                 Pause
               </button>
               {!isFreeRide && runner.stepCount > 0 && (
@@ -646,7 +651,13 @@ export function LiveDisplay({
           )}
           {runner.status === 'paused' && (
             <>
-              <button type="button" className="primary" onClick={onResume}>
+              <button
+                type="button"
+                className="primary"
+                onClick={onResume}
+                aria-keyshortcuts="Space"
+                title="Resume (Space)"
+              >
                 Resume
               </button>
               {!isFreeRide && runner.stepCount > 0 && (

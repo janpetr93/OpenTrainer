@@ -1060,6 +1060,14 @@ button.export-fit {
 }
 
 
+/* Nothing on the ride screen is text to select while riding. A firm
+   trackpad press (Force Click) or a three-finger tap would otherwise open
+   macOS Look Up over the numbers and controls. */
+.live-display-riding {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .live-display-riding .power-panel {
   padding: 0.85rem 1rem 1.15rem;
   background: var(--panel);
@@ -1946,6 +1954,10 @@ button.known-device:disabled {
 
 button {
   appearance: none;
+  /* A quick double click (Pause, then Resume) must not select the label:
+     macOS then offers Look Up / the dictionary over the ride. */
+  user-select: none;
+  -webkit-user-select: none;
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);

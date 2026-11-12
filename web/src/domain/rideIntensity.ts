@@ -154,6 +154,9 @@ export type RideKeyAction =
   | { kind: 'nudge'; delta: number }
   | { kind: 'reset' }
 
+/** A ride key: an intensity/target change, or Space to pause and resume. */
+export type RideKeyCommand = RideKeyAction | { kind: 'togglePause' }
+
 export type RideKeyInput = {
   key: string
   shiftKey: boolean
@@ -164,14 +167,15 @@ export type RideKeyInput = {
 }
 
 /**
- * Keyboard shortcuts while riding: ↑/↓ or +/− small step, Shift+↑/↓ or
- * PageUp/PageDown big step, R resets a Workout to 100%. Held keys and
- * modifier chords are ignored so a stuck key cannot run the target away.
+ * Keyboard shortcuts while riding: Space pauses or resumes, ↑/↓ or +/−
+ * small step, Shift+↑/↓ or PageUp/PageDown big step, R resets a Workout to
+ * 100%. Held keys and modifier chords are ignored so a stuck key cannot run
+ * the target away or flip pause back and forth.
  */
 export function rideKeyAction(
   input: RideKeyInput,
   mode: RideKeyMode,
-): RideKeyAction | null {
+): RideKeyCommand | null {
   if (input.ctrlKey || input.metaKey || input.altKey || input.repeat) {
     return null
   }
@@ -179,6 +183,8 @@ export function rideKeyAction(
     mode === 'workout' ? INTENSITY_SMALL_STEP : FREE_RIDE_SMALL_STEP_WATTS
   const big = mode === 'workout' ? INTENSITY_BIG_STEP : FREE_RIDE_BIG_STEP_WATTS
   switch (input.key) {
+    case ' ':
+      return { kind: 'togglePause' }
     case 'ArrowUp':
       return { kind: 'nudge', delta: input.shiftKey ? big : small }
     case 'ArrowDown':

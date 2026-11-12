@@ -11,6 +11,10 @@ const openTrainer: {
     finishRepair: () => Promise<void>
     click: (x: number, y: number) => Promise<void>
   }
+  /** Keep the display awake while a ride runs or is paused. */
+  power: {
+    keepAwake: (active: boolean) => Promise<void>
+  }
   cadence?: {
     connect: (options?: { deviceId?: string; name?: string }) => Promise<{
       id: string
@@ -27,6 +31,9 @@ const openTrainer: {
     },
     finishRepair: () => ipcRenderer.invoke('bluetooth:finish-repair'),
     click: (x, y) => ipcRenderer.invoke('bluetooth:click', x, y),
+  },
+  power: {
+    keepAwake: (active) => ipcRenderer.invoke('power:keep-awake', active),
   },
 }
 

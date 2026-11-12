@@ -63,8 +63,8 @@ export function RideIntensityControl(props: Props) {
   }
 
   const keys = workout
-    ? '↑/↓ ±1% · Shift ±5% · R reset'
-    : '↑/↓ ±5 W · Shift ±25 W'
+    ? 'Space pause · ↑/↓ ±1% · Shift ±5% · R reset'
+    : 'Space pause · ↑/↓ ±5 W · Shift ±25 W'
 
   return (
     <section

@@ -5,7 +5,9 @@ import {
   app,
   BrowserWindow,
   dialog,
+  ipcMain,
   Menu,
+  powerSaveBlocker,
   session,
   shell,
   type WebContents,
@@ -14,6 +16,7 @@ import { loadCompanionEnv } from '../../companion/src/env.js'
 import { OAUTH_RESULT_STORAGE_KEY } from '../../web/src/oauthResult.js'
 import { BluetoothPicker } from './bluetooth.js'
 import { installCadenceBridge } from './cadenceBridge.js'
+import { RideKeepAwake } from './keepAwake.js'
 import { DATA_DIR_NAME, SETTINGS_FILE_NAME, ensureSettingsFile, seedDataDir } from './dataDir.js'
 import { teeConsoleToFile } from './logFile.js'
 import { buildAppMenu } from './menu.js'
@@ -57,6 +60,8 @@ let dataDir = ''
 function log(message: string): void {
   console.log(message)
 }
+
+const rideKeepAwake = new RideKeepAwake(powerSaveBlocker, log)
 
 function parsePort(raw: string | undefined): number {
   const port = Number(raw)
@@ -144,7 +149,11 @@ function createMainWindow(path = '/'): BrowserWindow {
   win.once('ready-to-show', () => win.show())
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null
+    rideKeepAwake.set(false)
   })
+  // A new page or a crashed one has no ride; the page asks again if it starts one.
+  win.webContents.on('did-navigate', () => rideKeepAwake.set(false))
+  win.webContents.on('render-process-gone', () => rideKeepAwake.set(false))
   picker.attach(win)
   guardNavigation(win.webContents, origin)
   void win.loadURL(new URL(path, origin).toString())
@@ -270,6 +279,10 @@ async function start(): Promise<void> {
   })
 
   picker = new BluetoothPicker({ html: assets.pickerHtml, preload: assets.pickerPreload }, log)
+  ipcMain.handle('power:keep-awake', (event, active: unknown) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return
+    rideKeepAwake.set(active === true)
+  })
   picker.installPairingHandler(session.defaultSession, () => mainWindow)
   if (process.platform === 'darwin') {
     stopCadence = installCadenceBridge({

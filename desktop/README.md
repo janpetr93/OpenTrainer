@@ -38,6 +38,7 @@ Download the new installer and install over the old version. Your rides, workout
 - Connect your trainer and sensors on **Devices** or **Ride**, as in the browser. OpenTrainer opens a small window that lists the Bluetooth devices it finds. Click **Connect** next to yours, or **Cancel** (Esc).
 - Do not pair the trainer in the system Bluetooth settings first, and quit Zwift or other training apps before connecting.
 - On macOS, closing the window keeps OpenTrainer in the Dock. Quit with **⌘Q**. On Windows, closing the window quits.
+- While a ride runs or is paused, OpenTrainer keeps the display and the computer awake, also when its window is behind another app. Press **Space** to pause or resume.
 
 ## Where your data lives
 
