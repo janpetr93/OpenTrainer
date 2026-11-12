@@ -30,7 +30,6 @@ import {
   freeRideSeedWatts,
   nudgeFreeRideTarget,
   nudgeIntensityPercent,
-  rideKeyAction,
   type RideKeyAction,
 } from './domain/rideIntensity'
 import { samplePowerMetrics } from './domain/samplePowerMetrics'
@@ -51,6 +50,8 @@ import { HeartRateConnection, type HeartRateSnapshot } from './hrm'
 import { APP_TAB_ORDER, initialAppTab, type AppTab } from './appTab'
 import { readRidePreview } from './ridePreview'
 import { rideHoldsTheWindow } from './oauthResult'
+import { createKeepAwake } from './keepAwake'
+import { installRideKeys } from './rideKeys'
 import { CalendarPanel } from './CalendarPanel'
 import { DevicesPanel } from './DevicesPanel'
 import { LiveDisplay } from './LiveDisplay'
@@ -62,14 +63,6 @@ import {
   type RunnerSnapshot,
 } from './workout/workoutRunner'
 import './App.css'
-
-/** Ride keys must not steal typing in a field (e.g. a future search box). */
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
-  const tag = target.tagName
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
-}
 
 function withResolvedPlan(workout: Workout, ftpWatts: number | null): Workout {
   return {
@@ -345,6 +338,13 @@ function App() {
       : 'false'
   }, [runnerSnap.status])
 
+  // A sleeping screen or Mac drops the Bluetooth links mid-ride.
+  const keepAwake = useMemo(() => createKeepAwake(), [])
+  useEffect(() => {
+    keepAwake.setActive(rideHoldsTheWindow(runnerSnap.status))
+  }, [keepAwake, runnerSnap.status])
+  useEffect(() => () => keepAwake.setActive(false), [keepAwake])
+
   useEffect(() => {
     const release = () => {
       void connection.disconnect()
@@ -519,23 +519,35 @@ function App() {
     onRideAdjustRef.current = onRideAdjust
   }, [onRideAdjust])
 
-  // Ride keys work on every tab while a ride runs or is paused.
+  // Space runs the same handlers as the Pause and Resume buttons.
+  const pauseControlsRef = useRef({ pause: () => {}, resume: () => {} })
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isEditableTarget(event.target)) return
-      const snap = runner.getSnapshot()
-      if (snap.status !== 'running' && snap.status !== 'paused') return
-      const action = rideKeyAction(
-        event,
-        snap.workoutId === null ? 'freeRide' : 'workout',
-      )
-      if (!action) return
-      event.preventDefault()
-      onRideAdjustRef.current(action)
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [runner])
+    pauseControlsRef.current = { pause: onPause, resume: onResume }
+  })
+
+  // Ride keys work on every tab while a ride runs or is paused.
+  useEffect(
+    () =>
+      installRideKeys(window, {
+        rideMode: () => {
+          const snap = runner.getSnapshot()
+          if (!rideHoldsTheWindow(snap.status)) return null
+          return snap.workoutId === null ? 'freeRide' : 'workout'
+        },
+        onCommand: (command) => {
+          if (command.kind !== 'togglePause') {
+            onRideAdjustRef.current(command)
+            return
+          }
+          if (runner.getSnapshot().status === 'running') {
+            pauseControlsRef.current.pause()
+          } else {
+            pauseControlsRef.current.resume()
+          }
+        },
+      }),
+    [runner],
+  )
 
   function onStart(): void {
     setSaveMessage(null)

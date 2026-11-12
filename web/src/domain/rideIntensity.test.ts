@@ -196,6 +196,13 @@ describe('rideKeyAction', () => {
     expect(rideKeyAction(key('r'), 'freeRide')).toBeNull()
   })
 
+  it('pauses and resumes with Space in a Workout and a Free Ride', () => {
+    expect(rideKeyAction(key(' '), 'workout')).toEqual({ kind: 'togglePause' })
+    expect(rideKeyAction(key(' '), 'freeRide')).toEqual({ kind: 'togglePause' })
+    expect(rideKeyAction(key(' ', { repeat: true }), 'workout')).toBeNull()
+    expect(rideKeyAction(key(' ', { metaKey: true }), 'workout')).toBeNull()
+  })
+
   it('ignores modifiers, auto-repeat and other keys', () => {
     expect(rideKeyAction(key('ArrowUp', { ctrlKey: true }), 'workout')).toBeNull()
     expect(rideKeyAction(key('ArrowUp', { metaKey: true }), 'workout')).toBeNull()
