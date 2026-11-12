@@ -6,11 +6,14 @@ import {
   disconnectCalendarMirror,
   disconnectStrava,
   getCalendarMirrorStatus,
+  getForm,
   getMmp,
   getRiderProfile,
   getStravaStatus,
+  recomputeForm,
   recomputeMmp,
   type CalendarMirrorStatus,
+  type FormView,
   type MmpView,
   type RiderProfile,
   type StravaLinkStatus,
@@ -60,11 +63,18 @@ function clearCalendarQuery(): void {
   window.history.replaceState({}, '', url.pathname + url.search + url.hash)
 }
 
+function formatPaceSecPerKm(secPerKm: number): string {
+  const m = Math.floor(secPerKm / 60)
+  const s = Math.round(secPerKm % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 /** Profile tab — read-only Rider Profile (FTP / zones / Training Intent) + MMP + Strava Link. */
 export function ProfilePanel({ onProfileChange }: Props) {
   const [healthy, setHealthy] = useState<boolean | null>(null)
   const [profile, setProfile] = useState<RiderProfile | null>(null)
   const [mmp, setMmp] = useState<MmpView | null>(null)
+  const [form, setForm] = useState<FormView | null>(null)
   const [strava, setStrava] = useState<StravaLinkStatus | null>(null)
   const [calendarMirror, setCalendarMirror] =
     useState<CalendarMirrorStatus | null>(null)
@@ -96,15 +106,17 @@ export function ProfilePanel({ onProfileChange }: Props) {
       return
     }
     setError(null)
-    const [next, link, nextMmp, mirror] = await Promise.all([
+    const [next, link, nextMmp, nextForm, mirror] = await Promise.all([
       getRiderProfile(),
       getStravaStatus(),
       getMmp(),
+      getForm(),
       getCalendarMirrorStatus(),
     ])
     applyProfile(next)
     setStrava(link)
     setMmp(nextMmp)
+    setForm(nextForm)
     setCalendarMirror(mirror)
   }, [applyProfile])
 
@@ -156,6 +168,18 @@ export function ProfilePanel({ onProfileChange }: Props) {
     }
   }
 
+  async function onRecomputeForm(): Promise<void> {
+    setBusy(true)
+    setError(null)
+    try {
+      setForm(await recomputeForm())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="profile-panel">
       <PageHeader
@@ -166,22 +190,34 @@ export function ProfilePanel({ onProfileChange }: Props) {
             {healthy === null ? 'checking…' : healthy ? 'online' : 'offline'}
           </p>
         }
-        blurb="FTP, power curve, training intent, and optional Strava and Google Calendar links for this Local Store."
+        blurb="Physiology, power curve, Form, training intent, and optional Strava and Google Calendar links for this Local Store."
       />
 
       {error && <p className="banner error">{error}</p>}
 
       <section className="panel-block">
-        <h2>Rider Profile · FTP</h2>
+        <h2>Profile · Physiology</h2>
         <p className="muted">
-          Coggan Power Zones derive from FTP. Set or change FTP via MCP (
-          <code>set_ftp</code>). Zone / %FTP workouts resolve when you ride.
+          Bike FTP (power zones), run Threshold Pace, and LTHR. Set via MCP{' '}
+          <code>set_physiology</code> (omit = keep). Used for ERG targets and
+          computing run External Load (rTSS / hrTSS).
         </p>
-        <p aria-label="FTP watts">
-          {profile?.ftpWatts != null
-            ? `FTP ${profile.ftpWatts} W`
-            : 'FTP not set'}
-        </p>
+        <dl className="intent-readonly">
+          <dt>FTP</dt>
+          <dd aria-label="FTP watts">
+            {profile?.ftpWatts != null ? `${profile.ftpWatts} W` : 'not set'}
+          </dd>
+          <dt>Threshold pace</dt>
+          <dd aria-label="Threshold pace">
+            {profile?.runThresholdPaceSecPerKm != null
+              ? `${formatPaceSecPerKm(profile.runThresholdPaceSecPerKm)} /km`
+              : 'not set'}
+          </dd>
+          <dt>LTHR</dt>
+          <dd aria-label="LTHR">
+            {profile?.lthrBpm != null ? `${profile.lthrBpm} bpm` : 'not set'}
+          </dd>
+        </dl>
         {profile?.zones && (
           <ul className="zone-list">
             {profile.zones.map((z) => (
@@ -198,8 +234,8 @@ export function ProfilePanel({ onProfileChange }: Props) {
         )}
         {profile && profile.ftpWatts === null && (
           <p className="muted">
-            No FTP set yet — ask your coach via MCP to call <code>set_ftp</code>.
-            Absolute-watts workouts still work.
+            No FTP set yet — ask your coach via MCP to call{' '}
+            <code>set_physiology</code>. Absolute-watts workouts still work.
           </p>
         )}
       </section>
@@ -289,6 +325,48 @@ export function ProfilePanel({ onProfileChange }: Props) {
           {mmp?.computedAt && (
             <p className="muted mmp-computed-at">
               Last computed {new Date(mmp.computedAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="panel-block">
+        <h2>Form · Fitness / Fatigue</h2>
+        <p className="muted">
+          Chronic load from bike Session Load TSS plus External Load on completed
+          sport Blockers (42-day Fitness, 7-day Fatigue). MCP reads this via{' '}
+          <code>get_form</code>. Soft coaching only until history is reliable.
+        </p>
+        {form && (
+          <dl className="intent-readonly">
+            <dt>Fitness (CTL)</dt>
+            <dd>{form.fitness}</dd>
+            <dt>Fatigue (ATL)</dt>
+            <dd>{form.fatigue}</dd>
+            <dt>Form (TSB)</dt>
+            <dd>
+              {form.form}
+              <span className="muted">
+                {' '}
+                · {form.historyDays} day
+                {form.historyDays === 1 ? '' : 's'} ·{' '}
+                {form.reliable ? 'reliable' : 'not yet reliable'}
+              </span>
+            </dd>
+          </dl>
+        )}
+        <div className="form-row">
+          <button
+            type="button"
+            className="primary"
+            disabled={busy || healthy === false}
+            onClick={() => void onRecomputeForm()}
+          >
+            Recompute
+          </button>
+          {form?.computedAt && (
+            <p className="muted mmp-computed-at">
+              Last computed {new Date(form.computedAt).toLocaleString()}
             </p>
           )}
         </div>

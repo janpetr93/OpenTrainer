@@ -10,6 +10,7 @@ import type { WorkoutItem, WorkoutStep } from '../domain/types.js'
 import { loadCompanionEnv } from '../env.js'
 import {
   createWorkoutToolDescription,
+  getFormToolDescription,
   getMmpToolDescription,
   planTrainingWeekPrompt,
   reviewTrainingPrompt,
@@ -199,7 +200,7 @@ async function main(): Promise<void> {
     'get_rider_profile',
     {
       description:
-        'Get Rider Profile: FTP (watts), derived Coggan Power Zones (Z1–Z7), and Training Intent (goal/horizon/note + optional maxHardDaysPerWeek / preferredLongRideWeekday / constraintsNote, or null). Call before prescribing zone/%FTP workouts and when planning a week.',
+        'Get Rider Profile (UI: Profile): FTP (watts), LTHR (lthrBpm), Threshold Pace (runThresholdPaceSecPerKm), derived Coggan Power Zones (Z1–Z7), and Training Intent. Call before prescribing zone/%FTP workouts, computing run External Load, and when planning a week. If LTHR or Threshold Pace is null, ask once and call set_physiology.',
       inputSchema: {},
     },
     async () => jsonResult(await store.getRiderProfile()),
@@ -215,10 +216,62 @@ async function main(): Promise<void> {
   )
 
   server.registerTool(
+    'get_form',
+    {
+      description: getFormToolDescription,
+      inputSchema: {},
+    },
+    async () => {
+      let cache = await store.getFormCache()
+      if (!cache) cache = await store.recomputeForm()
+      return jsonResult(cache)
+    },
+  )
+
+  server.registerTool(
+    'set_physiology',
+    {
+      description:
+        'Set Rider Profile physiology. Omitted fields keep their current values; pass null to clear. ftpWatts (bike FTP), lthrBpm (LTHR), runThresholdPaceSecPerKm (run threshold as seconds per km, e.g. 293 for 4:53/km). Prefer this over set_ftp when setting multiple fields.',
+      inputSchema: {
+        ftpWatts: z
+          .number()
+          .positive()
+          .max(2000)
+          .nullable()
+          .optional()
+          .describe('FTP in watts; null clears'),
+        lthrBpm: z
+          .number()
+          .min(80)
+          .max(230)
+          .nullable()
+          .optional()
+          .describe('Lactate-threshold heart rate bpm; null clears'),
+        runThresholdPaceSecPerKm: z
+          .number()
+          .min(150)
+          .max(900)
+          .nullable()
+          .optional()
+          .describe('Threshold pace as seconds per km; null clears'),
+      },
+    },
+    async ({ ftpWatts, lthrBpm, runThresholdPaceSecPerKm }) =>
+      jsonResult(
+        await store.setPhysiology({
+          ftpWatts,
+          lthrBpm,
+          runThresholdPaceSecPerKm,
+        }),
+      ),
+  )
+
+  server.registerTool(
     'set_ftp',
     {
       description:
-        'Set rider FTP in watts and recompute Coggan Power Zones. Use when profile FTP is null or the rider updates FTP. Required before zone/%FTP workouts resolve to watts.',
+        'Alias for set_physiology with only ftpWatts. Prefer set_physiology when also setting LTHR or Threshold Pace. Required before zone/%FTP workouts resolve to watts.',
       inputSchema: {
         ftpWatts: z.number().positive().max(2000).describe('FTP in watts'),
       },
@@ -536,7 +589,7 @@ async function main(): Promise<void> {
     'list_blockers',
     {
       description:
-        'List Blockers on the Training Calendar in a time range. A Blocker is social, or another sport (run, gym, swim). It has no Workout and cannot be started. Includes startsAt, durationMin or allDay, and an optional label.',
+        'List Blockers on the Training Calendar in a time range. A Blocker is social, or another sport (run, gym, swim). Sport Blockers have status planned/completed/skipped, derived missed when past planned, and trainingStressScore when completed (External Load). Social Blockers stay occupancy-only.',
       inputSchema: {
         since: z.string().optional().describe('ISO lower bound'),
         until: z.string().optional().describe('ISO upper bound'),
@@ -552,7 +605,7 @@ async function main(): Promise<void> {
     'create_blocker',
     {
       description:
-        'Put a Blocker on the Training Calendar. kind is social, run, gym, or swim. A planned run, gym session, or swim is a Blocker, not a Workout and not a Scheduled Ride. Pass durationMin for a clock window, or allDay:true for a whole local day. label is an optional short name such as "dinner" or "easy 50 min".',
+        'Put a Blocker on the Training Calendar. kind is social, run, gym, or swim. A planned run, gym session, or swim is a Blocker, not a Workout and not a Scheduled Ride. Pass durationMin for a clock window, or allDay:true for a whole local day. label is an optional short name such as "dinner" or "easy 50 min". For spontaneous off-bike work already done, pass status "completed" with averagePaceSecPerKm and/or averageHrBpm (OpenTrainer computes External Load from Profile Threshold Pace / LTHR). trainingStressScore is a rare manual override only.',
       inputSchema: {
         kind: blockerKindSchema,
         startsAt: z.string().describe('ISO datetime'),
@@ -568,16 +621,116 @@ async function main(): Promise<void> {
           .optional()
           .describe('Minutes. Required unless allDay is true'),
         label: z.string().nullable().optional(),
+        status: z
+          .enum(['planned', 'completed', 'skipped'])
+          .optional()
+          .describe('Sport only; default planned'),
+        trainingStressScore: z
+          .number()
+          .positive()
+          .nullable()
+          .optional()
+          .describe('Manual External Load override only'),
+        averagePaceSecPerKm: z
+          .number()
+          .positive()
+          .nullable()
+          .optional()
+          .describe('Garmin avg pace as seconds per km'),
+        averageHrBpm: z
+          .number()
+          .positive()
+          .nullable()
+          .optional()
+          .describe('Garmin average heart rate'),
+        effort: z.enum(['easy', 'steady', 'hard']).nullable().optional(),
       },
     },
-    async ({ kind, startsAt, allDay, durationMin, label }) => {
+    async ({
+      kind,
+      startsAt,
+      allDay,
+      durationMin,
+      label,
+      status,
+      trainingStressScore,
+      averagePaceSecPerKm,
+      averageHrBpm,
+      effort,
+    }) => {
       const blocker = await store.createBlocker({
         kind,
         startsAt,
         allDay,
         durationMin,
         label,
+        status,
+        trainingStressScore,
+        averagePaceSecPerKm,
+        averageHrBpm,
+        effort,
       })
+      await calendarMirror.reconcile()
+      return jsonResult({ blocker })
+    },
+  )
+
+  server.registerTool(
+    'complete_blocker',
+    {
+      description:
+        'Mark a sport Blocker completed. Pass Garmin raw metrics: durationMin, averagePaceSecPerKm and/or averageHrBpm. OpenTrainer computes External Load (rTSS if pace+Threshold Pace, else hrTSS if HR+LTHR, else duration×effort). trainingStressScore is a rare manual override. May also update startsAt/label. Works retrospectively on missed Blockers. Recomputes Form.',
+      inputSchema: {
+        id: z.string(),
+        trainingStressScore: z
+          .number()
+          .positive()
+          .optional()
+          .describe('Manual External Load override only'),
+        startsAt: z.string().optional().describe('ISO datetime fact alignment'),
+        allDay: z.boolean().optional(),
+        durationMin: z.number().int().positive().nullable().optional(),
+        label: z.string().nullable().optional(),
+        averagePaceSecPerKm: z.number().positive().nullable().optional(),
+        averageHrBpm: z.number().positive().nullable().optional(),
+        effort: z.enum(['easy', 'steady', 'hard']).nullable().optional(),
+      },
+    },
+    async ({
+      id,
+      trainingStressScore,
+      startsAt,
+      allDay,
+      durationMin,
+      label,
+      averagePaceSecPerKm,
+      averageHrBpm,
+      effort,
+    }) => {
+      const blocker = await store.completeBlocker(id, {
+        trainingStressScore,
+        startsAt,
+        allDay,
+        durationMin,
+        label,
+        averagePaceSecPerKm,
+        averageHrBpm,
+        effort,
+      })
+      await calendarMirror.reconcile()
+      return jsonResult({ blocker })
+    },
+  )
+
+  server.registerTool(
+    'skip_blocker',
+    {
+      description:
+        'Skip a sport Blocker (did not happen). Clears External Load. Social Blockers cannot be skipped. Recomputes Form.',
+      inputSchema: { id: z.string() },
+    },
+    async ({ id }) => {
+      const blocker = await store.skipBlocker(id)
       await calendarMirror.reconcile()
       return jsonResult({ blocker })
     },

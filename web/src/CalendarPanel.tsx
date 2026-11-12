@@ -22,8 +22,10 @@ import { PageHeader } from './PageHeader'
 import { SessionModule } from './SessionModule'
 import {
   activityMeta,
+  blockerSessionTitle,
   chartFromActivity,
   chartFromScheduledWorkout,
+  completedBlockerMeta,
   scheduledDurationLabel,
   scheduledMeta,
   scheduledOutcomeLabel,
@@ -255,7 +257,8 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
             scheduled
             <CalendarPictogram shape="bicycle" filled title="Activity" /> Bike
             done
-            <CalendarPictogram shape="run" title="Run" /> Run
+            <CalendarPictogram shape="run" title="Run planned" /> Run planned
+            <CalendarPictogram shape="run" filled title="Run done" /> Run done
             <CalendarPictogram shape="gym" title="Gym" /> Gym
             <CalendarPictogram shape="swim" title="Swim" /> Swim
             <CalendarPictogram shape="social" title="Social" /> Event
@@ -271,19 +274,47 @@ export function CalendarPanel({ onStartScheduledWorkout }: Props) {
           <p className="muted">No blockers.</p>
         ) : (
           <ul className="entity-list">
-            {selectedBlockers.map((blocker) => (
-              <li key={blocker.id} className="blocker-row">
-                <CalendarPictogram
-                  shape={blocker.kind}
-                  title={blockerTitle(blocker)}
-                  size="row"
-                />
-                <div>
-                  <strong>{blockerTitle(blocker)}</strong>
-                  <span className="muted">{blockerWhen(blocker)}</span>
-                </div>
-              </li>
-            ))}
+            {selectedBlockers.map((blocker) => {
+              if (blocker.status === 'completed') {
+                return (
+                  <SessionModule
+                    key={blocker.id}
+                    title={blockerSessionTitle(blocker)}
+                    meta={completedBlockerMeta(blocker)}
+                    chartLabel=""
+                    series={[]}
+                    actions={
+                      <CalendarPictogram
+                        shape={blocker.kind}
+                        filled
+                        title={blockerTitle(blocker)}
+                        size="row"
+                      />
+                    }
+                  />
+                )
+              }
+              return (
+                <li key={blocker.id} className="blocker-row">
+                  <CalendarPictogram
+                    shape={blocker.kind}
+                    title={blockerTitle(blocker)}
+                    size="row"
+                  />
+                  <div>
+                    <strong>{blockerTitle(blocker)}</strong>
+                    <span className="muted">
+                      {blockerWhen(blocker)}
+                      {blocker.status === 'skipped'
+                        ? ' · skipped'
+                        : blocker.missed
+                          ? ' · missed'
+                          : ''}
+                    </span>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
 

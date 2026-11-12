@@ -10,11 +10,30 @@ import {
   fingerprintsMatch,
   mmpFingerprint,
 } from '../domain/meanMaximalPower.js'
-import { blockerFromInput, isBlockerKind } from '../domain/blocker.js'
+import {
+  blockerFromInput,
+  isBlockerKind,
+  localDateKey,
+  normalizeBlockerLabel,
+  normalizeBlockerStatus,
+} from '../domain/blocker.js'
+import {
+  applyCompleteBlocker,
+  applySkipBlocker,
+  toBlockerView,
+} from '../domain/blockerOutcome.js'
 import {
   hydrateScheduledRide,
   toScheduledRideView,
 } from '../domain/scheduledRideOutcome.js'
+import {
+  buildDailyTss,
+  computeTrainingForm,
+} from '../domain/trainingForm.js'
+import {
+  computeExternalLoad,
+  externalLoadLabelSuffix,
+} from '../domain/externalLoad.js'
 import { computeAverageAlignmentDeltaWatts } from '../domain/powerAlignment.js'
 import {
   SESSION_ADHERENCE_REVISION,
@@ -26,10 +45,12 @@ import {
   type Activity,
   type ActivityStravaUpload,
   type Blocker,
+  type CompleteBlockerInput,
   type CreateBlockerInput,
   type CreateScheduledRideInput,
   type CreateWorkoutInput,
   type ErgCalibration,
+  type FormCache,
   type GoogleCalendarEventIndex,
   type GoogleCalendarLink,
   type ListActivitiesQuery,
@@ -40,6 +61,7 @@ import {
   type RiderProfile,
   type ScheduledRide,
   type ScheduledRideView,
+  type SetPhysiologyInput,
   type UpdateBlockerInput,
   type StravaLink,
   type TrainingIntent,
@@ -61,6 +83,7 @@ const STRAVA_LINK_FILE = 'strava-link.json'
 const GOOGLE_CALENDAR_LINK_FILE = 'google-calendar-link.json'
 const GOOGLE_CALENDAR_EVENTS_FILE = 'google-calendar-events.json'
 const MMP_FILE = 'mmp.json'
+const FORM_FILE = 'form.json'
 const ERG_CALIBRATION_FILE = 'erg-calibration.json'
 
 export type SaveActivityInput = Omit<
@@ -126,6 +149,10 @@ function hydrateBlocker(raw: Blocker): Blocker {
       allDay: raw.allDay === true,
       durationMin: raw.durationMin,
       label: raw.label,
+      status: (raw as { status?: unknown }).status as Blocker['status'],
+      trainingStressScore:
+        (raw as { trainingStressScore?: number | null }).trainingStressScore ??
+        null,
     },
     raw.id,
     raw.createdAt,
@@ -229,6 +256,7 @@ export class LocalStore {
   private readonly googleCalendarLinkPath: string
   private readonly googleCalendarEventsPath: string
   private readonly mmpPath: string
+  private readonly formPath: string
   private readonly ergCalibrationPath: string
 
   constructor(private readonly rootDir: string) {
@@ -241,6 +269,7 @@ export class LocalStore {
     this.googleCalendarLinkPath = join(rootDir, GOOGLE_CALENDAR_LINK_FILE)
     this.googleCalendarEventsPath = join(rootDir, GOOGLE_CALENDAR_EVENTS_FILE)
     this.mmpPath = join(rootDir, MMP_FILE)
+    this.formPath = join(rootDir, FORM_FILE)
     this.ergCalibrationPath = join(rootDir, ERG_CALIBRATION_FILE)
   }
 
@@ -259,6 +288,8 @@ export class LocalStore {
       raw = {
         schemaVersion: STORE_SCHEMA_VERSION,
         ftpWatts: null,
+        lthrBpm: null,
+        runThresholdPaceSecPerKm: null,
         intent: null,
         updatedAt: new Date(0).toISOString(),
       }
@@ -328,13 +359,63 @@ export class LocalStore {
   }
 
   async setFtp(ftpWatts: number): Promise<RiderProfileView> {
-    if (!Number.isFinite(ftpWatts) || ftpWatts <= 0 || ftpWatts > 2000) {
-      throw new Error('ftpWatts must be a positive number (≤ 2000)')
-    }
+    return this.setPhysiology({ ftpWatts })
+  }
+
+  async setPhysiology(input: SetPhysiologyInput): Promise<RiderProfileView> {
     const current = await this.getRiderProfile()
+    let ftpWatts = current.ftpWatts
+    if (input.ftpWatts !== undefined) {
+      if (input.ftpWatts === null) {
+        ftpWatts = null
+      } else if (
+        !Number.isFinite(input.ftpWatts) ||
+        input.ftpWatts <= 0 ||
+        input.ftpWatts > 2000
+      ) {
+        throw new Error('ftpWatts must be a positive number (≤ 2000)')
+      } else {
+        ftpWatts = Math.round(input.ftpWatts)
+      }
+    }
+
+    let lthrBpm = current.lthrBpm
+    if (input.lthrBpm !== undefined) {
+      if (input.lthrBpm === null) {
+        lthrBpm = null
+      } else if (
+        !Number.isFinite(input.lthrBpm) ||
+        input.lthrBpm < 80 ||
+        input.lthrBpm > 230
+      ) {
+        throw new Error('lthrBpm must be between 80 and 230')
+      } else {
+        lthrBpm = Math.round(input.lthrBpm)
+      }
+    }
+
+    let runThresholdPaceSecPerKm = current.runThresholdPaceSecPerKm
+    if (input.runThresholdPaceSecPerKm !== undefined) {
+      if (input.runThresholdPaceSecPerKm === null) {
+        runThresholdPaceSecPerKm = null
+      } else if (
+        !Number.isFinite(input.runThresholdPaceSecPerKm) ||
+        input.runThresholdPaceSecPerKm < 150 ||
+        input.runThresholdPaceSecPerKm > 900
+      ) {
+        throw new Error(
+          'runThresholdPaceSecPerKm must be between 150 and 900 (sec/km)',
+        )
+      } else {
+        runThresholdPaceSecPerKm = Math.round(input.runThresholdPaceSecPerKm)
+      }
+    }
+
     const profile: RiderProfile = {
       schemaVersion: STORE_SCHEMA_VERSION,
-      ftpWatts: Math.round(ftpWatts),
+      ftpWatts,
+      lthrBpm,
+      runThresholdPaceSecPerKm,
       intent: current.intent,
       updatedAt: new Date().toISOString(),
     }
@@ -392,6 +473,8 @@ export class LocalStore {
     const profile: RiderProfile = {
       schemaVersion: STORE_SCHEMA_VERSION,
       ftpWatts: current.ftpWatts,
+      lthrBpm: current.lthrBpm,
+      runThresholdPaceSecPerKm: current.runThresholdPaceSecPerKm,
       intent: nextIntent,
       updatedAt: new Date().toISOString(),
     }
@@ -406,12 +489,65 @@ export class LocalStore {
         typeof raw.ftpWatts === 'number' && Number.isFinite(raw.ftpWatts)
           ? raw.ftpWatts
           : null,
+      lthrBpm:
+        typeof raw.lthrBpm === 'number' && Number.isFinite(raw.lthrBpm)
+          ? raw.lthrBpm
+          : null,
+      runThresholdPaceSecPerKm:
+        typeof raw.runThresholdPaceSecPerKm === 'number' &&
+        Number.isFinite(raw.runThresholdPaceSecPerKm)
+          ? raw.runThresholdPaceSecPerKm
+          : null,
       intent: this.normalizeIntent(raw.intent),
       updatedAt:
         typeof raw.updatedAt === 'string' && raw.updatedAt.length > 0
           ? raw.updatedAt
           : new Date(0).toISOString(),
     }
+  }
+
+  private resolveExternalLoad(
+    profile: RiderProfile,
+    input: {
+      durationMin: number | null
+      trainingStressScore?: number | null
+      averagePaceSecPerKm?: number | null
+      averageHrBpm?: number | null
+      effort?: CompleteBlockerInput['effort']
+      label?: string | null
+    },
+  ): { trainingStressScore: number; label: string | null } {
+    const hasOverride =
+      input.trainingStressScore != null &&
+      Number.isFinite(input.trainingStressScore) &&
+      input.trainingStressScore > 0
+    if (
+      !hasOverride &&
+      (input.durationMin == null || !(input.durationMin > 0))
+    ) {
+      throw new Error('durationMin is required to compute External Load')
+    }
+    const load = computeExternalLoad({
+      durationMin: input.durationMin ?? 1,
+      trainingStressScore: input.trainingStressScore,
+      averagePaceSecPerKm: input.averagePaceSecPerKm,
+      averageHrBpm: input.averageHrBpm,
+      effort: input.effort,
+      runThresholdPaceSecPerKm: profile.runThresholdPaceSecPerKm,
+      lthrBpm: profile.lthrBpm,
+    })
+    const suffix = externalLoadLabelSuffix(load.method)
+    const rawLabel = input.label !== undefined ? input.label : null
+    const stripped =
+      typeof rawLabel === 'string'
+        ? rawLabel.replace(
+            /\s·\s(Garmin TL|rTSS|hrTSS|duration est|override)\s*$/i,
+            '',
+          )
+        : rawLabel
+    const stem = normalizeBlockerLabel(stripped)
+    const label = stem ? `${stem} · ${suffix}` : suffix
+    return { trainingStressScore: load.trainingStressScore, label }
   }
 
   private normalizeIntent(raw: unknown): TrainingIntent | null {
@@ -530,6 +666,7 @@ export class LocalStore {
       await this.markScheduledRideCompleted(scheduledRideId, activity.id)
     }
     await this.recomputeMmp()
+    await this.recomputeForm()
     return activity
   }
 
@@ -746,6 +883,45 @@ export class LocalStore {
     return this.writeMmpCache(cache)
   }
 
+  async getFormCache(): Promise<FormCache | null> {
+    try {
+      return await this.readJson<FormCache>(this.formPath)
+    } catch {
+      return null
+    }
+  }
+
+  async writeFormCache(cache: FormCache): Promise<FormCache> {
+    await this.writeJson(this.formPath, cache)
+    return cache
+  }
+
+  /** Recompute Fitness / Fatigue / Form and persist form.json. */
+  async recomputeForm(asOfIso: string = new Date().toISOString()): Promise<FormCache> {
+    const asOf = localDateKey(asOfIso)
+    const activities = await this.listActivities({})
+    const blockers = await this.listBlockersRaw()
+    const daily = buildDailyTss({
+      activities: activities.map((a) => ({
+        startedAt: a.startedAt,
+        trainingStressScore: a.sessionLoad?.trainingStressScore ?? null,
+      })),
+      blockers: blockers.map((b) => ({
+        kind: b.kind,
+        status: b.status,
+        startsAt: b.startsAt,
+        trainingStressScore: b.trainingStressScore,
+      })),
+    })
+    const form = computeTrainingForm(daily, asOf)
+    const cache: FormCache = {
+      schemaVersion: STORE_SCHEMA_VERSION,
+      ...form,
+      computedAt: new Date().toISOString(),
+    }
+    return this.writeFormCache(cache)
+  }
+
   async listActivities(query: ListActivitiesQuery = {}): Promise<Activity[]> {
     const { sinceMs, untilMs } = this.resolveBounds(query)
     const files = await this.listJsonFiles(this.activitiesDir)
@@ -913,13 +1089,35 @@ export class LocalStore {
 
   async createBlocker(input: CreateBlockerInput): Promise<Blocker> {
     const now = new Date().toISOString()
+    let createInput = input
+    if (normalizeBlockerStatus(input.status) === 'completed') {
+      const profile = await this.getRiderProfile()
+      const durationMin =
+        input.allDay === true ? null : (input.durationMin ?? null)
+      const resolved = this.resolveExternalLoad(profile, {
+        durationMin,
+        trainingStressScore: input.trainingStressScore,
+        averagePaceSecPerKm: input.averagePaceSecPerKm,
+        averageHrBpm: input.averageHrBpm,
+        effort: input.effort,
+        label: input.label ?? null,
+      })
+      createInput = {
+        ...input,
+        trainingStressScore: resolved.trainingStressScore,
+        label: resolved.label,
+      }
+    }
     const blocker = blockerFromInput(
-      input,
+      createInput,
       randomUUID(),
       now,
       STORE_SCHEMA_VERSION,
     )
     await this.writeJson(join(this.blockersDir, `${blocker.id}.json`), blocker)
+    if (blocker.status === 'completed') {
+      await this.recomputeForm()
+    }
     return blocker
   }
 
@@ -933,7 +1131,8 @@ export class LocalStore {
     }
   }
 
-  async listBlockers(query: ListBlockersQuery = {}): Promise<Blocker[]> {
+  /** Stored Blockers without derived missed (for Form / week-check). */
+  async listBlockersRaw(query: ListBlockersQuery = {}): Promise<Blocker[]> {
     const sinceMs = query.since ? Date.parse(query.since) : null
     const untilMs = query.until ? Date.parse(query.until) : null
     if (sinceMs !== null && Number.isNaN(sinceMs)) {
@@ -963,6 +1162,12 @@ export class LocalStore {
     return blockers.sort((a, b) => a.startsAt.localeCompare(b.startsAt))
   }
 
+  async listBlockers(query: ListBlockersQuery = {}) {
+    const nowMs = Date.now()
+    const blockers = await this.listBlockersRaw(query)
+    return blockers.map((b) => toBlockerView(b, nowMs))
+  }
+
   async updateBlocker(id: string, patch: UpdateBlockerInput): Promise<Blocker> {
     const current = await this.getBlocker(id)
     if (!current) throw new Error(`Blocker not found: ${id}`)
@@ -980,6 +1185,8 @@ export class LocalStore {
         allDay,
         durationMin,
         label: patch.label !== undefined ? patch.label : current.label,
+        status: current.status,
+        trainingStressScore: current.trainingStressScore,
       },
       current.id,
       current.createdAt,
@@ -989,22 +1196,77 @@ export class LocalStore {
     return next
   }
 
+  async completeBlocker(
+    id: string,
+    input: CompleteBlockerInput,
+  ): Promise<Blocker> {
+    const current = await this.getBlocker(id)
+    if (!current) throw new Error(`Blocker not found: ${id}`)
+    const profile = await this.getRiderProfile()
+    const durationMin =
+      input.allDay === true
+        ? null
+        : input.durationMin !== undefined
+          ? input.durationMin
+          : current.durationMin
+    const resolved = this.resolveExternalLoad(profile, {
+      durationMin,
+      trainingStressScore: input.trainingStressScore,
+      averagePaceSecPerKm: input.averagePaceSecPerKm,
+      averageHrBpm: input.averageHrBpm,
+      effort: input.effort,
+      label:
+        input.label !== undefined ? input.label : current.label,
+    })
+    const next = applyCompleteBlocker(current, {
+      ...input,
+      trainingStressScore: resolved.trainingStressScore,
+      label: resolved.label,
+    })
+    await this.writeJson(join(this.blockersDir, `${id}.json`), next)
+    await this.recomputeForm()
+    return next
+  }
+
+  async skipBlocker(id: string): Promise<Blocker> {
+    const current = await this.getBlocker(id)
+    if (!current) throw new Error(`Blocker not found: ${id}`)
+    const next = applySkipBlocker(current)
+    await this.writeJson(join(this.blockersDir, `${id}.json`), next)
+    await this.recomputeForm()
+    return next
+  }
+
   async deleteBlocker(id: string): Promise<boolean> {
     const path = join(this.blockersDir, `${id}.json`)
+    let existing: Blocker
     try {
-      await this.readJson<Blocker>(path)
+      existing = hydrateBlocker(await this.readJson<Blocker>(path))
     } catch {
       return false
     }
     await unlink(path)
+    if (existing.status === 'completed') {
+      await this.recomputeForm()
+    }
     return true
   }
 
   async clearBlockers(query: { since: string; until: string }): Promise<number> {
-    const blockers = await this.listBlockers(query)
+    const blockers = await this.listBlockersRaw(query)
+    const hadCompleted = blockers.some((b) => b.status === 'completed')
     let deleted = 0
     for (const blocker of blockers) {
-      if (await this.deleteBlocker(blocker.id)) deleted++
+      const path = join(this.blockersDir, `${blocker.id}.json`)
+      try {
+        await unlink(path)
+        deleted++
+      } catch {
+        /* ignore */
+      }
+    }
+    if (hadCompleted && deleted > 0) {
+      await this.recomputeForm()
     }
     return deleted
   }

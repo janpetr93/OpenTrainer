@@ -5,6 +5,11 @@ status: active
 
 # Calendar Blocker, separate from a Scheduled Ride
 
+> **Partial supersession:** the “no done state / no missed state” clause below is superseded by
+> [2026-11-12-fitness-fatigue-form-and-blocker-external-load](2026-11-12-fitness-fatigue-form-and-blocker-external-load.md)
+> for sport **Blocker**s (`planned` / `completed` / `skipped`, derived **missed**, **External Load**).
+> Social Blockers and “Blocker ≠ Scheduled Ride” still stand.
+
 ## Context
 
 Week planning is holistic: the same two weeks include trainer rides, other sports, and social plans. The [Training Calendar](../../CONTEXT.md) only had **Scheduled Ride**s (a **Workout** you can start) and past **Activity**s. Putting a run on a **Scheduled Ride** would invent a **Workout** and a Start action. [Training Intent](../../CONTEXT.md) still keeps the weekly availability pattern in chat, not on a calendar.

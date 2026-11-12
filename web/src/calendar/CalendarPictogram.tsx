@@ -23,7 +23,13 @@ export function CalendarPictogram({
   size = 'mark',
 }: Props) {
   const tone =
-    shape === 'bicycle' ? (filled ? 'filled' : 'plan') : 'blocker'
+    shape === 'bicycle'
+      ? filled
+        ? 'filled'
+        : 'plan'
+      : filled
+        ? 'filled'
+        : 'blocker'
   return (
     <span
       className={['cal-mark', `cal-mark-${size}`, 'cal-mark-chip', tone].join(

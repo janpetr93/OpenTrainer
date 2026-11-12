@@ -41,6 +41,8 @@ export type TrainingIntent = {
 export type RiderProfile = {
   schemaVersion: number
   ftpWatts: number | null
+  lthrBpm: number | null
+  runThresholdPaceSecPerKm: number | null
   intent: TrainingIntent | null
   updatedAt: string
   zones: RiderProfileZone[] | null
@@ -153,6 +155,8 @@ export type ScheduledRide = {
 
 export type BlockerKind = 'social' | 'run' | 'gym' | 'swim'
 
+export type BlockerStatus = 'planned' | 'completed' | 'skipped'
+
 export type Blocker = {
   id: string
   kind: BlockerKind
@@ -160,7 +164,36 @@ export type Blocker = {
   allDay: boolean
   durationMin: number | null
   label: string | null
+  status: BlockerStatus
+  trainingStressScore: number | null
+  /** Derived: sport, planned, and startsAt in the past. */
+  missed?: boolean
   createdAt: string
+}
+
+export type FormDay = {
+  date: string
+  trainingStressScore: number
+  fitness: number
+  fatigue: number
+  form: number
+  ctl: number
+  atl: number
+  tsb: number
+}
+
+export type FormView = {
+  asOf: string
+  fitness: number
+  fatigue: number
+  form: number
+  ctl: number
+  atl: number
+  tsb: number
+  historyDays: number
+  reliable: boolean
+  series: FormDay[]
+  computedAt: string
 }
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -389,6 +422,18 @@ export async function recomputeMmp(): Promise<MmpView> {
   const res = await fetch('/api/mmp/recompute', { method: 'POST' })
   const body = await parseJson<{ mmp: MmpView }>(res)
   return body.mmp
+}
+
+export async function getForm(): Promise<FormView> {
+  const res = await fetch('/api/form')
+  const body = await parseJson<{ form: FormView }>(res)
+  return body.form
+}
+
+export async function recomputeForm(): Promise<FormView> {
+  const res = await fetch('/api/form/recompute', { method: 'POST' })
+  const body = await parseJson<{ form: FormView }>(res)
+  return body.form
 }
 
 export async function clearScheduledRides(input: {

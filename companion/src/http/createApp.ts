@@ -485,6 +485,19 @@ export function createRequestHandler(
         return
       }
 
+      if (method === 'GET' && url.pathname === '/api/form') {
+        let form = await store.getFormCache()
+        if (!form) form = await store.recomputeForm()
+        sendJson(res, 200, { form })
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/form/recompute') {
+        const form = await store.recomputeForm()
+        sendJson(res, 200, { form })
+        return
+      }
+
       if (method === 'GET' && url.pathname === '/api/workouts') {
         sendJson(res, 200, { workouts: await store.listWorkouts() })
         return

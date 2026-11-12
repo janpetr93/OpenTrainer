@@ -34,6 +34,19 @@ describe('marksForDay', () => {
           allDay: false,
           durationMin: 50,
           label: 'easy 50 min',
+          status: 'planned',
+          trainingStressScore: null,
+          createdAt: '2026-11-01T00:00:00.000Z',
+        } satisfies Blocker,
+        {
+          id: 'run-done',
+          kind: 'run',
+          startsAt: '2026-11-16T06:00:00.000Z',
+          allDay: false,
+          durationMin: 40,
+          label: 'done run',
+          status: 'completed',
+          trainingStressScore: 42,
           createdAt: '2026-11-01T00:00:00.000Z',
         } satisfies Blocker,
       ],
@@ -44,6 +57,7 @@ describe('marksForDay', () => {
       { id: 'ride-skip', shape: 'bicycle', filled: false, title: 'Skipped' },
       { id: 'act-1', shape: 'bicycle', filled: true, title: 'Activity' },
       { id: 'run-1', shape: 'run', filled: false, title: 'easy 50 min' },
+      { id: 'run-done', shape: 'run', filled: true, title: 'done run' },
     ])
   })
 })

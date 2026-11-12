@@ -61,7 +61,7 @@ export function marksForDay(input: {
     marks.push({
       id: blocker.id,
       shape: blocker.kind,
-      filled: false,
+      filled: blocker.status === 'completed',
       title: blockerTitle(blocker),
     })
   }

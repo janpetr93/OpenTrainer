@@ -1,4 +1,9 @@
-import type { Blocker, BlockerKind, CreateBlockerInput } from './types.js'
+import type {
+  Blocker,
+  BlockerKind,
+  BlockerStatus,
+  CreateBlockerInput,
+} from './types.js'
 
 export const BLOCKER_KINDS = ['social', 'run', 'gym', 'swim'] as const
 
@@ -110,6 +115,13 @@ export function nextLocalDateKey(iso: string): string {
   return `${next.getFullYear()}-${month}-${day}`
 }
 
+export function normalizeBlockerStatus(value: unknown): BlockerStatus {
+  if (value === 'completed' || value === 'skipped' || value === 'planned') {
+    return value
+  }
+  return 'planned'
+}
+
 export function blockerFromInput(
   input: CreateBlockerInput,
   id: string,
@@ -125,6 +137,33 @@ export function blockerFromInput(
   }
   const allDay = input.allDay === true
   const durationMin = allDay ? null : (input.durationMin ?? null)
+  const status = normalizeBlockerStatus(input.status)
+  let trainingStressScore: number | null =
+    input.trainingStressScore === undefined || input.trainingStressScore === null
+      ? null
+      : input.trainingStressScore
+
+  if (status === 'completed') {
+    if (!isSportBlocker(input.kind)) {
+      throw new Error('Cannot complete a social Blocker')
+    }
+    if (
+      trainingStressScore === null ||
+      !Number.isFinite(trainingStressScore) ||
+      trainingStressScore <= 0
+    ) {
+      throw new Error(
+        'completed sport Blocker requires a positive trainingStressScore',
+      )
+    }
+  } else {
+    trainingStressScore = null
+  }
+
+  if (input.kind === 'social' && status !== 'planned') {
+    throw new Error('social Blocker status must stay planned')
+  }
+
   const blocker: Blocker = {
     schemaVersion,
     id,
@@ -133,6 +172,8 @@ export function blockerFromInput(
     allDay,
     durationMin,
     label: normalizeBlockerLabel(input.label),
+    status,
+    trainingStressScore,
     createdAt,
   }
   blockerWindow(blocker)

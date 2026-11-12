@@ -1,4 +1,4 @@
-import type { Activity, PowerProfilePoint, Workout } from '../api'
+import type { Activity, Blocker, PowerProfilePoint, Workout } from '../api'
 import { formatAlignmentDelta } from '../cps'
 import { buildScheduledWorkoutPreview } from '../domain/scheduledWorkoutPreview'
 import type { PowerProfileSeries } from '../PowerProfileLine'
@@ -106,6 +106,54 @@ export function activityMeta(activity: Activity): SessionMeta {
     when: formatCompactDateTime(activity.startedAt),
     // Title already says "Free ride" when there is no Workout name.
     kind: activity.plannedPowerProfile ? 'vs plan' : null,
+    metrics,
+  }
+}
+
+const BLOCKER_KIND_LABEL: Record<Blocker['kind'], string> = {
+  social: 'Social',
+  run: 'Run',
+  gym: 'Gym',
+  swim: 'Swim',
+}
+
+/** Strip External Load provenance suffix from a Blocker label for the title. */
+export function blockerSessionTitle(blocker: Blocker): string {
+  const raw = blocker.label?.trim()
+  const base = raw
+    ? raw.replace(
+        /\s·\s(Garmin TL|rTSS|hrTSS|duration est|override)\s*$/i,
+        '',
+      )
+    : BLOCKER_KIND_LABEL[blocker.kind]
+  return base || BLOCKER_KIND_LABEL[blocker.kind]
+}
+
+/** SessionModule meta for a completed sport Blocker (External Load). */
+export function completedBlockerMeta(blocker: Blocker): SessionMeta {
+  const metrics: SessionMetric[] = []
+  if (!blocker.allDay && blocker.durationMin != null) {
+    metrics.push({
+      label: 'Duration',
+      value: formatDuration(blocker.durationMin * 60),
+    })
+  }
+  if (blocker.trainingStressScore != null) {
+    metrics.push({
+      label: 'TSS',
+      value: String(blocker.trainingStressScore),
+    })
+  }
+  const method = blocker.label?.match(
+    /\s·\s(rTSS|hrTSS|duration est|override|Garmin TL)\s*$/i,
+  )?.[1]
+  return {
+    when: blocker.allDay
+      ? `${formatCompactDateTime(blocker.startsAt).split(' · ')[0]} · All day`
+      : formatCompactDateTime(blocker.startsAt),
+    kind: method
+      ? `Completed ${BLOCKER_KIND_LABEL[blocker.kind].toLowerCase()} · ${method}`
+      : `Completed ${BLOCKER_KIND_LABEL[blocker.kind].toLowerCase()}`,
     metrics,
   }
 }

@@ -197,6 +197,9 @@ export type ListScheduledRidesQuery = {
 /** Pictogram and planning kind for a Blocker. */
 export type BlockerKind = 'social' | 'run' | 'gym' | 'swim'
 
+/** Sport Blocker lifecycle; social Blockers stay planned-only occupancy. */
+export type BlockerStatus = 'planned' | 'completed' | 'skipped'
+
 /** A dated social or other-sport mark with no Workout. */
 export type Blocker = {
   schemaVersion: typeof STORE_SCHEMA_VERSION
@@ -208,8 +211,14 @@ export type Blocker = {
   /** Minutes when allDay is false. */
   durationMin: number | null
   label: string | null
+  /** Sport kinds only meaningfully use completed/skipped; social stays planned. */
+  status: BlockerStatus
+  /** External Load TSS when status is completed (sport). Null otherwise. */
+  trainingStressScore: number | null
   createdAt: string
 }
+
+export type ExternalLoadEffort = 'easy' | 'steady' | 'hard'
 
 export type CreateBlockerInput = {
   kind: BlockerKind
@@ -217,6 +226,12 @@ export type CreateBlockerInput = {
   allDay?: boolean
   durationMin?: number | null
   label?: string | null
+  /** Create already completed (spontaneous off-bike); TSS computed or overridden. */
+  status?: BlockerStatus
+  trainingStressScore?: number | null
+  averagePaceSecPerKm?: number | null
+  averageHrBpm?: number | null
+  effort?: ExternalLoadEffort | null
 }
 
 export type UpdateBlockerInput = {
@@ -225,6 +240,22 @@ export type UpdateBlockerInput = {
   allDay?: boolean
   durationMin?: number | null
   label?: string | null
+}
+
+export type CompleteBlockerInput = {
+  /** Rare manual override. Prefer averagePaceSecPerKm / averageHrBpm. */
+  trainingStressScore?: number | null
+  startsAt?: string
+  allDay?: boolean
+  durationMin?: number | null
+  label?: string | null
+  averagePaceSecPerKm?: number | null
+  averageHrBpm?: number | null
+  effort?: ExternalLoadEffort | null
+}
+
+export type SkipBlockerInput = {
+  reason?: string | null
 }
 
 export type ListBlockersQuery = {
@@ -250,9 +281,19 @@ export type TrainingIntent = {
 export type RiderProfile = {
   schemaVersion: typeof STORE_SCHEMA_VERSION
   ftpWatts: number | null
+  /** Lactate-threshold heart rate (bpm); null when unset. */
+  lthrBpm: number | null
+  /** Run threshold pace as seconds per kilometre; null when unset. */
+  runThresholdPaceSecPerKm: number | null
   /** Null when the rider has not set a Training Intent. */
   intent: TrainingIntent | null
   updatedAt: string
+}
+
+export type SetPhysiologyInput = {
+  ftpWatts?: number | null
+  lthrBpm?: number | null
+  runThresholdPaceSecPerKm?: number | null
 }
 
 /** Cached Mean Maximal Power (lifetime bests). */
@@ -270,4 +311,31 @@ export type MmpCache = {
   activityCount: number
   latestActivityId: string | null
   latestCreatedAt: string | null
+}
+
+/** Cached Fitness / Fatigue / Form (PMC). */
+export type FormCacheDay = {
+  date: string
+  trainingStressScore: number
+  fitness: number
+  fatigue: number
+  form: number
+  ctl: number
+  atl: number
+  tsb: number
+}
+
+export type FormCache = {
+  schemaVersion: typeof STORE_SCHEMA_VERSION
+  asOf: string
+  fitness: number
+  fatigue: number
+  form: number
+  ctl: number
+  atl: number
+  tsb: number
+  historyDays: number
+  reliable: boolean
+  series: FormCacheDay[]
+  computedAt: string
 }

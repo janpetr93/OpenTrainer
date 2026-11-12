@@ -144,7 +144,7 @@ _Avoid_: Session, activity, ride plan (ambiguous), workout catalog / template li
 
 **Training Summary**:
 The planning read of recent **Activity**s: per ride, **Session Load**, **Session Adherence**, prescription kind (easy / moderate / hard), and compact **Workout** steps — no 1 Hz **Power Profile**. Includes a rollup (TSS, zone-time buckets, hard-session count, missed rides, and the last hard session’s planned watts plus the average held). Week planning uses this instead of listing full Activities.
-_Avoid_: list of raw samples, CTL/ATL
+_Avoid_: list of raw samples; chronic **Fitness** / **Fatigue** / **Form** (separate `get_form` cache)
 
 **Target Prescription**:
 How a **Workout** step expresses load: absolute watts, percent of **FTP**, and/or a **Power Zone** — resolved to watts using the current **Rider Profile** when riding or charting.
@@ -159,12 +159,16 @@ A **Workout** placed on a calendar date/time for planned training, optionally wi
 _Avoid_: Session, event, booking, **Blocker**
 
 **Blocker**:
-A social or other-sport mark on the **Training Calendar** (run, gym, or swim) with no **Workout**, occupying a start time and duration or the whole day.
+A social or other-sport mark on the **Training Calendar** (run, gym, or swim) with no **Workout**, occupying a start time and duration or the whole day; sport kinds carry status `planned` / `completed` / `skipped` (social stays occupancy-only with no completion path).
 _Avoid_: Scheduled Ride, Session, Activity, availability (the weekly pattern stays in chat)
 
-**Missed** (Scheduled Ride):
-Derived view when a **Scheduled Ride** is still `planned` and its `startsAt` is in the past — not a stored status and not a fake **Activity**.
-_Avoid_: Skipped (explicit rider/MCP action), deleted
+**External Load**:
+Off-bike training stress as an explicit TSS-*shaped* score on a **completed** sport **Blocker** (MCP-only; no separate Local Store collection) for **Form**; completing may also update `durationMin`, label, and/or `startsAt` to match what was done (e.g. Garmin → GPT → MCP); Garmin per-activity Training Load is used 1:1 with provenance in the label; spontaneous off-bike work is a Blocker created already `completed` with that score.
+_Avoid_: orphan load records, inventing a Garmin-TL→TSS conversion factor, claiming lab Coggan TSS for off-bike, direct Garmin/Strava import into OpenTrainer (deferred — AI is the bridge)
+
+**Missed** (Scheduled Ride or sport **Blocker**):
+Derived view when a **Scheduled Ride** or sport **Blocker** is still `planned` and its `startsAt` is in the past — not a stored status; still completable or skippable retrospectively via MCP (a missed sport Blocker can receive **External Load** later). Social **Blocker**s are never missed.
+_Avoid_: Skipped (explicit rider/MCP action), deleted, auto-skip on day rollover
 
 **Session Purpose**:
 Optional short free-text on a **Scheduled Ride** (copied onto the **Activity** when ridden) stating what the session is for — e.g. improve endurance or raise lactate threshold — not the rider-level **Training Intent**.
@@ -180,7 +184,19 @@ _Avoid_: Power curve (use **Mean Maximal Power** for bests), MMP as a synonym fo
 
 **Session Load**:
 Coggan Normalized Power, Intensity Factor, Training Stress Score, and time-in-zone seconds on an **Activity**, computed at save from the achieved **Power Profile** and **FTP** (FTP snapshotted as `ftpWattsAtSave`); null when FTP is unset; NP/IF/TSS null when fewer than 30 samples.
-_Avoid_: CTL/ATL/TSB (deferred), live mid-ride TSS
+_Avoid_: **Fitness** / **Fatigue** / **Form** (chronic curves), live mid-ride TSS
+
+**Fitness** (CTL):
+Chronic training load — Banister/Coggan exponential of daily TSS with a fixed 42-day time constant (bike **Session Load** TSS plus **External Load** on completed sport **Blocker**s); cached for MCP via `get_form` (not folded into **Training Summary**) and shown thin on Profile like **MMP**; recomputed automatically when an **Activity** is saved or a sport **Blocker**’s stress-relevant fields change (manual Recompute remains).
+_Avoid_: Fitness as VO2 or race shape, CTL as the product name, configurable time constants (v1), manual-only recompute
+
+**Fatigue** (ATL):
+Acute training load — exponential of the same daily TSS series as **Fitness** with a fixed 7-day time constant.
+_Avoid_: Soreness, HRV, ATL as the product name, configurable time constants (v1)
+
+**Form** (TSB):
+**Fitness** minus **Fatigue** (TSB) — coach-facing “fresh vs flat” signal; soft prompt doctrine in v1 (not `check_training_week` hard gates); always computed from available history with an explicit reliability flag until enough days exist to trust it.
+_Avoid_: Session Adherence, Training Intent, TSB as the only UI label, Form as a week-check violation (deferred), hiding Form until “ready”, PMC seed (deferred)
 
 **Session Adherence**:
 How closely an **Activity** followed its planned **Power Profile**: completion ratio and target-adherence fraction. Each scored second uses a 5-second centered average of achieved watts (±2 s, stopping at a target change) and is on target within `|Δ| ≤ max(15% × target, 20W)`, scored against the ridden targets when **Ride Intensity** changed, plus `intensityPercent` (Σ ridden ÷ Σ planned watts over the seconds ridden; absent = 100%); null for a **Free Ride**.
@@ -215,16 +231,24 @@ _Avoid_: Google Calendar, schedule (noun for the whole product)
 ### Rider prescription
 
 **FTP**:
-The rider’s functional threshold power in watts, stored in the **Rider Profile** and used to derive **Power Zones**.
+The rider’s functional threshold power in watts, stored in the **Rider Profile** and used to derive **Power Zones** and bike **Session Load**.
 _Avoid_: Threshold (ambiguous), FTP% as the profile itself
+
+**LTHR**:
+Lactate-threshold heart rate in bpm on the **Rider Profile**, used to compute run **External Load** (hrTSS) from a session’s average HR when pace-based load is unavailable.
+_Avoid_: RLT, max HR, resting HR
+
+**Threshold Pace**:
+Run threshold pace as seconds per kilometre on the **Rider Profile** (`runThresholdPaceSecPerKm`), used to compute run **External Load** (rTSS) from a session’s average pace.
+_Avoid_: race pace alone (unless used as the threshold estimate), min/km strings in the Local Store
 
 **Power Zones**:
 Seven Coggan training zones (Z1–Z7) computed from **FTP** as percent-of-FTP bands; not manually edited in v1.
 _Avoid_: Custom zones (deferred), heart-rate zones
 
-**Rider Profile**:
-Local Store record of the rider’s **FTP** (and derived **Power Zones**) plus optional **Training Intent**; UI reads it; MCP is the write path for FTP/Intent. The Profile tab also shows **Mean Maximal Power** (separate cache file).
-_Avoid_: Account, user settings (cloud)
+**Rider Profile** (UI: **Profile**):
+Local Store record of rider physiology — **FTP** (watts) and derived **Power Zones**, optional **LTHR** (bpm), optional run **Threshold Pace** (`runThresholdPaceSecPerKm`), plus optional **Training Intent**; UI reads it; MCP writes physiology via a single tool (FTP / LTHR / threshold pace; omitted fields keep) and Intent separately. The Profile tab also shows **Mean Maximal Power** and **Form** (separate cache files).
+_Avoid_: Account, user settings (cloud), RLT (use **LTHR**)
 
 **Training Intent**:
 Durable brief on the **Rider Profile** for week planning: the rider’s training **goal**, optional free-text **horizon** / **note**, and optional planning constraints (`maxHardDaysPerWeek`, `preferredLongRideWeekday` 0=Sun–6=Sat, `constraintsNote`); not a multi-week calendar and not chat memory as source of truth.
@@ -257,11 +281,13 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - A **Blocker** has no **Workout** and cannot be started. Its kind is social, or a sport: run, gym, or swim. It occupies a start time and a duration, or the whole day. A **Scheduled Ride** must not overlap that window. Only a **Scheduled Ride** is actionable on the trainer.
 - Several **Blocker**s may share a day when their windows do not overlap. A sport **Blocker** and an easy **Scheduled Ride** may share a day the same way. A hard or moderate **Scheduled Ride** on a day with a sport **Blocker** is a week-check violation. A social **Blocker** only occupies its window.
 - A **Blocker** may carry an optional short label. Its pictogram comes from the kind: social, run, gym, or swim. The **Training Calendar** cannot edit the label.
-- On the month grid, each day cell puts the date on the left and up to two mono letter chips on the right (then `+N`): `B` bike, `R` run, `G` gym, `W` swim, `E` event/social. A planned **Scheduled Ride** is an amber `B` chip; a completed **Activity** is a solid green `B` chip. A **Blocker** is a muted letter chip. The day panel uses the same chips, slightly larger. A past **Blocker** stays the same mark: it has no done state and no **missed** state.
-- On the day, a **Blocker** is a short row: icon, label, and time. It has no planned **Power Profile** and no Start. A **Blocker** does not appear on the Ride tab.
+- Sport **Blocker**s have status `planned` / `completed` / `skipped` (MCP-only). Completing requires explicit `trainingStressScore` (**External Load**) and may update `durationMin`, label, and/or `startsAt` so the calendar matches what was done (Garmin → GPT → MCP is the intended bridge; OpenTrainer does not import Garmin). Social **Blocker**s have no completion path. Spontaneous off-bike work is a sport Blocker created already `completed` with that score — no orphan load records. Missed sport Blockers stay completable/skippable retrospectively.
+- On the month grid, each day cell puts the date on the left and up to two mono letter chips on the right (then `+N`): `B` bike, `R` run, `G` gym, `W` swim, `E` event/social. A planned **Scheduled Ride** is an amber `B` chip; a completed **Activity** is a solid green `B` chip. A planned sport **Blocker** is a muted letter chip; a completed sport **Blocker** reads as done (solid). The day panel uses the same chips, slightly larger.
+- On the day, a **Blocker** is a short row: icon, label, and time (plus load when completed). It has no planned **Power Profile** and no Start. A **Blocker** does not appear on the Ride tab.
 - Week planning reads and writes **Blocker**s alongside **Scheduled Ride**s. MCP is the only write path for a **Blocker**; the **Training Calendar** shows them and cannot add, change, or remove one. Replacing a date range clears **Blocker**s and **Scheduled Ride**s separately, then writes both back. A change to one ride does not clear **Blocker**s. `check_training_week` reports a **Scheduled Ride** that overlaps a **Blocker**, two **Blocker**s that overlap, and a hard or moderate **Scheduled Ride** on a day with a sport **Blocker**. A weekly availability pattern is still asked in chat and is not a **Blocker**.
+- Daily TSS for **Fitness** / **Fatigue** / **Form** is that local day’s bike **Activity** **Session Load** TSS plus **External Load** on completed sport **Blocker**s; planned/skipped/social Blockers add 0. No projected **Scheduled Ride** TSS in v1. Form steers planning via soft prompt doctrine only (not week-check hard gates).
 - Riding a **Workout** via a **Scheduled Ride** (Ride panel / Calendar) produces one **Activity** linked by `scheduledRideId` and marks the ride `completed`; unstructured riding is a **Free Ride** (no workout-catalog picker on Ride).
-- A **Scheduled Ride** may be explicitly `skipped` (optional reason) or rescheduled; past `planned` rides appear as **missed** in list/MCP views.
+- A **Scheduled Ride** may be explicitly `skipped` (optional reason) or rescheduled; past `planned` rides appear as **missed** in list/MCP views. Past `planned` sport **Blocker**s appear as **missed** the same way and remain fillable.
 - A past **Activity** that followed a **Workout** can be placed again via **Schedule again** (new **Scheduled Ride** on a chosen date, purpose copied when present).
 - **Session Purpose** is not **Training Intent**; Intent is durable rider direction, Purpose is per-session coaching rationale.
 - MCP never opens a **Connection** or invents an **Activity**; v2 adds profile + calendar tools for week planning.
@@ -330,6 +356,12 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 > **Dev:** "Tuesday has a run and a dinner. Are those **Scheduled Ride**s?"
 > **Rider:** "No. Those are **Blocker**s. The trainer **Workout** is the only **Scheduled Ride**, and the only one I can start."
 >
+> **Dev:** "I pulled yesterday’s Garmin run into ChatGPT. Can it complete the missed run **Blocker**?"
+> **Rider:** "Yes — MCP completes it with an explicit TSS (**External Load**), and may fix duration/label/`startsAt` from Garmin. OpenTrainer does not import Garmin itself. Then **Form** recomputes."
+>
+> **Dev:** "Is Form the same as the Training Summary rollup?"
+> **Rider:** "No. Summary is recent rides. **Fitness** / **Fatigue** / **Form** are the chronic curve via `get_form`."
+>
 > **Dev:** "If Assioma and the D100 disagree, which watts own the workout?"
 > **Rider:** "When the **Power Meter** is connected at **Start**, targets and recording are Assioma (**meter-primary**); the **Trainer** only provides ERG via **ERG Calibration**. No meter → **trainer-primary** as before."
 
@@ -364,7 +396,8 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Scheduled Ride** / **missed** | `companion/data/scheduled/`; API `/api/scheduled-rides` (+ `/skip`, `/reschedule`); MCP `skip_scheduled_ride` / `reschedule_scheduled_ride`; today's list in Ride panel (`LiveDisplay`); shared row UI `SessionModule` |
 | **Session Purpose** | `purpose` on **Scheduled Ride** / **Activity**; MCP `create_scheduled_ride`; Calendar + History UI (see `docs/decisions/2026-10-10-session-purpose-on-scheduled-ride.md`) |
 | **Training Calendar** | `web/src/CalendarPanel.tsx` |
-| **Blocker** | `companion/data/blockers/`; GET `/api/blockers`; MCP `list_blockers` / `create_blocker` / `update_blocker` / `delete_blocker` / `clear_blockers`; calendar marks `web/src/calendar/calendarMarks.ts` (see `docs/decisions/2026-11-11-calendar-blocker.md`) |
+| **Blocker** / **External Load** | `companion/data/blockers/`; GET `/api/blockers`; MCP list/create/update/delete/clear + complete/skip with TSS (planned); calendar marks `web/src/calendar/calendarMarks.ts` ([blocker](docs/decisions/2026-11-11-calendar-blocker.md), [form + load](docs/decisions/2026-11-12-fitness-fatigue-form-and-blocker-external-load.md)) |
+| **Fitness** / **Fatigue** / **Form** | `companion/src/domain/trainingForm.ts`; cache `form.json`; GET/POST `/api/form` (+ `/recompute`); MCP `get_form`; Profile thin read; auto-recompute on Activity save / sport Blocker stress changes ([decision](docs/decisions/2026-11-12-fitness-fatigue-form-and-blocker-external-load.md)) |
 | Session module (Scheduled / Activity rows) | `web/src/SessionModule.tsx` + `web/src/session/sessionModuleHelpers.ts` (`activityMeta` / `scheduledMeta`); planned preview via `web/src/domain/scheduledWorkoutPreview.ts` (Ride, History, Calendar) |
 | **Activity** recording | `web/src/workout/` + `POST /api/activities`; runner on Ride tab |
 | **Session Load** / **Session Adherence** | `companion/src/domain/sessionLoad.ts`, `sessionAdherence.ts`; on **Activity** JSON; Session module via `web/src/session/sessionModuleHelpers.ts` |
@@ -374,7 +407,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Open Step** | Step type `open` on a **Workout**; flat simulation `web/src/ftms/controlProbe.ts`; runner ignores **Ride Intensity** while it is current |
 | **Ride Intensity** / **Free Ride Target** | `web/src/domain/rideIntensity.ts` (scaling, ridden-target profile, keys); runner `setIntensity` / `setFreeRideTarget`; UI `web/src/RideIntensityControl.tsx`; app-wide keys in `App.tsx` |
 | MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`, `list_blockers`, `clear_blockers`) |
-| **Rider Profile** | `companion/data/profile.json`; GET `/api/profile`; UI Profile tab (read-only); MCP `set_ftp` / `get_rider_profile`; resolve `web/src/domain/resolveTarget.ts` |
+| **Rider Profile** / **LTHR** / **Threshold Pace** | `profile.json`; GET `/api/profile`; UI Profile tab (read-only); MCP `get_rider_profile` / `set_physiology` (`set_ftp` alias); External Load `companion/src/domain/externalLoad.ts`; resolve `web/src/domain/resolveTarget.ts` |
 | **Training Intent** | On **Rider Profile** / `profile.json`; UI Profile tab (read-only); MCP `set_training_intent` (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`, `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`) |
 | **Target Prescription** | Workout steps: watts / `%FTP` / zone; resolve at run via current FTP |
 | **Local Companion** / **Local Store** | `companion/` + `companion/data/` — [ADR 0001](docs/adr/0001-local-companion-json-store.md) |
@@ -383,7 +416,8 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 ## Flagged ambiguities
 
 - "intent" on a planned ride — resolved as **Session Purpose** (`purpose`); **Training Intent** stays on the **Rider Profile**.
-- "availability" / planned run — a weekly pattern stays in chat on **Training Intent**. A dated social plan or other sport (run, gym, swim) is a **Blocker**, not a **Scheduled Ride**. MCP is the only write path (see `docs/decisions/2026-11-11-calendar-blocker.md`).
+- "availability" / planned run — a weekly pattern stays in chat on **Training Intent**. A dated social plan or other sport (run, gym, swim) is a **Blocker**, not a **Scheduled Ride**. MCP is the only write path (see `docs/decisions/2026-11-11-calendar-blocker.md`). Sport Blocker completion + **External Load** supersedes that decision’s “no done state” clause (grilling 2026-11-12).
+- CTL/ATL/TSB — product language is **Fitness** / **Fatigue** / **Form**; payloads may still expose `ctl` / `atl` / `tsb`. Read via `get_form`, not **Training Summary**.
 - "Session" — resolved: do not use; say **Workout**, **Scheduled Ride**, or **Activity**.
 - "Power curve" — session chart is **Power Profile**; lifetime bests are **Mean Maximal Power** (Profile).
 - **Free Ride** — resolved: allowed; planned **Power Profile** omitted.

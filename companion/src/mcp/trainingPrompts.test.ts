@@ -43,7 +43,12 @@ describe('plan_training_week prompt', () => {
     expect(planTrainingWeekPrompt).toMatch(/one-ride edit does not clear Blockers/i)
     expect(planTrainingWeekPrompt).toMatch(/easy Scheduled Ride may share a day/i)
     expect(reviewTrainingPrompt).toContain('list_blockers')
-    expect(reviewTrainingPrompt).toMatch(/past Blocker is not missed/i)
+    expect(reviewTrainingPrompt).toContain('complete_blocker')
+    expect(reviewTrainingPrompt).toMatch(/past planned sport Blockers are missed/i)
+    expect(reviewTrainingPrompt).toMatch(/averagePaceSecPerKm/i)
+    expect(reviewTrainingPrompt).toMatch(/OpenTrainer computes External Load/i)
+    expect(planTrainingWeekPrompt).toContain('get_form')
+    expect(planTrainingWeekPrompt).toContain('set_physiology')
   })
 
   it('treats Estimated FTP as a hint and does not apply an indoor discount', () => {

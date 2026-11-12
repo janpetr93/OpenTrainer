@@ -76,7 +76,7 @@ Do not lower FTP by a fixed indoor percentage. For work above tempo, remind me t
 
 ## Tools it should see
 
-`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, `get_training_summary`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, `list_blockers`, `create_blocker`, `update_blocker`, `delete_blocker`, `clear_blockers`, `check_training_week`, plus prompts `plan_training_week` and `review_training`.
+`get_rider_profile`, `get_mmp`, `get_form`, `set_ftp`, `set_training_intent`, `get_training_summary`, `list_workouts`, `create_workout`, `list_activities`, `list_scheduled_rides`, `create_scheduled_ride`, `delete_scheduled_ride`, `clear_scheduled_rides`, `list_blockers`, `create_blocker`, `complete_blocker`, `skip_blocker`, `update_blocker`, `delete_blocker`, `clear_blockers`, `check_training_week`, plus prompts `plan_training_week` and `review_training`.
 
 ## chatgpt.com (browser)
 
