@@ -11,6 +11,7 @@ import { loadCompanionEnv } from '../env.js'
 import {
   createWorkoutToolDescription,
   getFormToolDescription,
+  getFtpProgressionToolDescription,
   getMmpToolDescription,
   planTrainingWeekPrompt,
   reviewTrainingPrompt,
@@ -213,6 +214,15 @@ async function main(): Promise<void> {
       inputSchema: {},
     },
     async () => jsonResult(await loadMmpView(store)),
+  )
+
+  server.registerTool(
+    'get_ftp_progression',
+    {
+      description: getFtpProgressionToolDescription,
+      inputSchema: {},
+    },
+    async () => jsonResult(await store.getFtpProgression()),
   )
 
   server.registerTool(

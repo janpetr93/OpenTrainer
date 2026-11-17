@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { localDateKey } from '../domain/blocker.js'
 import { LocalStore } from './localStore.js'
 
 describe('LocalStore', () => {
@@ -561,6 +562,27 @@ describe('LocalStore', () => {
     const cleared = await store.setTrainingIntent(null)
     expect(cleared.intent).toBeNull()
     expect(cleared.ftpWatts).toBe(250)
+  })
+
+  it('logs FTP History only when set FTP changes', async () => {
+    expect(await store.getFtpHistory()).toEqual([])
+
+    await store.setFtp(240)
+    await store.setFtp(240)
+    await store.setPhysiology({ lthrBpm: 170 })
+    await store.setFtp(250)
+    await store.setPhysiology({ ftpWatts: null })
+
+    const entries = await store.getFtpHistory()
+    expect(entries.map((entry) => entry.ftpWatts)).toEqual([240, 250, null])
+    expect(entries.every((entry) => entry.setAt.length > 0)).toBe(true)
+
+    const progression = await store.getFtpProgression()
+    const today = localDateKey(new Date().toISOString())
+    expect(progression.through).toBe(today)
+    expect(progression.points).toEqual([
+      { date: today, setFtpWatts: null, estimatedFtpWatts: null },
+    ])
   })
 
   it('saveActivity auto-recomputes Mean Maximal Power', async () => {

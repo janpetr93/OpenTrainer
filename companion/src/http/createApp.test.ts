@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { localDateKey } from '../domain/blocker.js'
 import { LocalStore } from '../store/localStore.js'
 import { createRequestHandler } from './createApp.js'
 
@@ -175,6 +176,29 @@ describe('HTTP API', () => {
       const after = await store.getRiderProfile()
       expect(after.ftpWatts).toBe(240)
       expect(after.intent?.goal).toBe('Climbing')
+    })
+  })
+
+  it('GET /api/ftp-progression returns the set FTP step', async () => {
+    await store.setFtp(240)
+    await withServer(store, async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/api/ftp-progression`)
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        ftpProgression: {
+          through: string
+          points: {
+            date: string
+            setFtpWatts: number | null
+            estimatedFtpWatts: number | null
+          }[]
+        }
+      }
+      const today = localDateKey(new Date().toISOString())
+      expect(body.ftpProgression.through).toBe(today)
+      expect(body.ftpProgression.points).toEqual([
+        { date: today, setFtpWatts: 240, estimatedFtpWatts: null },
+      ])
     })
   })
 

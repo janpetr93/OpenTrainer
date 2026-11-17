@@ -11,6 +11,11 @@ import {
   mmpFingerprint,
 } from '../domain/meanMaximalPower.js'
 import {
+  buildFtpProgression,
+  type FtpHistoryEntry,
+  type FtpProgression,
+} from '../domain/ftpProgression.js'
+import {
   blockerFromInput,
   isBlockerKind,
   localDateKey,
@@ -84,6 +89,7 @@ const GOOGLE_CALENDAR_LINK_FILE = 'google-calendar-link.json'
 const GOOGLE_CALENDAR_EVENTS_FILE = 'google-calendar-events.json'
 const MMP_FILE = 'mmp.json'
 const FORM_FILE = 'form.json'
+const FTP_HISTORY_FILE = 'ftp-history.json'
 const ERG_CALIBRATION_FILE = 'erg-calibration.json'
 
 export type SaveActivityInput = Omit<
@@ -257,6 +263,7 @@ export class LocalStore {
   private readonly googleCalendarEventsPath: string
   private readonly mmpPath: string
   private readonly formPath: string
+  private readonly ftpHistoryPath: string
   private readonly ergCalibrationPath: string
 
   constructor(private readonly rootDir: string) {
@@ -270,6 +277,7 @@ export class LocalStore {
     this.googleCalendarEventsPath = join(rootDir, GOOGLE_CALENDAR_EVENTS_FILE)
     this.mmpPath = join(rootDir, MMP_FILE)
     this.formPath = join(rootDir, FORM_FILE)
+    this.ftpHistoryPath = join(rootDir, FTP_HISTORY_FILE)
     this.ergCalibrationPath = join(rootDir, ERG_CALIBRATION_FILE)
   }
 
@@ -411,6 +419,7 @@ export class LocalStore {
       }
     }
 
+    const ftpChanged = ftpWatts !== current.ftpWatts
     const profile: RiderProfile = {
       schemaVersion: STORE_SCHEMA_VERSION,
       ftpWatts,
@@ -420,7 +429,48 @@ export class LocalStore {
       updatedAt: new Date().toISOString(),
     }
     await this.writeJson(this.profilePath, profile)
+    if (ftpChanged) await this.appendFtpHistory(ftpWatts)
     return this.getRiderProfile()
+  }
+
+  async getFtpHistory(): Promise<FtpHistoryEntry[]> {
+    try {
+      const raw = await this.readJson<{ entries?: unknown }>(this.ftpHistoryPath)
+      if (!Array.isArray(raw.entries)) return []
+      return raw.entries.filter(
+        (entry): entry is FtpHistoryEntry =>
+          !!entry &&
+          typeof entry === 'object' &&
+          typeof (entry as FtpHistoryEntry).setAt === 'string' &&
+          ((entry as FtpHistoryEntry).ftpWatts === null ||
+            typeof (entry as FtpHistoryEntry).ftpWatts === 'number'),
+      )
+    } catch {
+      return []
+    }
+  }
+
+  async getFtpProgression(now = new Date()): Promise<FtpProgression> {
+    const [profile, activities, ftpHistory] = await Promise.all([
+      this.getRiderProfile(),
+      this.listActivities({}),
+      this.getFtpHistory(),
+    ])
+    return buildFtpProgression({
+      activities,
+      ftpHistory,
+      currentFtpWatts: profile.ftpWatts,
+      now,
+    })
+  }
+
+  private async appendFtpHistory(ftpWatts: number | null): Promise<void> {
+    const entries = await this.getFtpHistory()
+    entries.push({ setAt: new Date().toISOString(), ftpWatts })
+    await this.writeJson(this.ftpHistoryPath, {
+      schemaVersion: STORE_SCHEMA_VERSION,
+      entries,
+    })
   }
 
   async setTrainingIntent(

@@ -207,8 +207,12 @@ Lifetime best average watts for fixed durations (5s–90min) across all **Activi
 _Avoid_: Power Profile, power curve alone (ambiguous)
 
 **Estimated FTP**:
-FTP implied by **MMP** as 20min MMP × 0.95, compared to the set **FTP** on the **Rider Profile** — never auto-written back to the profile.
+FTP implied by the best 20-minute **MMP** on or before a date, times 0.95 — the lifetime figure is that value as of today; never auto-written back to the **Rider Profile**.
 _Avoid_: Set FTP, threshold test protocol
+
+**FTP Progression**:
+The date chart of set **FTP** (**FTP History**) and **Estimated FTP** on the same axis.
+_Avoid_: Power curve, Mean Maximal Power chart, Form
 
 **Workout Specs**:
 The create/list payload for a **Workout**: name, ordered steps (type, duration, target watts), and its planned **Power Profile**.
@@ -234,6 +238,10 @@ _Avoid_: Google Calendar, schedule (noun for the whole product)
 The rider’s functional threshold power in watts, stored in the **Rider Profile** and used to derive **Power Zones** and bike **Session Load**.
 _Avoid_: Threshold (ambiguous), FTP% as the profile itself
 
+**FTP History**:
+The step series of set **FTP**: each change dated when `set_physiology` / `set_ftp` writes it, with earlier steps taken from the **FTP** snapshotted on an **Activity** (`ftpWattsAtSave`).
+_Avoid_: Estimated FTP, the current profile value painted onto old dates
+
 **LTHR**:
 Lactate-threshold heart rate in bpm on the **Rider Profile**, used to compute run **External Load** (hrTSS) from a session’s average HR when pace-based load is unavailable.
 _Avoid_: RLT, max HR, resting HR
@@ -247,7 +255,7 @@ Seven Coggan training zones (Z1–Z7) computed from **FTP** as percent-of-FTP ba
 _Avoid_: Custom zones (deferred), heart-rate zones
 
 **Rider Profile** (UI: **Profile**):
-Local Store record of rider physiology — **FTP** (watts) and derived **Power Zones**, optional **LTHR** (bpm), optional run **Threshold Pace** (`runThresholdPaceSecPerKm`), plus optional **Training Intent**; UI reads it; MCP writes physiology via a single tool (FTP / LTHR / threshold pace; omitted fields keep) and Intent separately. The Profile tab also shows **Mean Maximal Power** and **Form** (separate cache files).
+Local Store record of rider physiology — **FTP** (watts) and derived **Power Zones**, optional **LTHR** (bpm), optional run **Threshold Pace** (`runThresholdPaceSecPerKm`), plus optional **Training Intent**; UI reads it; MCP writes physiology via a single tool (FTP / LTHR / threshold pace; omitted fields keep) and Intent separately. The Profile tab also shows **FTP Progression** (under Physiology, above the power curve), **Mean Maximal Power**, and **Form** (MMP and Form are separate cache files).
 _Avoid_: Account, user settings (cloud), RLT (use **LTHR**)
 
 **Training Intent**:
@@ -307,7 +315,9 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 - **Power Zones** are derived from **FTP** on the **Rider Profile** (Coggan 7-zone defaults).
 - **Mean Maximal Power** prefers **Meter Power** on each sample when recorded, else primary `watts`; persisted separately from the **Rider Profile**, and marked stale when Activities change until recompute (auto on Activity save + Profile Recompute).
 - **ERG Calibration** is Local Store device state (not **Rider Profile** / MCP FTP writes).
-- **Estimated FTP** uses 20min **MMP** × 0.95 and is compared to set **FTP**; it does not update the **Rider Profile**.
+- **Estimated FTP** on a date is the best 20-minute **MMP** in any **Activity** on or before that date, times 0.95 (same windows and watt source as **MMP**; rounded to whole watts). The line holds and steps up only when a new 20-minute best is set. It does not update the **Rider Profile**.
+- **FTP History** steps on the local calendar day **FTP** is set and holds until the next change. A later set the same day replaces that day’s step. Changes from now on are logged at write time. Earlier steps come from the first **Activity** whose `ftpWattsAtSave` differs, dated with that Activity’s local start day. If the current profile watts differ from the last step and were never logged, that step is dated today. Clearing **FTP** breaks the line until the next set.
+- **FTP Progression** is a read-only block on the Profile tab, under Physiology and above the power curve. The x-axis runs from the first local date either series has a value through today. Both lines hold flat between events. **Estimated FTP** is recomputed from current **Activity**s, so a deleted ride can lower an earlier step. The power curve and its single Estimated-vs-set line stay. MCP `get_ftp_progression` returns the same change-points (a repeated wattage is the value still in force; null means that series has none). Week planning still reads the current comparison from `get_mmp`.
 - **Session Load** and **Session Adherence** are computed when an **Activity** is saved (and backfilled for older Activities when FTP is known); MCP `list_activities` and the Session module UI read them.
 - **Training Intent** is product-owned context for MCP week planning alongside **Rider Profile** and **Activity** history; the weekly availability pattern is asked in chat, not stored; a dated social or other-sport mark is a **Blocker**; training phase is inferred from recent **Activity**s unless **Training Intent** **note** overrides. Updating Intent keeps omitted fields.
 - Week planning reads a **Training Summary** (no 1 Hz samples) and checks the written week with `check_training_week`. `lastHard.work` is the planned watts of the last hard efforts and the average held there. A hard day starts with a stepped warmup and three 15-second openers at 120% FTP. A **Workout Repeat** expands when the planned **Power Profile** is built and when the runner starts.
@@ -331,6 +341,18 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 >
 > **Dev:** "How does **MMP** relate to my set **FTP**?"
 > **Rider:** "Show **Estimated FTP** from 20min MMP × 0.95 next to the set value — don’t overwrite FTP."
+>
+> **Dev:** "On a past date, is **Estimated FTP** that day’s ride, or the best so far?"
+> **Rider:** "The best 20 minutes on or before that date, times 0.95. It stays flat until a new best."
+>
+> **Dev:** "I changed **FTP** on Monday and rode on Tuesday. Which day does **FTP History** step?"
+> **Rider:** "Monday, once we log the set. Before the log, it steps on Tuesday — the first ride that snapshotted the new watts."
+>
+> **Dev:** "Where do I see both over time?"
+> **Rider:** "**FTP Progression** on Profile, under physiology and above the power curve. The power curve stays the duration chart."
+>
+> **Dev:** "Should week planning call that history every time?"
+> **Rider:** "No. `get_mmp` is still the current comparison. `get_ftp_progression` is there when someone asks how the two moved."
 >
 > **Dev:** "What if I just spin with no plan?"
 > **Rider:** "That's a **Free Ride** — still an **Activity**, but no planned overlay."
@@ -389,9 +411,11 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Workout** | `companion/src/store/localStore.ts`; started via **Scheduled Ride** / Schedule again (not a UI catalog) |
 | **Devices** (tab) | `web/src/DevicesPanel.tsx` — connectors, **Known Devices**, **Connect All Known** / **Disconnect All**, FTMS debug; nav `APP_TAB_ORDER` in `web/src/appTab.ts` |
 | **History** (tab) | `web/src/WorkoutsPanel.tsx` — **Activity** history + Schedule again |
-| **Profile** (tab) | `web/src/ProfilePanel.tsx` — read-only **Rider Profile** (FTP / zones / Intent) + **MMP** + **Strava Link** + **Calendar Mirror** |
+| **Profile** (tab) | `web/src/ProfilePanel.tsx` — read-only **Rider Profile** (FTP / zones / Intent) + **FTP Progression** + **MMP** + **Strava Link** + **Calendar Mirror** |
 | **Mean Maximal Power** | `companion/src/domain/meanMaximalPower.ts`; cache `companion/data/mmp.json`; GET/POST `/api/mmp`; MCP `get_mmp`; UI Profile tab |
-| **Estimated FTP** | Derived in MMP enrich (20min × 0.95) vs set FTP on Profile / `get_mmp` |
+| **FTP History** | `ftp-history.json`; appended when `setPhysiology` / `setFtp` changes **FTP** |
+| **FTP Progression** | `companion/src/domain/ftpProgression.ts`; GET `/api/ftp-progression`; MCP `get_ftp_progression`; Profile chart `web/src/ftp/FtpProgressionChart.tsx` |
+| **Estimated FTP** | Derived in MMP enrich (20min × 0.95) vs set FTP on Profile / `get_mmp`; as-of-date series on **FTP Progression** |
 | **Schedule again** | `web/src/ScheduleAgain.tsx` via `ActivityActions` |
 | **Scheduled Ride** / **missed** | `companion/data/scheduled/`; API `/api/scheduled-rides` (+ `/skip`, `/reschedule`); MCP `skip_scheduled_ride` / `reschedule_scheduled_ride`; today's list in Ride panel (`LiveDisplay`); shared row UI `SessionModule` |
 | **Session Purpose** | `purpose` on **Scheduled Ride** / **Activity**; MCP `create_scheduled_ride`; Calendar + History UI (see `docs/decisions/2026-10-10-session-purpose-on-scheduled-ride.md`) |
@@ -406,7 +430,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Workout** runner | `web/src/workout/workoutRunner.ts` — start/pause/resume/skip/stop + ERG targets |
 | **Open Step** | Step type `open` on a **Workout**; flat simulation `web/src/ftms/controlProbe.ts`; runner ignores **Ride Intensity** while it is current |
 | **Ride Intensity** / **Free Ride Target** | `web/src/domain/rideIntensity.ts` (scaling, ridden-target profile, keys); runner `setIntensity` / `setFreeRideTarget`; UI `web/src/RideIntensityControl.tsx`; app-wide keys in `App.tsx` |
-| MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `get_mmp`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`, `list_blockers`, `clear_blockers`) |
+| MCP | `companion/src/mcp/server.ts` — week-planning (`get_rider_profile`, `get_mmp`, `get_ftp_progression`, `set_ftp`, `set_training_intent`, workouts, calendar, `clear_scheduled_rides`, `list_blockers`, `clear_blockers`) |
 | **Rider Profile** / **LTHR** / **Threshold Pace** | `profile.json`; GET `/api/profile`; UI Profile tab (read-only); MCP `get_rider_profile` / `set_physiology` (`set_ftp` alias); External Load `companion/src/domain/externalLoad.ts`; resolve `web/src/domain/resolveTarget.ts` |
 | **Training Intent** | On **Rider Profile** / `profile.json`; UI Profile tab (read-only); MCP `set_training_intent` (see `docs/decisions/2026-10-10-training-intent-not-chat-only.md`, `docs/decisions/2026-10-10-mcp-writes-rider-profile.md`) |
 | **Target Prescription** | Workout steps: watts / `%FTP` / zone; resolve at run via current FTP |

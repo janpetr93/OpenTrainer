@@ -474,6 +474,13 @@ export function createRequestHandler(
         return
       }
 
+      if (method === 'GET' && url.pathname === '/api/ftp-progression') {
+        sendJson(res, 200, {
+          ftpProgression: await store.getFtpProgression(),
+        })
+        return
+      }
+
       if (method === 'GET' && url.pathname === '/api/mmp') {
         sendJson(res, 200, { mmp: await loadMmpView(store) })
         return

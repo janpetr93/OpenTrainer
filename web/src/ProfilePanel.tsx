@@ -7,6 +7,7 @@ import {
   disconnectStrava,
   getCalendarMirrorStatus,
   getForm,
+  getFtpProgression,
   getMmp,
   getRiderProfile,
   getStravaStatus,
@@ -14,10 +15,12 @@ import {
   recomputeMmp,
   type CalendarMirrorStatus,
   type FormView,
+  type FtpProgression,
   type MmpView,
   type RiderProfile,
   type StravaLinkStatus,
 } from './api'
+import { FtpProgressionChart } from './ftp/FtpProgressionChart'
 import { formatMmpDuration } from './mmp/formatDuration'
 import { MmpChart } from './mmp/MmpChart'
 import { takeOAuthSearch } from './oauthResult'
@@ -74,6 +77,7 @@ export function ProfilePanel({ onProfileChange }: Props) {
   const [healthy, setHealthy] = useState<boolean | null>(null)
   const [profile, setProfile] = useState<RiderProfile | null>(null)
   const [mmp, setMmp] = useState<MmpView | null>(null)
+  const [ftpProgression, setFtpProgression] = useState<FtpProgression | null>(null)
   const [form, setForm] = useState<FormView | null>(null)
   const [strava, setStrava] = useState<StravaLinkStatus | null>(null)
   const [calendarMirror, setCalendarMirror] =
@@ -106,18 +110,21 @@ export function ProfilePanel({ onProfileChange }: Props) {
       return
     }
     setError(null)
-    const [next, link, nextMmp, nextForm, mirror] = await Promise.all([
-      getRiderProfile(),
-      getStravaStatus(),
-      getMmp(),
-      getForm(),
-      getCalendarMirrorStatus(),
-    ])
+    const [next, link, nextMmp, nextForm, mirror, nextProgression] =
+      await Promise.all([
+        getRiderProfile(),
+        getStravaStatus(),
+        getMmp(),
+        getForm(),
+        getCalendarMirrorStatus(),
+        getFtpProgression(),
+      ])
     applyProfile(next)
     setStrava(link)
     setMmp(nextMmp)
     setForm(nextForm)
     setCalendarMirror(mirror)
+    setFtpProgression(nextProgression)
   }, [applyProfile])
 
   useEffect(() => {
@@ -190,7 +197,7 @@ export function ProfilePanel({ onProfileChange }: Props) {
             {healthy === null ? 'checking…' : healthy ? 'online' : 'offline'}
           </p>
         }
-        blurb="Physiology, power curve, Form, training intent, and optional Strava and Google Calendar links for this Local Store."
+        blurb="Physiology, FTP progression, power curve, Form, training intent, and optional Strava and Google Calendar links for this Local Store."
       />
 
       {error && <p className="banner error">{error}</p>}
@@ -238,6 +245,16 @@ export function ProfilePanel({ onProfileChange }: Props) {
             <code>set_physiology</code>. Absolute-watts workouts still work.
           </p>
         )}
+      </section>
+
+      <section className="panel-block">
+        <h2>FTP Progression</h2>
+        <p className="muted">
+          Set FTP and Estimated FTP by date. Estimated FTP is the best 20
+          minutes on or before that day, times 0.95. Each line holds until the
+          next change.
+        </p>
+        {ftpProgression && <FtpProgressionChart progression={ftpProgression} />}
       </section>
 
       <section className="panel-block">

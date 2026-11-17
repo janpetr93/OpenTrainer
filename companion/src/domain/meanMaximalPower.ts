@@ -79,7 +79,8 @@ function maxMeanForDuration(segment: number[], durationSec: number): number | nu
   return best / durationSec
 }
 
-function bestForActivity(
+/** Best mean watts for one duration. Same windows and watt source as MMP. */
+export function bestMeanWatts(
   activity: Activity,
   durationSec: number,
 ): number | null {
@@ -123,7 +124,7 @@ export function computeMmpFromActivities(
     let activityId: string | null = null
     let startedAt: string | null = null
     for (const activity of activities) {
-      const mean = bestForActivity(activity, durationSec)
+      const mean = bestMeanWatts(activity, durationSec)
       if (mean === null) continue
       if (bestMean === null || mean > bestMean) {
         bestMean = mean

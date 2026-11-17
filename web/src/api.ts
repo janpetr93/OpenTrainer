@@ -375,6 +375,23 @@ export async function getRiderProfile(): Promise<RiderProfile> {
   return body.profile
 }
 
+export type FtpProgressionPoint = {
+  date: string
+  setFtpWatts: number | null
+  estimatedFtpWatts: number | null
+}
+
+export type FtpProgression = {
+  through: string
+  points: FtpProgressionPoint[]
+}
+
+export async function getFtpProgression(): Promise<FtpProgression> {
+  const res = await fetch('/api/ftp-progression')
+  const body = await parseJson<{ ftpProgression: FtpProgression }>(res)
+  return body.ftpProgression
+}
+
 export async function getErgCalibration(): Promise<ErgCalibration> {
   const res = await fetch('/api/erg-calibration')
   const body = await parseJson<{ calibration: ErgCalibration }>(res)

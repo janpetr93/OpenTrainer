@@ -55,6 +55,8 @@ describe('plan_training_week prompt', () => {
     expect(planTrainingWeekPrompt).toMatch(/do not call set_ftp from it/i)
     expect(planTrainingWeekPrompt).toMatch(/do not (lower|discount) FTP/i)
     expect(planTrainingWeekPrompt).toMatch(/fan/i)
+    expect(planTrainingWeekPrompt).not.toContain('get_ftp_progression')
+    expect(reviewTrainingPrompt).not.toContain('get_ftp_progression')
   })
 })
 

@@ -50,6 +50,9 @@ export const serverInstructions = [
   'At most two hard sessions, an easy day between them, other rides under 75% FTP. Never zone 6 or 7. Call get_form and get_training_summary before writing a week, then check_training_week after. A run, gym, or swim Blocker may share a day with an easy ride only. Soft Form guidance when reliable. Off-bike: pass Garmin pace/HR/duration; OpenTrainer computes External Load. set_physiology for FTP/LTHR/Threshold Pace.',
 ].join(' ')
 
+export const getFtpProgressionToolDescription =
+  'Get FTP Progression: change-points of set FTP and Estimated FTP (best 20-minute MMP on or before that local date, times 0.95). Each point is the reading that day; a repeated wattage is still in force; null means that series has no value. through is today. Week planning still uses get_mmp for the current comparison. Do not call set_ftp from this history.'
+
 export const getMmpToolDescription =
   'Get cached Mean Maximal Power (lifetime best averages for fixed durations), Estimated FTP (20 min MMP × 0.95) vs set FTP, and stale flag. Cache refreshes automatically when an Activity is saved; Profile UI Recompute remains as a manual override. Empty when never computed. Estimated FTP is a hint only. Do not call set_ftp from it unless the rider agrees after a paced test.'
 
