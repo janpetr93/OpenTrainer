@@ -154,6 +154,8 @@ function App() {
   /** True only while this page is the ride that should be checkpointed. */
   const rideOpenRef = useRef(false)
   const checkpointRef = useRef<() => InProgressRideInput | null>(() => null)
+  /** The checkpoint PUT still on its way. Stop waits for it before saving. */
+  const checkpointInFlightRef = useRef<Promise<void> | null>(null)
   const savingRef = useRef(false)
 
   const ftpWatts = profile?.ftpWatts ?? null
@@ -283,6 +285,9 @@ function App() {
     // Stop checkpointing before the await so a reload cannot rewrite the file
     // after the Activity is saved.
     rideOpenRef.current = false
+    // A checkpoint landing after the save would bring the saved ride back as
+    // interrupted. Let the last one finish first.
+    await checkpointInFlightRef.current
     const workout = activeWorkout
     const startedAt = startedAtRef.current ?? new Date().toISOString()
     const summary = sampler.summarize()
@@ -423,9 +428,18 @@ function App() {
 
   useEffect(() => {
     if (runnerSnap.status !== 'running' && runnerSnap.status !== 'paused') return
+    // One at a time: the next second sends the whole ride again anyway.
+    if (checkpointInFlightRef.current) return
     const ride = checkpointRef.current()
     if (!ride) return
-    void putInProgressRide(ride).catch(() => {})
+    const request = putInProgressRide(ride)
+      .catch(() => {})
+      .finally(() => {
+        if (checkpointInFlightRef.current === request) {
+          checkpointInFlightRef.current = null
+        }
+      })
+    checkpointInFlightRef.current = request
   }, [runnerSnap.elapsedSec, runnerSnap.status])
 
   useEffect(() => {

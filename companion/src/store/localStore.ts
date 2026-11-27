@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { PowerZoneId } from '../domain/cogganZones.js'
@@ -1173,7 +1173,15 @@ export class LocalStore {
     return JSON.parse(raw) as T
   }
 
+  /** Replace by rename, so a concurrent reader never sees a half-written file. */
   private async writeJson(path: string, value: unknown): Promise<void> {
-    await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
+    const tmp = `${path}.${randomUUID()}.tmp`
+    await writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
+    try {
+      await rename(tmp, path)
+    } catch (error) {
+      await unlink(tmp).catch(() => {})
+      throw error
+    }
   }
 }

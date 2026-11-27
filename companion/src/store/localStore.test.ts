@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -663,5 +663,41 @@ describe('LocalStore', () => {
     expect(activity.scheduledRideId).toBe(scheduled.id)
     expect(await store.getInProgressRide()).toBeNull()
     expect((await store.getScheduledRide(scheduled.id))?.status).toBe('completed')
+  })
+
+  it('keeps the in-progress ride readable while checkpoints overlap', async () => {
+    const base = {
+      startedAt: '2026-11-26T16:58:15.000Z',
+      elapsedSec: 0,
+      durationSec: 0,
+      averagePowerWatts: 100,
+      maxPowerWatts: 100,
+      achievedPowerProfile: [{ tSec: 0, watts: 100 }],
+      plannedPowerProfile: null,
+      targetPowerProfile: null,
+      freeRideFromSec: null,
+      workoutId: null,
+      scheduledRideId: null,
+      purpose: null,
+      primaryPowerSource: null,
+      ftpWatts: null,
+      freeRide: true,
+      intensityPercent: 100,
+      intensityChanges: [],
+      freeRideTargetWatts: null,
+      freeRideTargetChanges: [],
+      updatedAt: '2026-11-26T16:58:15.000Z',
+      schemaVersion: 1 as const,
+    }
+    const writes = Array.from({ length: 20 }, (_, sec) =>
+      store.saveInProgressRide({ ...base, elapsedSec: sec, durationSec: sec }),
+    )
+    const reads = Array.from({ length: 20 }, () => store.getInProgressRide())
+    await Promise.all(writes)
+    for (const read of await Promise.all(reads)) {
+      if (read !== null) expect(read.startedAt).toBe(base.startedAt)
+    }
+    expect(await store.getInProgressRide()).not.toBeNull()
+    expect((await readdir(root)).filter((name) => name.endsWith('.tmp'))).toEqual([])
   })
 })
