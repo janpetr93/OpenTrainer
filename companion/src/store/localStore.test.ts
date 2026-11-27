@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -699,5 +699,45 @@ describe('LocalStore', () => {
     }
     expect(await store.getInProgressRide()).not.toBeNull()
     expect((await readdir(root)).filter((name) => name.endsWith('.tmp'))).toEqual([])
+  })
+
+  it('saving the same ride twice keeps one Activity', async () => {
+    const input = {
+      startedAt: '2026-11-20T07:00:00.000Z',
+      durationSec: 600,
+      averagePowerWatts: 180,
+      maxPowerWatts: 250,
+      achievedPowerProfile: [
+        { tSec: 0, watts: 170 },
+        { tSec: 600, watts: 190 },
+      ],
+      plannedPowerProfile: null,
+      workoutId: null,
+    }
+    const first = await store.saveActivity(input)
+    const second = await store.saveActivity({ ...input, durationSec: 590 })
+    expect(second.id).toBe(first.id)
+    expect(await readdir(join(root, 'activities'))).toHaveLength(1)
+  })
+
+  it('refuses ids that would leave the record folder', async () => {
+    await writeFile(join(root, 'victim.json'), '{"workoutId":"x","startsAt":"2026-01-01T00:00:00Z"}')
+    expect(await store.getScheduledRide('../victim')).toBeNull()
+    await expect(store.deleteScheduledRide('../victim')).rejects.toThrow('Invalid id')
+    await expect(store.deleteBlocker('..\\victim')).rejects.toThrow('Invalid id')
+    expect(await readdir(root)).toContain('victim.json')
+    expect(await store.getWorkout('sample-easy-endurance')).toBeNull()
+  })
+
+  it('leaves an unreadable file out of a listing instead of failing it', async () => {
+    const workout = await store.createWorkout({
+      name: 'Spin',
+      steps: [{ type: 'steady', durationSec: 600, targetWatts: 150, percentFtp: null, zone: null }],
+    })
+    await store.createScheduledRide({ workoutId: workout.id, startsAt: '2026-12-01T07:00:00Z' })
+    await writeFile(join(root, 'scheduled', 'broken.json'), '{')
+    await writeFile(join(root, 'activities', 'broken.json'), '{')
+    expect(await store.listScheduledRides()).toHaveLength(1)
+    expect(await store.listActivities()).toEqual([])
   })
 })

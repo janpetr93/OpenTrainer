@@ -16,6 +16,9 @@ import type { StravaFetch } from '../strava/client.js'
 import { StravaLinkService } from '../strava/service.js'
 import type { GoogleCalendarConfig } from '../googleCalendar/config.js'
 import { CalendarMirror } from '../googleCalendar/service.js'
+import { BadRequestError, UpstreamError } from '../errors.js'
+
+export { BadRequestError, UpstreamError }
 
 export type CreateAppOptions = {
   stravaConfig?: StravaConfig | null
@@ -27,11 +30,58 @@ export type CreateAppOptions = {
   issueOAuthHandoff?: () => string
 }
 
+
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
+
+/** Request bodies are JSON; the largest is a FIT upload in base64. */
+const MAX_BODY_BYTES = 25 * 1024 * 1024
+
+function hostnameOf(value: string): string | null {
+  try {
+    return new URL(value).hostname
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The companion holds the rider's data and Strava / Google tokens, so only the
+ * app itself may call it. The UI is same-origin (Vite proxy in development,
+ * the desktop server when packaged), so no CORS headers are sent: a page on
+ * another site cannot read responses or pass a preflight. The checks below
+ * also stop simple cross-site requests and DNS rebinding: the Host must be a
+ * loopback name, and a browser-sent Origin must be loopback too.
+ */
+export function isAllowedRequest(req: IncomingMessage): boolean {
+  const host = req.headers.host
+  if (!host || !LOOPBACK_HOSTS.has(hostnameOf(`http://${host}`) ?? '')) {
+    return false
+  }
+  const origin = req.headers.origin
+  if (origin === undefined) return true
+  return LOOPBACK_HOSTS.has(hostnameOf(origin) ?? '')
+}
+
+/** Status for an error: 400 for client mistakes, 502 for Strava / Google, 500 otherwise. */
+export function statusForError(error: unknown): number {
+  if (error instanceof BadRequestError) return 400
+  if (error instanceof UpstreamError) return 502
+  if (error instanceof SyntaxError) return 500 // a stored file, not the body
+  if (error instanceof TypeError) {
+    // fetch() reports an unreachable Strava / Google as TypeError('fetch failed');
+    // any other TypeError is a bug here.
+    return error.message === 'fetch failed' ? 502 : 500
+  }
+  if (error instanceof Error && typeof (error as NodeJS.ErrnoException).code === 'string') {
+    return 500 // filesystem: EACCES, ENOSPC, EISDIR, …
+  }
+  // Validation in the store and services throws plain Errors with a message
+  // for the rider ("Workout not found", "startsAt must be …").
+  return 400
+}
+
 function sendRedirect(res: ServerResponse, location: string): void {
-  res.writeHead(302, {
-    Location: location,
-    'Access-Control-Allow-Origin': '*',
-  })
+  res.writeHead(302, { Location: location })
   res.end()
 }
 
@@ -45,31 +95,33 @@ const STEP_TYPES = new Set<WorkoutStepType>([
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body)
-  res.writeHead(status, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  })
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' })
   res.end(payload)
 }
 
 function sendText(res: ServerResponse, status: number, body: string): void {
-  res.writeHead(status, {
-    'Content-Type': 'text/plain; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
-  })
+  res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' })
   res.end(body)
 }
 
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = []
+  let size = 0
   for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    size += buffer.length
+    if (size > MAX_BODY_BYTES) {
+      throw new BadRequestError('Request body is too large')
+    }
+    chunks.push(buffer)
   }
   const raw = Buffer.concat(chunks).toString('utf8')
   if (!raw.trim()) return null
-  return JSON.parse(raw) as unknown
+  try {
+    return JSON.parse(raw) as unknown
+  } catch {
+    throw new BadRequestError('Request body is not valid JSON')
+  }
 }
 
 function optionalMetric(
@@ -97,7 +149,9 @@ function parseProfilePoints(value: unknown, field: string): PowerProfilePoint[] 
     const p = point as Record<string, unknown>
     if (
       typeof p.tSec !== 'number' ||
-      (p.watts !== null && typeof p.watts !== 'number')
+      !Number.isFinite(p.tSec) ||
+      p.tSec < 0 ||
+      (p.watts !== null && (typeof p.watts !== 'number' || !Number.isFinite(p.watts)))
     ) {
       throw new Error(`${field}[${index}] needs numeric tSec and watts or null`)
     }
@@ -130,8 +184,12 @@ function parseSaveActivity(body: unknown): SaveActivityInput {
   if (typeof record.startedAt !== 'string') {
     throw new Error('startedAt must be an ISO string')
   }
-  if (typeof record.durationSec !== 'number') {
-    throw new Error('durationSec must be a number')
+  if (
+    typeof record.durationSec !== 'number' ||
+    !Number.isFinite(record.durationSec) ||
+    record.durationSec < 0
+  ) {
+    throw new Error('durationSec must be a non-negative number')
   }
   const averagePowerWatts =
     record.averagePowerWatts === undefined || record.averagePowerWatts === null
@@ -256,7 +314,10 @@ function parseWorkoutStep(
     throw new Error(`${label}.percentFtp must be a number or null`)
   }
   const zone = s.zone === undefined || s.zone === null ? null : s.zone
-  if (zone !== null && typeof zone !== 'number') {
+  if (
+    zone !== null &&
+    (typeof zone !== 'number' || !Number.isInteger(zone) || zone < 1 || zone > 7)
+  ) {
     throw new Error(`${label}.zone must be 1–7 or null`)
   }
   return {
@@ -326,16 +387,26 @@ export function createRequestHandler(
     issueOAuthHandoff: options.issueOAuthHandoff,
   })
 
+  /** Scheduled Ride writes have landed by now; a mirror failure must not report them as failed. */
+  const reconcileQuietly = async (): Promise<void> => {
+    try {
+      await calendarMirror.reconcile()
+    } catch (error) {
+      console.error('Calendar Mirror reconcile failed:', error)
+    }
+  }
+
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const method = req.method ?? 'GET'
     const url = new URL(req.url ?? '/', 'http://localhost')
 
+    if (!isAllowedRequest(req)) {
+      sendJson(res, 403, { error: 'Requests must come from the OpenTrainer app' })
+      return
+    }
+
     if (method === 'OPTIONS') {
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      })
+      res.writeHead(204)
       res.end()
       return
     }
@@ -560,7 +631,7 @@ export function createRequestHandler(
         const body = await readJsonBody(req)
         const input = parseCreateScheduledRide(body)
         const scheduledRide = await store.createScheduledRide(input)
-        await calendarMirror.reconcile()
+        await reconcileQuietly()
         sendJson(res, 201, { scheduledRide })
         return
       }
@@ -578,7 +649,7 @@ export function createRequestHandler(
           since: record.since,
           until: record.until,
         })
-        await calendarMirror.reconcile()
+        await reconcileQuietly()
         sendJson(res, 200, { deleted })
         return
       }
@@ -591,10 +662,10 @@ export function createRequestHandler(
         const body = await readJsonBody(req)
         const reason =
           body && typeof body === 'object'
-            ? parseOptionalPurpose((body as Record<string, unknown>).reason)
+            ? parseOptionalString((body as Record<string, unknown>).reason, 'reason')
             : null
         const scheduledRide = await store.skipScheduledRide(id, reason)
-        await calendarMirror.reconcile()
+        await reconcileQuietly()
         sendJson(res, 200, { scheduledRide })
         return
       }
@@ -613,7 +684,7 @@ export function createRequestHandler(
           throw new Error('startsAt must be an ISO string')
         }
         const scheduledRide = await store.rescheduleScheduledRide(id, startsAt)
-        await calendarMirror.reconcile()
+        await reconcileQuietly()
         sendJson(res, 200, { scheduledRide })
         return
       }
@@ -628,7 +699,7 @@ export function createRequestHandler(
           sendJson(res, 404, { error: 'Scheduled Ride not found' })
           return
         }
-        await calendarMirror.reconcile()
+        await reconcileQuietly()
         sendJson(res, 200, { ok: true })
         return
       }
@@ -636,17 +707,27 @@ export function createRequestHandler(
       sendText(res, 404, 'Not found')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      sendJson(res, 400, { error: message })
+      const status = statusForError(error)
+      if (status >= 500) console.error(`${method} ${url.pathname} failed:`, error)
+      if (res.headersSent) {
+        res.end()
+        return
+      }
+      sendJson(res, status, { error: message })
     }
   }
 }
 
-function parseOptionalPurpose(value: unknown): string | null {
+function parseOptionalString(value: unknown, field: string): string | null {
   if (value === undefined || value === null) return null
   if (typeof value !== 'string') {
-    throw new Error('purpose must be a string or null')
+    throw new Error(`${field} must be a string or null`)
   }
   return value
+}
+
+function parseOptionalPurpose(value: unknown): string | null {
+  return parseOptionalString(value, 'purpose')
 }
 
 function parseCreateScheduledRide(body: unknown): CreateScheduledRideInput {

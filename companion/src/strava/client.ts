@@ -1,3 +1,5 @@
+import { UpstreamError } from '../errors.js'
+
 export type StravaTokenResponse = {
   token_type: string
   expires_at: number
@@ -95,12 +97,12 @@ export async function exchangeAuthorizationCode(
   })
   const json = (await res.json()) as StravaTokenResponse & StravaErrorBody
   if (!res.ok) {
-    throw new Error(
+    throw new UpstreamError(
       formatStravaApiError(res.status, json, 'Strava token exchange failed'),
     )
   }
   if (!json.access_token || !json.refresh_token || !json.expires_at) {
-    throw new Error('Strava token response missing fields')
+    throw new UpstreamError('Strava token response missing fields')
   }
   return json
 }
@@ -126,12 +128,12 @@ export async function refreshAccessToken(
   })
   const json = (await res.json()) as StravaTokenResponse & StravaErrorBody
   if (!res.ok) {
-    throw new Error(
+    throw new UpstreamError(
       formatStravaApiError(res.status, json, 'Strava token refresh failed'),
     )
   }
   if (!json.access_token || !json.refresh_token || !json.expires_at) {
-    throw new Error('Strava refresh response missing fields')
+    throw new UpstreamError('Strava refresh response missing fields')
   }
   return json
 }
@@ -167,12 +169,12 @@ export async function uploadActivityFit(
   })
   const json = (await res.json()) as StravaUploadResponse & StravaErrorBody
   if (!res.ok) {
-    throw new Error(
+    throw new UpstreamError(
       formatStravaApiError(res.status, json, 'Strava upload failed'),
     )
   }
   if (typeof json.id !== 'number') {
-    throw new Error('Strava upload response missing id')
+    throw new UpstreamError('Strava upload response missing id')
   }
   return json
 }
