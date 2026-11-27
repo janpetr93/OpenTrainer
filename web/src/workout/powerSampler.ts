@@ -36,6 +36,13 @@ export class PowerSampler {
     this.lastSec = -1
   }
 
+  /** Replace samples from an in-progress ride. Later seconds append as usual. */
+  restore(profile: PowerProfilePoint[]): void {
+    this.samples = profile.map((point) => ({ ...point }))
+    const last = this.samples[this.samples.length - 1]
+    this.lastSec = last ? last.tSec : -1
+  }
+
   record(elapsedSec: number, metrics: SampleMetrics): void {
     const sec = Math.max(0, Math.floor(elapsedSec))
     const point = pointFromMetrics(sec, metrics)

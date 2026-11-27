@@ -15,6 +15,10 @@ const openTrainer: {
   power: {
     keepAwake: (active: boolean) => Promise<void>
   }
+  /** Synchronous checkpoint so reload and quit keep the in-progress ride. */
+  ride: {
+    checkpoint: (body: unknown) => void
+  }
   cadence?: {
     connect: (options?: { deviceId?: string; name?: string }) => Promise<{
       id: string
@@ -34,6 +38,11 @@ const openTrainer: {
   },
   power: {
     keepAwake: (active) => ipcRenderer.invoke('power:keep-awake', active),
+  },
+  ride: {
+    checkpoint: (body) => {
+      ipcRenderer.sendSync('ride:checkpoint', body)
+    },
   },
 }
 

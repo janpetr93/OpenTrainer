@@ -38,4 +38,19 @@ describe('PowerSampler', () => {
     sampler.record(0, { watts: 180, hrBpm: null, cadenceRpm: null })
     expect(sampler.getProfile()).toEqual([{ tSec: 0, watts: 180 }])
   })
+
+  it('restores samples and keeps recording after the last second', () => {
+    const sampler = new PowerSampler()
+    sampler.restore([
+      { tSec: 0, watts: 100 },
+      { tSec: 4, watts: 140 },
+    ])
+    sampler.record(4.2, { watts: 145 })
+    sampler.record(5, { watts: 150 })
+    expect(sampler.getProfile()).toEqual([
+      { tSec: 0, watts: 100 },
+      { tSec: 4, watts: 145 },
+      { tSec: 5, watts: 150 },
+    ])
+  })
 })

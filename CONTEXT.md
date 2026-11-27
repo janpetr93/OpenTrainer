@@ -174,6 +174,10 @@ _Avoid_: Intent (use **Training Intent** for the profile goal), phase, availabil
 The recorded outcome of an actual ride (timestamped power samples and interval metadata), exportable as an indoor trainer FIT file (TCX only if FIT proves painful); may carry **Session Purpose** copied from the **Scheduled Ride**, plus **Session Load** and optional **Session Adherence**.
 _Avoid_: Session, workout (a **Workout** is the plan; an **Activity** is what was ridden)
 
+**In-progress Ride**:
+The Local Store record of a ride that is still going, or paused after a crash, reload, or quit — samples and workout position, not an **Activity** until Stop.
+_Avoid_: Draft activity, crash file
+
 **Power Profile**:
 Watts over elapsed time for a plan or ride — for a **Workout**, the planned step chart; for an **Activity**, achieved power (and planned overlay when a **Workout** was followed). Achieved points may also include optional `hrBpm` / `cadenceRpm` / `meterWatts` when those sensors were fresh; the Ride chart shows watts (shared scale, optional **Power Zone** bands from **FTP**) on the hero plot and HR/cadence on a body-metric strip with fixed bands (40–200 bpm, 0–120 rpm).
 _Avoid_: Power curve (use **Mean Maximal Power** for bests), MMP as a synonym for this session chart
@@ -367,6 +371,7 @@ _Avoid_: Sync (implies two-way), Gmail calendar (the product is Google Calendar)
 | **Blocker** | `companion/data/blockers/`; GET `/api/blockers`; MCP `list_blockers` / `create_blocker` / `update_blocker` / `delete_blocker` / `clear_blockers`; calendar marks `web/src/calendar/calendarMarks.ts` (see `docs/decisions/2026-11-11-calendar-blocker.md`) |
 | Session module (Scheduled / Activity rows) | `web/src/SessionModule.tsx` + `web/src/session/sessionModuleHelpers.ts` (`activityMeta` / `scheduledMeta`); planned preview via `web/src/domain/scheduledWorkoutPreview.ts` (Ride, History, Calendar) |
 | **Activity** recording | `web/src/workout/` + `POST /api/activities`; runner on Ride tab |
+| **In-progress Ride** | `companion/data/in-progress-ride.json`; GET/PUT/DELETE `/api/in-progress-ride`; restored paused on the Ride tab (see `docs/decisions/2026-11-26-in-progress-ride-survives-crash.md`) |
 | **Session Load** / **Session Adherence** | `companion/src/domain/sessionLoad.ts`, `sessionAdherence.ts`; on **Activity** JSON; Session module via `web/src/session/sessionModuleHelpers.ts` |
 | **Training Summary** / week check | `companion/src/domain/trainingSummary.ts`; MCP `get_training_summary`, `check_training_week` |
 | **Workout Repeat** | `companion/src/domain/workoutItems.ts` and `web/src/domain/workoutItems.ts` — expanded for the planned **Power Profile** and the **Workout** runner |

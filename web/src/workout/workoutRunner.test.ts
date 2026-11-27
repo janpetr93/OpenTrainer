@@ -553,3 +553,54 @@ describe('WorkoutRunner continue as Free Ride', () => {
     expect(runner.getSnapshot().freeRideFromSec).toBeNull()
   })
 })
+
+describe('WorkoutRunner restore paused', () => {
+  it('reopens a Workout at the saved second without adding time', () => {
+    const runner = new WorkoutRunner()
+    runner.start(sampleWorkout, 0)
+    runner.tick(7_000)
+    runner.setIntensity(90, 7_000)
+    runner.pause(7_000)
+    const progress = runner.getProgress()
+    expect(progress?.elapsedSec).toBe(7)
+
+    const restored = new WorkoutRunner()
+    restored.restorePaused(sampleWorkout, progress!)
+    expect(restored.getSnapshot()).toMatchObject({
+      status: 'paused',
+      workoutId: 'w1',
+      stepIndex: 1,
+      elapsedSec: 7,
+      intensityPercent: 90,
+      stepTargetWatts: 180,
+      targetChanged: false,
+    })
+    expect(restored.getTargetPowerProfile()).toEqual(runner.getTargetPowerProfile())
+
+    restored.resume(60_000)
+    expect(restored.getSnapshot().targetChanged).toBe(true)
+    restored.tick(61_000)
+    expect(restored.getSnapshot().elapsedSec).toBe(8)
+  })
+
+  it('reopens a Free Ride with its target', () => {
+    const runner = new WorkoutRunner()
+    runner.startFreeRide(0)
+    runner.tick(4_000)
+    runner.setFreeRideTarget(180, 4_000)
+    runner.pause(4_000)
+    const progress = runner.getProgress()
+
+    const restored = new WorkoutRunner()
+    restored.restorePaused(null, progress!)
+    expect(restored.getSnapshot()).toMatchObject({
+      status: 'paused',
+      workoutName: 'Free Ride',
+      elapsedSec: 4,
+      stepTargetWatts: 180,
+    })
+    restored.resume(10_000)
+    restored.tick(12_000)
+    expect(restored.getSnapshot().elapsedSec).toBe(6)
+  })
+})

@@ -10,6 +10,7 @@ import type {
   WorkoutStep,
   WorkoutStepType,
 } from '../domain/types.js'
+import { parseInProgressRide } from '../domain/inProgressRide.js'
 import type { StravaConfig } from '../strava/config.js'
 import type { StravaFetch } from '../strava/client.js'
 import { StravaLinkService } from '../strava/service.js'
@@ -518,6 +519,24 @@ export function createRequestHandler(
         const input = parseSaveActivity(body)
         const activity = await store.saveActivity(input)
         sendJson(res, 201, { activity })
+        return
+      }
+
+      if (method === 'GET' && url.pathname === '/api/in-progress-ride') {
+        sendJson(res, 200, { inProgressRide: await store.getInProgressRide() })
+        return
+      }
+
+      if (method === 'PUT' && url.pathname === '/api/in-progress-ride') {
+        const body = await readJsonBody(req)
+        const inProgressRide = await store.saveInProgressRide(parseInProgressRide(body))
+        sendJson(res, 200, { inProgressRide })
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname === '/api/in-progress-ride') {
+        await store.clearInProgressRide()
+        sendJson(res, 200, { ok: true })
         return
       }
 

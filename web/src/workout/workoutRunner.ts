@@ -21,6 +21,18 @@ import {
   type IntensityChange,
 } from '../domain/rideIntensity'
 
+export type RideProgress = {
+  elapsedSec: number
+  freeRide: boolean
+  freeRideFromSec: number | null
+  workoutId: string | null
+  ftpWatts: number | null
+  intensityPercent: number
+  intensityChanges: IntensityChange[]
+  freeRideTargetWatts: number | null
+  freeRideTargetChanges: FreeRideTargetChange[]
+}
+
 export type RunnerStatus =
   | 'idle'
   | 'running'
@@ -84,6 +96,16 @@ type Internal = {
   /** Set when a Workout continued as a Free Ride; the plan ends here. */
   freeRideFromSec: number | null
   simulationRejected: boolean
+}
+
+function stepIndexAt(steps: WorkoutStep[], elapsedSec: number): number {
+  let startSec = 0
+  for (let i = 0; i < steps.length; i++) {
+    const endSec = startSec + steps[i]!.durationSec
+    if (elapsedSec < endSec) return i
+    startSec = endSec
+  }
+  return Math.max(0, steps.length - 1)
 }
 
 function totalDuration(steps: WorkoutStep[]): number {
@@ -299,6 +321,80 @@ export class WorkoutRunner {
     this.state.targetChanged = true
   }
 
+  /**
+   * Position and targets to write into an in-progress ride. Null before Start.
+   * Still available after Stop so a failed save can be written again.
+   */
+  getProgress(): RideProgress | null {
+    if (this.state.status === 'idle') return null
+    return {
+      elapsedSec: Math.floor(this.state.elapsedSec),
+      freeRide: this.state.freeRide,
+      freeRideFromSec: this.state.freeRideFromSec,
+      workoutId: this.state.workout?.id ?? null,
+      ftpWatts: this.state.ftpWatts,
+      intensityPercent: this.state.intensityPercent,
+      intensityChanges: this.state.intensityChanges.map((change) => ({ ...change })),
+      freeRideTargetWatts: this.state.freeRideTargetWatts,
+      freeRideTargetChanges: this.state.freeRideTargetChanges.map((change) => ({
+        ...change,
+      })),
+    }
+  }
+
+  /**
+   * Open a ride paused at a saved second. Wall-clock time since the crash
+   * is not added. Resume sends the current target to the trainer again.
+   */
+  restorePaused(workout: Workout | null, progress: RideProgress): void {
+    const elapsedSec = Math.max(0, Math.floor(progress.elapsedSec))
+    if (progress.workoutId === null) {
+      this.state = {
+        ...idleState(),
+        freeRide: true,
+        status: 'paused',
+        elapsedSec,
+        elapsedAtSegmentStart: elapsedSec,
+        freeRideFromSec: progress.freeRideFromSec,
+        freeRideTargetWatts: progress.freeRideTargetWatts,
+        freeRideTargetChanges: progress.freeRideTargetChanges.map((change) => ({
+          ...change,
+        })),
+      }
+      return
+    }
+    if (!workout || workout.id !== progress.workoutId) {
+      throw new Error('Workout for the in-progress ride is missing')
+    }
+    const steps = expandWorkoutItems(workout.steps)
+    if (steps.length === 0) throw new Error('Workout has no steps')
+    const ftpWatts = progress.ftpWatts
+    if (workoutNeedsFtp(steps) && (ftpWatts === null || ftpWatts <= 0)) {
+      throw new Error('Set FTP via MCP (set_ftp) before starting this Workout')
+    }
+    for (const step of steps) resolveStepWatts(step, ftpWatts)
+    this.state = {
+      ...idleState(),
+      workout: { ...workout, steps },
+      freeRide: progress.freeRide,
+      ftpWatts,
+      status: 'paused',
+      stepIndex: progress.freeRide
+        ? Math.max(0, steps.length - 1)
+        : stepIndexAt(steps, elapsedSec),
+      elapsedSec,
+      elapsedAtSegmentStart: elapsedSec,
+      plannedProfile: buildPlannedPowerProfile(steps, ftpWatts),
+      intensityPercent: clampIntensityPercent(progress.intensityPercent),
+      intensityChanges: progress.intensityChanges.map((change) => ({ ...change })),
+      freeRideTargetWatts: progress.freeRideTargetWatts,
+      freeRideTargetChanges: progress.freeRideTargetChanges.map((change) => ({
+        ...change,
+      })),
+      freeRideFromSec: progress.freeRideFromSec,
+    }
+  }
+
   /** Consume the targetChanged flag after the UI applies ERG. */
   clearTargetChanged(): void {
     this.state.targetChanged = false
@@ -375,13 +471,9 @@ export class WorkoutRunner {
     this.state.status = 'running'
     this.state.segmentStartedAtMs = nowMs
     this.state.elapsedAtSegmentStart = this.state.elapsedSec
-    const workout = this.state.workout
-    if (
-      workout &&
-      stepBounds(workout.steps, this.state.stepIndex).step.type === 'open'
-    ) {
-      this.state.targetChanged = true
-    }
+    // The trainer may have dropped while paused (a crash, or Bluetooth).
+    // Ask for the current target again on the next tick.
+    this.state.targetChanged = true
   }
 
   skip(nowMs: number): void {

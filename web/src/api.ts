@@ -327,6 +327,73 @@ export async function saveActivity(input: SaveActivityInput): Promise<Activity> 
   return body.activity
 }
 
+/** A ride that is still going, or paused after a crash, reload, or quit. */
+export type InProgressRide = {
+  startedAt: string
+  updatedAt: string
+  elapsedSec: number
+  durationSec: number
+  averagePowerWatts: number | null
+  maxPowerWatts: number | null
+  achievedPowerProfile: PowerProfilePoint[]
+  plannedPowerProfile: PowerProfilePoint[] | null
+  targetPowerProfile: PowerProfilePoint[] | null
+  freeRideFromSec: number | null
+  workoutId: string | null
+  scheduledRideId: string | null
+  purpose: string | null
+  primaryPowerSource: PowerSourceMode | null
+  ftpWatts: number | null
+  freeRide: boolean
+  intensityPercent: number
+  intensityChanges: { tSec: number; percent: number }[]
+  freeRideTargetWatts: number | null
+  freeRideTargetChanges: { tSec: number; watts: number }[]
+}
+
+export type InProgressRideInput = Omit<InProgressRide, 'updatedAt'>
+
+export function saveActivityInputFromInProgress(
+  ride: InProgressRide | InProgressRideInput,
+): SaveActivityInput {
+  return {
+    startedAt: ride.startedAt,
+    durationSec: ride.durationSec,
+    averagePowerWatts: ride.averagePowerWatts,
+    maxPowerWatts: ride.maxPowerWatts,
+    achievedPowerProfile: ride.achievedPowerProfile,
+    plannedPowerProfile: ride.plannedPowerProfile,
+    targetPowerProfile: ride.targetPowerProfile,
+    freeRideFromSec: ride.freeRideFromSec,
+    workoutId: ride.workoutId,
+    scheduledRideId: ride.scheduledRideId,
+    purpose: ride.purpose,
+    primaryPowerSource: ride.primaryPowerSource,
+  }
+}
+
+export async function getInProgressRide(): Promise<InProgressRide | null> {
+  const res = await fetch('/api/in-progress-ride')
+  const body = await parseJson<{ inProgressRide: InProgressRide | null }>(res)
+  return body.inProgressRide
+}
+
+export async function putInProgressRide(
+  input: InProgressRideInput,
+): Promise<void> {
+  const res = await fetch('/api/in-progress-ride', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  await parseJson(res)
+}
+
+export async function deleteInProgressRide(): Promise<void> {
+  const res = await fetch('/api/in-progress-ride', { method: 'DELETE' })
+  await parseJson(res)
+}
+
 export async function companionHealthy(): Promise<boolean> {
   try {
     const res = await fetch('/api/health')

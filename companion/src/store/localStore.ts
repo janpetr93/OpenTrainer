@@ -22,6 +22,12 @@ import {
 } from '../domain/sessionAdherence.js'
 import { computeSessionLoad } from '../domain/sessionLoad.js'
 import {
+  IN_PROGRESS_RIDE_FILE,
+  inProgressRideIsBehind,
+  parseInProgressRide,
+  type InProgressRide,
+} from '../domain/inProgressRide.js'
+import {
   STORE_SCHEMA_VERSION,
   type Activity,
   type ActivityStravaUpload,
@@ -230,6 +236,7 @@ export class LocalStore {
   private readonly googleCalendarEventsPath: string
   private readonly mmpPath: string
   private readonly ergCalibrationPath: string
+  private readonly inProgressRidePath: string
 
   constructor(private readonly rootDir: string) {
     this.workoutsDir = join(rootDir, 'workouts')
@@ -242,6 +249,7 @@ export class LocalStore {
     this.googleCalendarEventsPath = join(rootDir, GOOGLE_CALENDAR_EVENTS_FILE)
     this.mmpPath = join(rootDir, MMP_FILE)
     this.ergCalibrationPath = join(rootDir, ERG_CALIBRATION_FILE)
+    this.inProgressRidePath = join(rootDir, IN_PROGRESS_RIDE_FILE)
   }
 
   async ensureReady(): Promise<void> {
@@ -526,6 +534,7 @@ export class LocalStore {
       ...activity,
       sessionAdherenceRevision: SESSION_ADHERENCE_REVISION,
     })
+    await this.clearInProgressRideIfStartedAt(input.startedAt)
     if (scheduledRideId) {
       await this.markScheduledRideCompleted(scheduledRideId, activity.id)
     }
@@ -1107,6 +1116,51 @@ export class LocalStore {
       throw new Error('Step durationSec must be a positive number')
     }
     assertStepPrescription(normalizeStep(step))
+  }
+
+  /** The ride still going, or paused after a crash, reload, or quit. Not an Activity. */
+  async getInProgressRide(): Promise<InProgressRide | null> {
+    let raw: unknown
+    try {
+      raw = JSON.parse(await readFile(this.inProgressRidePath, 'utf8')) as unknown
+    } catch {
+      return null
+    }
+    try {
+      return parseInProgressRide(raw)
+    } catch {
+      await this.clearInProgressRide()
+      return null
+    }
+  }
+
+  /**
+   * Replace the in-progress ride. A write that is behind the stored ride
+   * (same start, earlier second) is ignored so a late request cannot rewind it.
+   */
+  async saveInProgressRide(input: InProgressRide): Promise<InProgressRide> {
+    const ride = parseInProgressRide(input)
+    const existing = await this.getInProgressRide()
+    if (existing && inProgressRideIsBehind(existing, ride)) return existing
+    const stored: InProgressRide = {
+      ...ride,
+      updatedAt: new Date().toISOString(),
+    }
+    await this.writeJson(this.inProgressRidePath, stored)
+    return stored
+  }
+
+  async clearInProgressRide(): Promise<void> {
+    try {
+      await unlink(this.inProgressRidePath)
+    } catch {
+      /* already gone */
+    }
+  }
+
+  private async clearInProgressRideIfStartedAt(startedAt: string): Promise<void> {
+    const current = await this.getInProgressRide()
+    if (current?.startedAt === startedAt) await this.clearInProgressRide()
   }
 
   private async listJsonFiles(dir: string): Promise<string[]> {

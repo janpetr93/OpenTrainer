@@ -599,4 +599,69 @@ describe('LocalStore', () => {
     expect(await store.isMmpStale(after)).toBe(false)
     expect(after!.activityCount).toBe(2)
   })
+
+  it('keeps an in-progress ride out of History until the Activity is saved', async () => {
+    const workout = await store.createWorkout({
+      name: 'Easy',
+      steps: sampleSteps,
+    })
+    const scheduled = await store.createScheduledRide({
+      workoutId: workout.id,
+      startsAt: '2026-11-26T16:00:00.000Z',
+    })
+    const startedAt = '2026-11-26T16:58:15.000Z'
+    const ride = {
+      schemaVersion: 1 as const,
+      startedAt,
+      updatedAt: '2026-11-26T16:58:15.000Z',
+      elapsedSec: 120,
+      durationSec: 120,
+      averagePowerWatts: 150,
+      maxPowerWatts: 160,
+      achievedPowerProfile: [
+        { tSec: 0, watts: 140 },
+        { tSec: 120, watts: 160 },
+      ],
+      plannedPowerProfile: [{ tSec: 0, watts: 150 }],
+      targetPowerProfile: null,
+      freeRideFromSec: null,
+      workoutId: workout.id,
+      scheduledRideId: scheduled.id,
+      purpose: 'Easy spin',
+      primaryPowerSource: 'trainer' as const,
+      ftpWatts: 250,
+      freeRide: false,
+      intensityPercent: 100,
+      intensityChanges: [],
+      freeRideTargetWatts: null,
+      freeRideTargetChanges: [],
+    }
+    const saved = await store.saveInProgressRide(ride)
+    expect(saved.elapsedSec).toBe(120)
+    expect(saved.updatedAt).not.toBe(ride.updatedAt)
+    expect(await store.listActivities({})).toEqual([])
+    expect((await store.getScheduledRide(scheduled.id))?.status).toBe('planned')
+
+    const stale = await store.saveInProgressRide({
+      ...ride,
+      elapsedSec: 30,
+      durationSec: 30,
+      achievedPowerProfile: [{ tSec: 0, watts: 100 }],
+    })
+    expect(stale.elapsedSec).toBe(120)
+
+    const activity = await store.saveActivity({
+      startedAt,
+      durationSec: 120,
+      averagePowerWatts: 150,
+      maxPowerWatts: 160,
+      achievedPowerProfile: ride.achievedPowerProfile,
+      plannedPowerProfile: ride.plannedPowerProfile,
+      workoutId: workout.id,
+      scheduledRideId: scheduled.id,
+    })
+    expect(activity.scheduledRideId).toBe(scheduled.id)
+    expect(await store.getInProgressRide()).toBeNull()
+    expect((await store.getScheduledRide(scheduled.id))?.status).toBe('completed')
+  })
 })

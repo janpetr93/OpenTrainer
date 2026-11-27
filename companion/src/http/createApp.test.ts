@@ -502,4 +502,56 @@ describe('HTTP API', () => {
       expect(freshBody.mmp.stale).toBe(false)
     })
   })
+
+  it('PUT /api/in-progress-ride round-trips and DELETE clears it', async () => {
+    const body = {
+      startedAt: '2026-11-26T16:58:15.000Z',
+      elapsedSec: 55,
+      durationSec: 55,
+      averagePowerWatts: 140,
+      maxPowerWatts: 150,
+      achievedPowerProfile: [{ tSec: 55, watts: 150 }],
+      plannedPowerProfile: null,
+      targetPowerProfile: null,
+      freeRideFromSec: null,
+      workoutId: null,
+      scheduledRideId: null,
+      purpose: null,
+      primaryPowerSource: 'trainer',
+      ftpWatts: null,
+      freeRide: true,
+      intensityPercent: 100,
+      intensityChanges: [],
+      freeRideTargetWatts: 150,
+      freeRideTargetChanges: [{ tSec: 0, watts: 150 }],
+    }
+    await withServer(store, async (baseUrl) => {
+      const put = await fetch(`${baseUrl}/api/in-progress-ride`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      expect(put.status).toBe(200)
+      const got = await fetch(`${baseUrl}/api/in-progress-ride`)
+      const stored = (await got.json()) as {
+        inProgressRide: { elapsedSec: number; freeRide: boolean }
+      }
+      expect(stored.inProgressRide.elapsedSec).toBe(55)
+      expect(stored.inProgressRide.freeRide).toBe(true)
+
+      const bad = await fetch(`${baseUrl}/api/in-progress-ride`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startedAt: 'x' }),
+      })
+      expect(bad.status).toBe(400)
+
+      const del = await fetch(`${baseUrl}/api/in-progress-ride`, { method: 'DELETE' })
+      expect(del.status).toBe(200)
+      const after = (await (await fetch(`${baseUrl}/api/in-progress-ride`)).json()) as {
+        inProgressRide: null
+      }
+      expect(after.inProgressRide).toBeNull()
+    })
+  })
 })

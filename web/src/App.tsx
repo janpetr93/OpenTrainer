@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  deleteInProgressRide,
   getErgCalibration,
+  getInProgressRide,
   getRiderProfile,
   listScheduledRides,
   listWorkouts,
   putErgCalibration,
+  putInProgressRide,
   saveActivity,
+  saveActivityInputFromInProgress,
+  type InProgressRideInput,
   type PowerProfilePoint,
   type RiderProfile,
   type ScheduledRide,
@@ -36,6 +41,10 @@ import {
   type RideKeyAction,
 } from './domain/rideIntensity'
 import { samplePowerMetrics } from './domain/samplePowerMetrics'
+import {
+  buildInProgressRide,
+  flushInProgressRide,
+} from './ride/inProgressRide'
 import {
   AlignmentDeltaAverager,
   PowerMeterConnection,
@@ -142,6 +151,9 @@ function App() {
   >(null)
   const [profile, setProfile] = useState<RiderProfile | null>(null)
   const startedAtRef = useRef<string | null>(null)
+  /** True only while this page is the ride that should be checkpointed. */
+  const rideOpenRef = useRef(false)
+  const checkpointRef = useRef<() => InProgressRideInput | null>(() => null)
   const savingRef = useRef(false)
 
   const ftpWatts = profile?.ftpWatts ?? null
@@ -161,17 +173,37 @@ function App() {
     setRunnerSnap(runner.getSnapshot())
   }, [runner])
 
+  checkpointRef.current = () => {
+    if (!rideOpenRef.current || !startedAtRef.current) return null
+    const progress = runner.getProgress()
+    if (!progress) return null
+    const summary = sampler.summarize()
+    const freeRideFromSec = activeWorkout ? progress.freeRideFromSec : null
+    const planned =
+      activeWorkout?.plannedPowerProfile && freeRideFromSec !== null
+        ? truncatePowerProfile(activeWorkout.plannedPowerProfile, freeRideFromSec)
+        : (activeWorkout?.plannedPowerProfile ?? null)
+    return buildInProgressRide({
+      startedAt: startedAtRef.current,
+      progress,
+      achievedPowerProfile: sampler.getProfile(),
+      averagePowerWatts: summary.averagePowerWatts,
+      maxPowerWatts: summary.maxPowerWatts,
+      sampleDurationSec: summary.durationSec,
+      plannedPowerProfile: planned,
+      targetPowerProfile: runner.getTargetPowerProfile(),
+      scheduledRideId: activeScheduledRideId,
+      purpose: activePurpose,
+      primaryPowerSource: powerSourceModeRef.current,
+    })
+  }
+
   const pushErgTarget = useCallback(
     async (force: boolean) => {
       const snap = runner.getSnapshot()
       if (snap.stepType === 'open') {
-        if (!snapshot.ergControlAvailable) {
-          if (snap.targetChanged) {
-            runner.clearTargetChanged()
-            setRunnerSnap(runner.getSnapshot())
-          }
-          return
-        }
+        // Keep the flag until the trainer can take the command again.
+        if (!snapshot.ergControlAvailable) return
         if (ergPushInFlightRef.current) return
         const openSec = Math.floor(snap.elapsedSec)
         if (
@@ -201,7 +233,8 @@ function App() {
         }
         return
       }
-      if (snap.stepTargetWatts === null || !snapshot.ergControlAvailable) {
+      if (!snapshot.ergControlAvailable) return
+      if (snap.stepTargetWatts === null) {
         if (snap.targetChanged) {
           runner.clearTargetChanged()
           setRunnerSnap(runner.getSnapshot())
@@ -247,6 +280,9 @@ function App() {
   const finishAndSave = useCallback(async () => {
     if (savingRef.current) return
     savingRef.current = true
+    // Stop checkpointing before the await so a reload cannot rewrite the file
+    // after the Activity is saved.
+    rideOpenRef.current = false
     const workout = activeWorkout
     const startedAt = startedAtRef.current ?? new Date().toISOString()
     const summary = sampler.summarize()
@@ -280,8 +316,16 @@ function App() {
           /* companion may be down; in-memory map still used next session if reloaded */
         }
       }
+      flushInProgressRide(null)
       setSaveMessage('Activity saved to Local Store.')
     } catch (error) {
+      rideOpenRef.current = true
+      const ride = checkpointRef.current()
+      rideOpenRef.current = false
+      if (ride) {
+        flushInProgressRide(ride)
+        void putInProgressRide(ride).catch(() => {})
+      }
       setSaveMessage(
         error instanceof Error
           ? `Could not save Activity: ${error.message}`
@@ -367,6 +411,109 @@ function App() {
     window.addEventListener('pagehide', release)
     return () => window.removeEventListener('pagehide', release)
   }, [connection, meterConnection, heartRateConnection, cadenceConnection])
+
+  useEffect(() => {
+    const flush = () => {
+      const ride = checkpointRef.current()
+      if (ride) flushInProgressRide(ride)
+    }
+    window.addEventListener('pagehide', flush)
+    return () => window.removeEventListener('pagehide', flush)
+  }, [])
+
+  useEffect(() => {
+    if (runnerSnap.status !== 'running' && runnerSnap.status !== 'paused') return
+    const ride = checkpointRef.current()
+    if (!ride) return
+    void putInProgressRide(ride).catch(() => {})
+  }, [runnerSnap.elapsedSec, runnerSnap.status])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      let ride
+      try {
+        ride = await getInProgressRide()
+      } catch {
+        return
+      }
+      if (!ride || cancelled || rideOpenRef.current) return
+      let workout: Workout | null = null
+      if (ride.workoutId) {
+        try {
+          const list = await listWorkouts()
+          workout = list.find((item) => item.id === ride.workoutId) ?? null
+        } catch {
+          workout = null
+        }
+      }
+      if (cancelled || rideOpenRef.current) return
+      if (ride.workoutId && !workout) {
+        try {
+          await saveActivity(saveActivityInputFromInProgress(ride))
+          if (!cancelled) {
+            setSaveMessage(
+              'The workout for the interrupted ride is gone, so it was saved to History.',
+            )
+          }
+        } catch (error) {
+          if (!cancelled) {
+            setSaveMessage(
+              error instanceof Error
+                ? `Could not save the interrupted ride: ${error.message}`
+                : 'Could not save the interrupted ride',
+            )
+          }
+        }
+        return
+      }
+      try {
+        runner.restorePaused(workout, {
+          elapsedSec: ride.elapsedSec,
+          freeRide: ride.freeRide,
+          freeRideFromSec: ride.freeRideFromSec,
+          workoutId: ride.workoutId,
+          ftpWatts: ride.ftpWatts,
+          intensityPercent: ride.intensityPercent,
+          intensityChanges: ride.intensityChanges,
+          freeRideTargetWatts: ride.freeRideTargetWatts,
+          freeRideTargetChanges: ride.freeRideTargetChanges,
+        })
+      } catch (error) {
+        if (!cancelled) {
+          setSaveMessage(
+            error instanceof Error
+              ? error.message
+              : 'Could not restore the interrupted ride',
+          )
+        }
+        return
+      }
+      if (cancelled || rideOpenRef.current) return
+      rideOpenRef.current = true
+      startedAtRef.current = ride.startedAt
+      sampler.restore(ride.achievedPowerProfile)
+      const resolved = workout ? withResolvedPlan(workout, ride.ftpWatts) : null
+      setActiveWorkout(resolved)
+      setActivePurpose(ride.purpose)
+      setActiveScheduledRideId(ride.scheduledRideId)
+      if (ride.workoutId) setSelectedWorkoutId(ride.workoutId)
+      setSelectedScheduledRideId(ride.scheduledRideId)
+      setSelectedPurpose(ride.purpose)
+      const mode = ride.primaryPowerSource ?? 'trainer'
+      powerSourceModeRef.current = mode
+      setPowerSourceMode(mode)
+      setAchievedProfile(sampler.getProfile())
+      setTargetProfile(runner.getTargetPowerProfile())
+      setRunnerSnap(runner.getSnapshot())
+      setSaveMessage(
+        'This ride was interrupted. Re-pair your trainer, then Resume. Stop saves what was recorded.',
+      )
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [runner, sampler])
 
   useEffect(() => {
     void getRiderProfile()
@@ -561,13 +708,40 @@ function App() {
     [runner],
   )
 
-  function onStart(): void {
+  async function onStart(): Promise<void> {
+    const status = runner.getSnapshot().status
+    if (status === 'running' || status === 'paused') {
+      await finishAndSave()
+    }
+    try {
+      const leftover = await getInProgressRide()
+      if (leftover) {
+        try {
+          await saveActivity(saveActivityInputFromInProgress(leftover))
+        } catch (error) {
+          const message = error instanceof Error ? error.message : ''
+          if (message.includes('already completed')) {
+            await deleteInProgressRide()
+          } else {
+            setSaveMessage(
+              message
+                ? `Could not save the interrupted ride: ${message}`
+                : 'Could not save the interrupted ride',
+            )
+            return
+          }
+        }
+      }
+    } catch {
+      setSaveMessage('Could not check for an interrupted ride.')
+      return
+    }
+
     setSaveMessage(null)
     sampler.reset()
     setAchievedProfile([])
     setTargetProfile(null)
     savingRef.current = false
-    startedAtRef.current = new Date().toISOString()
     lastErgPushSecRef.current = -1
     lastErgAdaptSecRef.current = -1
     ergAdaptMemoryRef.current = { previous: null }
@@ -580,6 +754,8 @@ function App() {
     setPowerSourceMode(mode)
 
     if (!selectedWorkoutId) {
+      rideOpenRef.current = true
+      startedAtRef.current = new Date().toISOString()
       setActiveWorkout(null)
       setActivePurpose(null)
       setActiveScheduledRideId(null)
@@ -603,9 +779,13 @@ function App() {
     setActiveWorkout(resolved)
     setActivePurpose(selectedPurpose)
     setActiveScheduledRideId(selectedScheduledRideId)
+    rideOpenRef.current = true
+    startedAtRef.current = new Date().toISOString()
     try {
       runner.start(resolved, Date.now(), ftpWatts)
     } catch (error) {
+      rideOpenRef.current = false
+      startedAtRef.current = null
       setSaveMessage(
         error instanceof Error ? error.message : 'Could not start Workout',
       )

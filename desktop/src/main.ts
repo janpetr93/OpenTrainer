@@ -1,4 +1,5 @@
 import { execFile, spawn } from 'node:child_process'
+import { writeRideCheckpoint } from './rideCheckpoint.js'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -282,6 +283,14 @@ async function start(): Promise<void> {
   ipcMain.handle('power:keep-awake', (event, active: unknown) => {
     if (!mainWindow || event.sender !== mainWindow.webContents) return
     rideKeepAwake.set(active === true)
+  })
+  ipcMain.on('ride:checkpoint', (event, body: unknown) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents || !dataDir) return
+    try {
+      writeRideCheckpoint(dataDir, body)
+    } catch (error) {
+      log(`Ride checkpoint rejected: ${error instanceof Error ? error.message : String(error)}`)
+    }
   })
   picker.installPairingHandler(session.defaultSession, () => mainWindow)
   if (process.platform === 'darwin') {
