@@ -1,3 +1,5 @@
+import { UpstreamError } from '../errors.js'
+
 export const GOOGLE_CALENDAR_SCOPE =
   'https://www.googleapis.com/auth/calendar.app.created'
 
@@ -88,7 +90,7 @@ export async function getCalendar(
     headers: authHeaders(input.accessToken),
   })
   if (res.status === 404 || res.status === 410) return false
-  if (!res.ok) throw new Error(await googleError(res))
+  if (!res.ok) throw new UpstreamError(await googleError(res))
   return true
 }
 
@@ -104,9 +106,9 @@ export async function createCalendar(
     },
     body: JSON.stringify({ summary: OPEN_TRAINER_CALENDAR_SUMMARY }),
   })
-  if (!res.ok) throw new Error(await googleError(res))
+  if (!res.ok) throw new UpstreamError(await googleError(res))
   const body = (await res.json()) as { id?: string }
-  if (!body.id) throw new Error('Google Calendar create response missing id')
+  if (!body.id) throw new UpstreamError('Google Calendar create response missing id')
   return { id: body.id }
 }
 
@@ -122,9 +124,9 @@ export async function insertEvent(
     },
     body: JSON.stringify(input.event),
   })
-  if (!res.ok) throw new Error(await googleError(res))
+  if (!res.ok) throw new UpstreamError(await googleError(res))
   const body = (await res.json()) as { id?: string }
-  if (!body.id) throw new Error('Google event create response missing id')
+  if (!body.id) throw new UpstreamError('Google event create response missing id')
   return { id: body.id }
 }
 
@@ -150,7 +152,7 @@ export async function patchEvent(
     },
   )
   if (res.status === 404 || res.status === 410) return 'missing'
-  if (!res.ok) throw new Error(await googleError(res))
+  if (!res.ok) throw new UpstreamError(await googleError(res))
   return 'updated'
 }
 
@@ -166,7 +168,7 @@ export async function deleteEvent(
     },
   )
   if (res.status === 404 || res.status === 410) return
-  if (!res.ok) throw new Error(await googleError(res))
+  if (!res.ok) throw new UpstreamError(await googleError(res))
 }
 
 function calendarUrl(calendarId: string): string {
@@ -186,10 +188,10 @@ async function requestToken(
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(fields),
   })
-  if (!res.ok) throw new Error(await googleError(res))
+  if (!res.ok) throw new UpstreamError(await googleError(res))
   const body = (await res.json()) as GoogleTokenResponse
   if (!body.access_token || !body.expires_in) {
-    throw new Error('Google token response missing access_token')
+    throw new UpstreamError('Google token response missing access_token')
   }
   return body
 }

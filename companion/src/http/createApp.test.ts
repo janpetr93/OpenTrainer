@@ -1,10 +1,14 @@
-import { createServer } from 'node:http'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { createServer, request } from 'node:http'
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { LocalStore } from '../store/localStore.js'
-import { createRequestHandler } from './createApp.js'
+import {
+  UpstreamError,
+  createRequestHandler,
+  statusForError,
+} from './createApp.js'
 
 async function withServer(
   store: LocalStore,
@@ -553,5 +557,102 @@ describe('HTTP API', () => {
       }
       expect(after.inProgressRide).toBeNull()
     })
+  })
+
+  describe('request origin', () => {
+    /** fetch() will not set Host, so send raw requests. */
+    function rawRequest(
+      baseUrl: string,
+      path: string,
+      init: { method: string; headers: Record<string, string> },
+    ): Promise<{ status: number; headers: Record<string, unknown> }> {
+      const { port } = new URL(baseUrl)
+      return new Promise((resolve, reject) => {
+        const req = request(
+          { host: '127.0.0.1', port, path, method: init.method, headers: init.headers },
+          (res) => {
+            res.resume()
+            res.on('end', () =>
+              resolve({ status: res.statusCode ?? 0, headers: res.headers }),
+            )
+          },
+        )
+        req.on('error', reject)
+        req.end()
+      })
+    }
+
+    it('refuses a cross-site page and sends no CORS headers', async () => {
+      await writeFile(join(root, 'victim.json'), '{}')
+      await withServer(store, async (baseUrl) => {
+        const preflight = await fetch(`${baseUrl}/api/scheduled-rides/x`, {
+          method: 'OPTIONS',
+          headers: { Origin: 'https://evil.example', 'Access-Control-Request-Method': 'DELETE' },
+        })
+        expect(preflight.status).toBe(403)
+        expect(preflight.headers.get('access-control-allow-origin')).toBeNull()
+
+        const read = await fetch(`${baseUrl}/api/activities`, {
+          headers: { Origin: 'https://evil.example' },
+        })
+        expect(read.status).toBe(403)
+      })
+      expect(await readdir(root)).toContain('victim.json')
+    })
+
+    it('refuses a non-loopback Host (DNS rebinding)', async () => {
+      await withServer(store, async (baseUrl) => {
+        const res = await rawRequest(baseUrl, '/api/profile', {
+          method: 'GET',
+          headers: { Host: 'evil.example:8787' },
+        })
+        expect(res.status).toBe(403)
+      })
+    })
+
+    it('accepts the app on loopback, including the Vite dev origin', async () => {
+      await withServer(store, async (baseUrl) => {
+        for (const origin of ['http://localhost:5173', 'http://127.0.0.1:8787']) {
+          const res = await fetch(`${baseUrl}/api/profile`, { headers: { Origin: origin } })
+          expect(res.status).toBe(200)
+        }
+        const viaProxy = await rawRequest(baseUrl, '/api/profile', {
+          method: 'GET',
+          headers: { Host: 'localhost:5173' },
+        })
+        expect(viaProxy.status).toBe(200)
+      })
+    })
+  })
+
+  it('refuses an id that names a file outside its folder', async () => {
+    await writeFile(join(root, 'victim.json'), '{"workoutId":"x","startsAt":"2026-01-01T00:00:00Z"}')
+    await withServer(store, async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/api/scheduled-rides/..%2Fvictim`, {
+        method: 'DELETE',
+      })
+      expect(res.status).toBe(400)
+    })
+    expect(await readdir(root)).toContain('victim.json')
+  })
+
+  it('answers 400 for a body that is not JSON', async () => {
+    await withServer(store, async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/api/workouts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{not json',
+      })
+      expect(res.status).toBe(400)
+    })
+  })
+
+  it('maps errors to 400 / 500 / 502', () => {
+    expect(statusForError(new Error('Workout not found: x'))).toBe(400)
+    expect(statusForError(Object.assign(new Error('EACCES'), { code: 'EACCES' }))).toBe(500)
+    expect(statusForError(new SyntaxError('Unexpected token'))).toBe(500)
+    expect(statusForError(new TypeError('fetch failed'))).toBe(502)
+    expect(statusForError(new TypeError('x is undefined'))).toBe(500)
+    expect(statusForError(new UpstreamError('Strava upload failed'))).toBe(502)
   })
 })

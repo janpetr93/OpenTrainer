@@ -183,6 +183,13 @@ function normalizePurpose(value: string | null | undefined): string | null {
   return trimmed
 }
 
+/** Store ids: UUIDs and slugs like `sample-easy-endurance`. */
+const RECORD_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
+
+export function isRecordId(id: unknown): id is string {
+  return typeof id === 'string' && RECORD_ID.test(id)
+}
+
 function withPurposeField<T extends { purpose?: string | null }>(
   record: T,
 ): T & { purpose: string | null } {
@@ -461,7 +468,7 @@ export class LocalStore {
       createdAt: now,
       updatedAt: now,
     }
-    await this.writeJson(join(this.workoutsDir, `${workout.id}.json`), workout)
+    await this.writeJson(this.recordPath(this.workoutsDir, workout.id), workout)
     return workout
   }
 
@@ -480,7 +487,7 @@ export class LocalStore {
 
   async getWorkout(id: string): Promise<Workout | null> {
     try {
-      const raw = await this.readJson<Workout>(join(this.workoutsDir, `${id}.json`))
+      const raw = await this.readJson<Workout>(this.recordPath(this.workoutsDir, id))
       return { ...raw, steps: raw.steps.map(normalizeItem) }
     } catch {
       return null
@@ -488,6 +495,14 @@ export class LocalStore {
   }
 
   async saveActivity(input: SaveActivityInput): Promise<Activity> {
+    // A retry of a save that already landed (the client saw an error, or an
+    // interrupted ride is saved again on the next Start) returns the stored
+    // Activity instead of writing a second one.
+    const existing = await this.findActivityByStartedAt(input.startedAt)
+    if (existing) {
+      await this.finishSavedActivity(existing, input.startedAt)
+      return existing
+    }
     const now = new Date().toISOString()
     const profile = await this.getRiderProfile()
     const scheduledRideId = input.scheduledRideId ?? null
@@ -530,22 +545,68 @@ export class LocalStore {
       createdAt: now,
       stravaUpload: null,
     }
-    await this.writeJson(join(this.activitiesDir, `${activity.id}.json`), {
+    await this.writeJson(this.recordPath(this.activitiesDir, activity.id), {
       ...activity,
       sessionAdherenceRevision: SESSION_ADHERENCE_REVISION,
     })
-    await this.clearInProgressRideIfStartedAt(input.startedAt)
-    if (scheduledRideId) {
-      await this.markScheduledRideCompleted(scheduledRideId, activity.id)
-    }
-    await this.recomputeMmp()
+    await this.finishSavedActivity(activity, input.startedAt)
     return activity
+  }
+
+  /**
+   * Follow-up writes once the Activity file exists. The Activity is saved at
+   * this point, so a failure here is logged rather than reported as a failed
+   * save (which would make the client keep the ride and save it again).
+   * A stale MMP cache is rebuilt on the next read or save.
+   */
+  private async finishSavedActivity(
+    activity: Activity,
+    startedAt: string,
+  ): Promise<void> {
+    const steps: Array<[string, () => Promise<unknown>]> = [
+      ['clear the in-progress ride', () => this.clearInProgressRideIfStartedAt(startedAt)],
+    ]
+    const rideId = activity.scheduledRideId
+    if (rideId) {
+      steps.push([
+        `mark Scheduled Ride ${rideId} completed`,
+        async () => {
+          const ride = await this.getScheduledRide(rideId)
+          if (ride && ride.status !== 'completed') {
+            await this.markScheduledRideCompleted(rideId, activity.id)
+          }
+        },
+      ])
+    }
+    steps.push(['recompute MMP', () => this.recomputeMmp()])
+    for (const [label, run] of steps) {
+      try {
+        await run()
+      } catch (error) {
+        console.error(
+          `Activity ${activity.id} saved, but could not ${label}: ${String(error)}`,
+        )
+      }
+    }
+  }
+
+  private async findActivityByStartedAt(startedAt: string): Promise<Activity | null> {
+    for (const file of await this.listJsonFiles(this.activitiesDir)) {
+      let raw: StoredActivity
+      try {
+        raw = await this.readJson<StoredActivity>(join(this.activitiesDir, file))
+      } catch {
+        continue
+      }
+      if (raw.startedAt === startedAt) return this.getActivity(raw.id)
+    }
+    return null
   }
 
   async getActivity(id: string): Promise<Activity | null> {
     try {
       const raw = await this.readJson<StoredActivity>(
-        join(this.activitiesDir, `${id}.json`),
+        this.recordPath(this.activitiesDir, id),
       )
       const profile = await this.getRiderProfile()
       return this.hydrateActivityMetrics(raw, profile.ftpWatts, true)
@@ -612,7 +673,7 @@ export class LocalStore {
         : computeAverageAlignmentDeltaWatts(activity.achievedPowerProfile),
     }
     if (persist) {
-      await this.writeJson(join(this.activitiesDir, `${next.id}.json`), {
+      await this.writeJson(this.recordPath(this.activitiesDir, next.id), {
         ...next,
         sessionAdherenceRevision: SESSION_ADHERENCE_REVISION,
       })
@@ -629,7 +690,7 @@ export class LocalStore {
       throw new Error(`Activity not found: ${id}`)
     }
     const next: Activity = { ...activity, stravaUpload: upload }
-    await this.writeJson(join(this.activitiesDir, `${id}.json`), {
+    await this.writeJson(this.recordPath(this.activitiesDir, id), {
       ...next,
       sessionAdherenceRevision: SESSION_ADHERENCE_REVISION,
     })
@@ -762,9 +823,10 @@ export class LocalStore {
     const activities: Activity[] = []
 
     for (const file of files) {
-      const raw = await this.readJson<StoredActivity>(
+      const raw = await this.readJsonOrSkip<StoredActivity>(
         join(this.activitiesDir, file),
       )
+      if (!raw) continue
       const started = Date.parse(raw.startedAt)
       if (Number.isNaN(started)) continue
       if (sinceMs !== null && started < sinceMs) continue
@@ -803,14 +865,14 @@ export class LocalStore {
       skipReason: null,
       createdAt: now,
     }
-    await this.writeJson(join(this.scheduledDir, `${scheduled.id}.json`), scheduled)
+    await this.writeJson(this.recordPath(this.scheduledDir, scheduled.id), scheduled)
     return toScheduledRideView(scheduled)
   }
 
   async getScheduledRide(id: string): Promise<ScheduledRide | null> {
     try {
       const raw = await this.readJson<ScheduledRide>(
-        join(this.scheduledDir, `${id}.json`),
+        this.recordPath(this.scheduledDir, id),
       )
       return hydrateScheduledRide(withPurposeField(raw))
     } catch {
@@ -834,11 +896,11 @@ export class LocalStore {
     const rides: ScheduledRideView[] = []
     const nowMs = Date.now()
     for (const file of files) {
-      const ride = hydrateScheduledRide(
-        withPurposeField(
-          await this.readJson<ScheduledRide>(join(this.scheduledDir, file)),
-        ),
+      const raw = await this.readJsonOrSkip<ScheduledRide>(
+        join(this.scheduledDir, file),
       )
+      if (!raw) continue
+      const ride = hydrateScheduledRide(withPurposeField(raw))
       const starts = Date.parse(ride.startsAt)
       if (Number.isNaN(starts)) continue
       if (sinceMs !== null && starts < sinceMs) continue
@@ -860,7 +922,7 @@ export class LocalStore {
       activityId,
       skipReason: null,
     }
-    await this.writeJson(join(this.scheduledDir, `${id}.json`), next)
+    await this.writeJson(this.recordPath(this.scheduledDir, id), next)
     return toScheduledRideView(next)
   }
 
@@ -879,7 +941,7 @@ export class LocalStore {
       skipReason: normalizePurpose(skipReason),
       activityId: null,
     }
-    await this.writeJson(join(this.scheduledDir, `${id}.json`), next)
+    await this.writeJson(this.recordPath(this.scheduledDir, id), next)
     return toScheduledRideView(next)
   }
 
@@ -903,12 +965,12 @@ export class LocalStore {
       skipReason: null,
       activityId: null,
     }
-    await this.writeJson(join(this.scheduledDir, `${id}.json`), next)
+    await this.writeJson(this.recordPath(this.scheduledDir, id), next)
     return toScheduledRideView(next)
   }
 
   async deleteScheduledRide(id: string): Promise<boolean> {
-    const path = join(this.scheduledDir, `${id}.json`)
+    const path = this.recordPath(this.scheduledDir, id)
     let ride: ScheduledRide
     try {
       ride = hydrateScheduledRide(await this.readJson<ScheduledRide>(path))
@@ -928,14 +990,14 @@ export class LocalStore {
       now,
       STORE_SCHEMA_VERSION,
     )
-    await this.writeJson(join(this.blockersDir, `${blocker.id}.json`), blocker)
+    await this.writeJson(this.recordPath(this.blockersDir, blocker.id), blocker)
     return blocker
   }
 
   async getBlocker(id: string): Promise<Blocker | null> {
     try {
       return hydrateBlocker(
-        await this.readJson<Blocker>(join(this.blockersDir, `${id}.json`)),
+        await this.readJson<Blocker>(this.recordPath(this.blockersDir, id)),
       )
     } catch {
       return null
@@ -994,12 +1056,12 @@ export class LocalStore {
       current.createdAt,
       STORE_SCHEMA_VERSION,
     )
-    await this.writeJson(join(this.blockersDir, `${id}.json`), next)
+    await this.writeJson(this.recordPath(this.blockersDir, id), next)
     return next
   }
 
   async deleteBlocker(id: string): Promise<boolean> {
-    const path = join(this.blockersDir, `${id}.json`)
+    const path = this.recordPath(this.blockersDir, id)
     try {
       await this.readJson<Blocker>(path)
     } catch {
@@ -1031,7 +1093,7 @@ export class LocalStore {
   }
 
   async deleteWorkout(id: string): Promise<boolean> {
-    const path = join(this.workoutsDir, `${id}.json`)
+    const path = this.recordPath(this.workoutsDir, id)
     try {
       await this.readJson<Workout>(path)
     } catch {
@@ -1166,6 +1228,26 @@ export class LocalStore {
   private async listJsonFiles(dir: string): Promise<string[]> {
     const entries = await readdir(dir)
     return entries.filter((name) => name.endsWith('.json'))
+  }
+
+  /**
+   * The file for one record. Ids come from URLs and MCP calls, so anything that
+   * is not a plain id (`..`, slashes, encoded separators) is refused before it
+   * can name a path outside `dir`.
+   */
+  private recordPath(dir: string, id: string): string {
+    if (!isRecordId(id)) throw new Error(`Invalid id: ${JSON.stringify(id)}`)
+    return join(dir, `${id}.json`)
+  }
+
+  /** For listings: one unreadable file is logged and left out, not fatal to the list. */
+  private async readJsonOrSkip<T>(path: string): Promise<T | null> {
+    try {
+      return await this.readJson<T>(path)
+    } catch (error) {
+      console.error(`Skipping unreadable Local Store file ${path}: ${String(error)}`)
+      return null
+    }
   }
 
   private async readJson<T>(path: string): Promise<T> {
